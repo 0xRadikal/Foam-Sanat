@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://foamsanat.com/sitemap.xml
