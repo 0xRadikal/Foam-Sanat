@@ -1,0 +1,34 @@
+{
+  "name": "foam-sanat",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Foam Sanat | PU Foam Injection Machinery - Next.js production setup",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "analyze": "source-map-explorer .next/static/chunks/*.js --html analyzer-report.html",
+    "sitemap": "next-sitemap",
+    "axe": "axe http://localhost:3000 --chromium --timeout 60000 --exit 0",
+    "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html --only-categories=performance,accessibility,seo,best-practices --throttling-method=devtools",
+    "postbuild": "npm run sitemap"
+  },
+  "dependencies": {
+    "lucide-react": "^0.552.0",
+    "next": "14.2.15",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@axe-core/cli": "4.10.0",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.9",
+    "eslint": "^9.13.0",
+    "lighthouse": "^12.0.0",
+    "next-sitemap": "^4.2.3",
+    "source-map-explorer": "^2.5.3",
+    "typescript": "^5.6.3"
+  }
+}
