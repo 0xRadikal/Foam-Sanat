@@ -58,8 +58,11 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} bg-gray-950 text-gray-100 transition-colors`} suppressHydrationWarning>
         {children}
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{
+        __html: `document.documentElement.classList.add('js');`
+        }} />
       </body>
     </html>
   );

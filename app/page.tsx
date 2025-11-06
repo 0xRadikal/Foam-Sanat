@@ -11,6 +11,7 @@ import {
   Award, Shield, Users, Wrench, CheckCircle, ArrowRight, Factory,
   Zap, HeartHandshake
 } from 'lucide-react';
+import './globals.css'
 
 // ============================================
 // TYPE DEFINITIONS
@@ -345,6 +346,7 @@ export default function FoamSanatWebsite() {
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   }, [theme, setTheme]);
+  if (!mounted) return <div className="text-center mt-10 text-gray-500">Loading...</div>;
 
   // Prevent flash during SSR
   if (!mounted) {
