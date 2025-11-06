@@ -16,9 +16,9 @@
     "postbuild": "npm run sitemap"
   },
   "dependencies": {
-    "docker": "^1.0.0",
+    "docker": "^0.2.14",
     "lucide-react": "^0.552.0",
-    "next": "14.2.15",
+    "next": "^14.2.33",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -26,11 +26,14 @@
     "@axe-core/cli": "4.10.0",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.9",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9.13.0",
     "eslint-config-next": "16.0.1",
     "lighthouse": "^12.0.0",
     "next-sitemap": "^4.2.3",
+    "postcss": "^8.5.6",
     "source-map-explorer": "^2.5.3",
+    "tailwindcss": "^3.4.13",
     "typescript": "^5.6.3"
   }
 }
