@@ -1,28 +1,41 @@
-# Build & cache
+# =========================================
+# ⚙️ Node / Next.js build artifacts
+# =========================================
+node_modules/
 .next/
 .vercel/
-dist/
 out/
+dist/
+build/
 
-# Dependencies
-node_modules/
-
-# Environment configs (حاوی رمزها و API keyها)
+# =========================================
+# 🔒 Environment files
+# =========================================
 .env
 .env.local
-.env.development.local
-.env.production.local
-.env.test.local
+.env.development
+.env.production
+.env.test
 
-# Log files
+# =========================================
+# 🧠 TypeScript cache
+# =========================================
+*.tsbuildinfo
+
+# =========================================
+# 🧰 Logs and reports
+# =========================================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lighthouse-report.html
 
-# System
+# =========================================
+# 💻 System / IDE files
+# =========================================
 .DS_Store
 Thumbs.db
-
-# Editor configs
 .vscode/
 .idea/
+*.swp
