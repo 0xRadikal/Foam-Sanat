@@ -15,14 +15,6 @@ function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
   const [started, setStarted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-
-  if (window.gtag) {
-    window.gtag('event', 'page_view', {
-      page_path: '/about',
-    });
-  }
-}, []);
-  useEffect(() => {
     if (started) return;
     
     const observer = new IntersectionObserver((entries) => {
@@ -67,13 +59,6 @@ function ParallaxSection({ children, speed = 0.5 }: { children: React.ReactNode;
     </div>
   );
 }
-export const metadata = {
-  title: 'درباره ما | فوم صنعت',
-  description: 'داستان موفقیت گروه صنعتی فوم صنعت',
-  openGraph: {
-    images: ['/about-og.jpg'],
-  },
-};
 export default function AboutPage() {
   const [lang, setLang] = useState<'fa' | 'en'>('fa');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -101,7 +86,13 @@ export default function AboutPage() {
     }, 4000);
     return () => clearInterval(interval);
   }, []);
-
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'page_view', {
+        page_path: '/about',
+      });
+    }
+  }, []);
   const toggleLang = () => {
     const newLang = lang === 'fa' ? 'en' : 'fa';
     setLang(newLang);
