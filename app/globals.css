@@ -3,6 +3,10 @@
 @tailwind utilities;
 html:not(.js) body { visibility: hidden; }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 100px;
+}
 :root {
   --primary: #FF6700;
   --navy: #0A2342;
