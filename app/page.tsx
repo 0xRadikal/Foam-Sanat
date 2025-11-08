@@ -830,7 +830,7 @@ export default function FoamSanatWebsite() {
               {Object.entries(t.nav).slice(0, 4).map(([key, value]) => (
                 <a 
                   key={key}
-                  href={`#${key}`} 
+                  href={`about`} 
                   className="hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1"
                 >
                   {value}
@@ -881,7 +881,7 @@ export default function FoamSanatWebsite() {
               {Object.entries(t.nav).map(([key, value]) => (
                 <a 
                   key={key}
-                  href={`#${key}`} 
+                  href={`/about`} 
                   className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
                   onClick={() => setMobileMenuOpen(false)}
                   role="menuitem"
