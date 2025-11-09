@@ -6,380 +6,34 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Menu, X, Globe, Sun, Moon, ChevronDown, Phone, Mail, MapPin, 
+import {
+  Menu, X, Globe, Sun, Moon, ChevronDown, Phone, Mail, MapPin,
   Award, Shield, Users, Wrench, CheckCircle, ArrowRight, Factory,
   Zap, HeartHandshake, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 import Script from 'next/script';
+import {
+  defaultLocale,
+  getAllMessages,
+  localeSettings,
+  locales,
+  type HomeMessages,
+  type HomeNamespaceSchema,
+  type Locale
+} from '@/app/lib/i18n';
 
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
-interface Translation {
-  companyName: string;
-  tagline: string;
-  nav: {
-    home: string;
-    products: string;
-    whyUs: string;
-    faq: string;
-    contact: string;
-  };
-  hero: {
-    badge: string;
-    title: string;
-    subtitle: string;
-    cta1: string;
-    cta2: string;
-  };
-  slider: {
-    slides: Array<{
-      title: string;
-      desc: string;
-      badge?: string;
-    }>;
-  };
-  trust: {
-    iso: string;
-    ce: string;
-    experience: string;
-    projects: string;
-  };
-  services: {
-    title: string;
-    subtitle: string;
-    hp: ServiceItem;
-    lp: ServiceItem;
-    custom: ServiceItem;
-    cta: string;
-  };
-  whyUs: {
-    title: string;
-    subtitle: string;
-    features: Feature[];
-  };
-  faq: {
-    title: string;
-    items: FAQItem[];
-  };
-  contact: {
-    title: string;
-    subtitle: string;
-    form: {
-      name: string;
-      email: string;
-      phone: string;
-      message: string;
-      submit: string;
-      sending: string;
-      success: string;
-      error: string;
-    };
-    info: {
-      title: string;
-      address: string;
-      phone1: string;
-      phone2: string;
-      email1: string;
-      email2: string;
-    };
-  };
-  footer: {
-    about: string;
-    contact: string;
-    phone: string;
-    email: string;
-    address: string;
-    copyright: string;
-  };
-  consent: {
-    message: string;
-    accept: string;
-    decline: string;
-  };
-}
-
-interface ServiceItem {
-  title: string;
-  desc: string;
-}
-
-interface Feature {
-  title: string;
-  desc: string;
-}
-
-interface FAQItem {
-  q: string;
-  a: string;
-}
-
 type Theme = 'light' | 'dark';
-type Lang = 'fa' | 'en';
+type Lang = Locale;
+
+type HomeContactMessages = HomeMessages['contact'];
+type HomeConsentMessages = HomeMessages['consent'];
 
 // ============================================
 // TRANSLATION DATA
 // ============================================
-const translations: Record<Lang, Translation> = {
-  fa: {
-    companyName: 'گروه صنعتی فوم صنعت',
-    tagline: 'پیشرو در مهندسی فوم پلی‌یورتان',
-    nav: {
-      home: 'خانه',
-      products: 'محصولات',
-      whyUs: 'چرا ما؟',
-      faq: 'سوالات متداول',
-      contact: 'تماس'
-    },
-    hero: {
-      badge: '۱۵+ سال تخصص | تاسیس ۱۳۸۹',
-      title: 'مهندسی تولید فوم پلی‌یورتان در سطح جهانی',
-      subtitle: 'ما خطوط تولید کامل و اتوماسیون پیشرفته را برای صنایع مبلمان، خودرو، عایق‌کاری و فیلترسازی طراحی و اجرا می‌کنیم.',
-      cta1: 'مشاوره رایگان',
-      cta2: 'کاتالوگ محصولات'
-    },
-    slider: {
-      slides: [
-        {
-          title: 'ماشین‌آلات هایپرشر پیشرفته',
-          desc: 'فناوری تزریق فشار بالا برای تولید صنعتی با ظرفیت بالا',
-          badge: 'جدید'
-        },
-        {
-          title: 'خطوط اتوماتیک تولید فوم',
-          desc: 'سیستم‌های کاملا اتوماتیک با کنترل PLC و هوشمندسازی',
-        },
-        {
-          title: 'پشتیبانی ۲۴/۷ و خدمات پس از فروش',
-          desc: 'تیم متخصص ما همیشه در کنار شماست',
-        }
-      ]
-    },
-    trust: {
-      iso: 'گواهینامه ISO 9001:2015',
-      ce: 'استاندارد CE اروپا',
-      experience: 'بیش از ۱۵ سال تجربه',
-      projects: '+۱۲۰ پروژه موفق'
-    },
-    services: {
-      title: 'راه‌حل‌های مهندسی ما',
-      subtitle: 'تخصص ما در طراحی و ساخت خطوط کامل تزریق فوم PU',
-      hp: {
-        title: 'ماشین‌های هایپرشر',
-        desc: 'فشار بالا برای تولید انبوه | فوم انتگرال | قطعات خودرو'
-      },
-      lp: {
-        title: 'ماشین‌های لوپرشر',
-        desc: 'فوم نرم و سخت | مبلمان و تشک | صرفه اقتصادی'
-      },
-      custom: {
-        title: 'اتوماسیون سفارشی',
-        desc: 'طراحی کامل خط تولید | نصب و راه‌اندازی | آموزش'
-      },
-      cta: 'دریافت مشخصات فنی'
-    },
-    whyUs: {
-      title: 'چرا تولیدکنندگان ما را انتخاب می‌کنند؟',
-      subtitle: 'تفاوت ما در تخصص ۱۵ ساله و پشتیبانی واقعی',
-      features: [
-        {
-          title: 'تخصص ۱۰۰٪ در پلی‌یورتان',
-          desc: 'تمام R&D ما متمرکز بر فناوری فوم PU است'
-        },
-        {
-          title: 'پشتیبانی مادام‌العمر',
-          desc: 'نصب، آموزش، قطعات یدکی - در تمام مراحل کنار شما'
-        },
-        {
-          title: 'مهندسی سفارشی',
-          desc: 'هر خط تولید متناسب با نیاز شما طراحی می‌شود'
-        }
-      ]
-    },
-    faq: {
-      title: 'سوالات متداول',
-      items: [
-        {
-          q: 'تفاوت هایپرشر و لوپرشر چیست؟',
-          a: 'هایپرشر با فشار +۱۵۰ بار برای تولید انبوه، لوپرشر اقتصادی‌تر برای تولیدات متنوع'
-        },
-        {
-          q: 'نصب و راه‌اندازی انجام می‌دهید؟',
-          a: 'بله. تیم فنی ما نصب، تست و آموزش کامل ارائه می‌دهد'
-        },
-        {
-          q: 'زمان تحویل چقدر است؟',
-          a: 'بسته به پیچیدگی پروژه، معمولاً ۳-۶ ماه پس از تایید نهایی'
-        }
-      ]
-    },
-    contact: {
-      title: 'با ما در تماس باشید',
-      subtitle: 'تیم ما آماده پاسخگویی به سوالات شماست',
-      form: {
-        name: 'نام و نام خانوادگی',
-        email: 'ایمیل',
-        phone: 'شماره تماس',
-        message: 'پیام شما',
-        submit: 'ارسال پیام',
-        sending: 'در حال ارسال...',
-        success: 'پیام شما با موفقیت ارسال شد',
-        error: 'خطا در ارسال پیام'
-      },
-      info: {
-        title: 'اطلاعات تماس',
-        address: 'تهران، کرج، جاده ماهدشت - خیابان زیبادشت',
-        phone1: '۰۹۱۲۸۳۳۶۰۸۵',
-        phone2: '۰۹۱۹۷۳۰۲۰۶۴',
-        email1: 'info@foamsanat.com',
-        email2: 'saeidniazpour@yahoo.com'
-      }
-    },
-    footer: {
-      about: 'گروه صنعتی فوم صنعت از ۱۳۸۹ پیشرو در ماشین‌آلات تزریق فوم PU',
-      contact: 'اطلاعات تماس',
-      phone: '۰۹۱۲۸۳۳۶۰۸۵',
-      email: 'info@foamsanat.com',
-      address: 'تهران، کرج، جاده ماهدشت - خیابان زیبادشت',
-      copyright: '© ۱۴۰۴ فوم صنعت. تمامی حقوق محفوظ است.'
-    },
-    consent: {
-      message: 'ما از کوکی‌ها برای بهبود تجربه شما استفاده می‌کنیم',
-      accept: 'قبول',
-      decline: 'رد'
-    }
-  },
-  en: {
-    companyName: 'Foam Sanat Industrial Group',
-    tagline: 'Leading PU Foam Engineering',
-    nav: {
-      home: 'Home',
-      products: 'Products',
-      whyUs: 'Why Us',
-      faq: 'FAQ',
-      contact: 'Contact'
-    },
-    hero: {
-      badge: '15+ Years Expertise | Est. 2010',
-      title: 'World-Class Polyurethane Foam Production Engineering',
-      subtitle: 'We design complete production lines and advanced automation for furniture, automotive, insulation, and filtration industries.',
-      cta1: 'Free Consultation',
-      cta2: 'Product Catalog'
-    },
-    slider: {
-      slides: [
-        {
-          title: 'Advanced High-Pressure Machinery',
-          desc: 'High-pressure injection technology for high-capacity industrial production',
-          badge: 'New'
-        },
-        {
-          title: 'Automatic Foam Production Lines',
-          desc: 'Fully automated systems with PLC control and smart technology',
-        },
-        {
-          title: '24/7 Support & After-Sales Service',
-          desc: 'Our expert team is always with you',
-        }
-      ]
-    },
-    trust: {
-      iso: 'ISO 9001:2015 Certified',
-      ce: 'CE European Standard',
-      experience: 'Over 15 Years Experience',
-      projects: '+120 Successful Projects'
-    },
-    services: {
-      title: 'Our Engineering Solutions',
-      subtitle: 'Expertise in complete PU foam injection lines',
-      hp: {
-        title: 'High-Pressure Machines',
-        desc: 'Mass production | Integral foam | Auto parts'
-      },
-      lp: {
-        title: 'Low-Pressure Machines',
-        desc: 'Flexible foam | Furniture & mattress | Cost-effective'
-      },
-      custom: {
-        title: 'Custom Automation',
-        desc: 'Complete line design | Installation | Training'
-      },
-      cta: 'Get Technical Specs'
-    },
-    whyUs: {
-      title: 'Why Manufacturers Choose Us?',
-      subtitle: '15 years expertise and genuine support',
-      features: [
-        {
-          title: '100% PU Specialization',
-          desc: 'All R&D focused on PU foam technology'
-        },
-        {
-          title: 'Lifetime Support',
-          desc: 'Installation, training, spare parts - always with you'
-        },
-        {
-          title: 'Custom Engineering',
-          desc: 'Every line tailored to your specific needs'
-        }
-      ]
-    },
-    faq: {
-      title: 'Frequently Asked Questions',
-      items: [
-        {
-          q: 'Difference between High-Pressure and Low-Pressure?',
-          a: 'High-Pressure at 150+ bar for mass production, Low-Pressure more economical for varied production'
-        },
-        {
-          q: 'Do you provide installation?',
-          a: 'Yes. Our team handles complete installation, testing and training'
-        },
-        {
-          q: 'What is the delivery time?',
-          a: 'Depending on project complexity, typically 3-6 months after final approval'
-        }
-      ]
-    },
-    contact: {
-      title: 'Get in Touch',
-      subtitle: 'Our team is ready to answer your questions',
-      form: {
-        name: 'Full Name',
-        email: 'Email',
-        phone: 'Phone Number',
-        message: 'Your Message',
-        submit: 'Send Message',
-        sending: 'Sending...',
-        success: 'Your message has been sent successfully',
-        error: 'Error sending message'
-      },
-      info: {
-        title: 'Contact Information',
-        address: 'Tehran, Karaj, Mahdasht Road - Zibadasht Street',
-        phone1: '+98 912 833 6085',
-        phone2: '+98 919 730 2064',
-        email1: 'info@foamsanat.com',
-        email2: 'saeidniazpour@yahoo.com'
-      }
-    },
-    footer: {
-      about: 'Foam Sanat pioneering PU foam machinery since 2010',
-      contact: 'Contact Info',
-      phone: '+98 912 833 6085',
-      email: 'info@foamsanat.com',
-      address: 'Tehran, Karaj, Mahdasht Road - Zibadasht Street',
-      copyright: '© 2024 Foam Sanat. All rights reserved.'
-    },
-    consent: {
-      message: 'We use cookies to improve your experience',
-      accept: 'Accept',
-      decline: 'Decline'
-    }
-  }
-};
-
 // ============================================
 // CUSTOM HOOKS
 // ============================================
@@ -416,7 +70,15 @@ const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => vo
 // ============================================
 // SLIDER COMPONENT
 // ============================================
-function HeroSlider({ slides, isRTL, isDark }: { slides: Translation['slider']['slides'], isRTL: boolean, isDark: boolean }) {
+function HeroSlider({
+  slides,
+  isRTL,
+  isDark
+}: {
+  slides: HomeNamespaceSchema['slider']['slides'];
+  isRTL: boolean;
+  isDark: boolean;
+}) {
   const [current, setCurrent] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -527,7 +189,15 @@ function HeroSlider({ slides, isRTL, isDark }: { slides: Translation['slider']['
 // ============================================
 // CONTACT FORM COMPONENT
 // ============================================
-function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isDark: boolean }) {
+function ContactForm({
+  contact,
+  isRTL,
+  isDark
+}: {
+  contact: HomeContactMessages;
+  isRTL: boolean;
+  isDark: boolean;
+}) {
   const [formState, setFormState] = useState({
     name: '',
     email: '',
@@ -571,7 +241,7 @@ function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isD
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <label className="block mb-2 font-semibold" htmlFor="name">
-          {t.contact.form.name}
+          {contact.form.name}
         </label>
         <input
           type="text"
@@ -586,7 +256,7 @@ function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isD
 
       <div>
         <label className="block mb-2 font-semibold" htmlFor="email">
-          {t.contact.form.email}
+          {contact.form.email}
         </label>
         <input
           type="email"
@@ -601,7 +271,7 @@ function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isD
 
       <div>
         <label className="block mb-2 font-semibold" htmlFor="phone">
-          {t.contact.form.phone}
+          {contact.form.phone}
         </label>
         <input
           type="tel"
@@ -616,7 +286,7 @@ function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isD
 
       <div>
         <label className="block mb-2 font-semibold" htmlFor="message">
-          {t.contact.form.message}
+          {contact.form.message}
         </label>
         <textarea
           id="message"
@@ -638,18 +308,18 @@ function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isD
             : 'bg-orange-500 hover:bg-orange-600 text-white'
         }`}
       >
-        {status === 'sending' ? t.contact.form.sending : t.contact.form.submit}
+        {status === 'sending' ? contact.form.sending : contact.form.submit}
       </button>
 
       {status === 'success' && (
         <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg">
-          {t.contact.form.success}
+          {contact.form.success}
         </div>
       )}
 
       {status === 'error' && (
         <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 p-4 rounded-lg">
-          {t.contact.form.error}
+          {contact.form.error}
         </div>
       )}
     </form>
@@ -659,7 +329,7 @@ function ContactForm({ t, isRTL, isDark }: { t: Translation, isRTL: boolean, isD
 // ============================================
 // CONSENT BANNER COMPONENT
 // ============================================
-function ConsentBanner({ t, isRTL }: { t: Translation, isRTL: boolean }) {
+function ConsentBanner({ consent, isRTL }: { consent: HomeConsentMessages; isRTL: boolean }) {
   const [showConsent, setShowConsent] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
 
@@ -693,19 +363,19 @@ function ConsentBanner({ t, isRTL }: { t: Translation, isRTL: boolean }) {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 bg-gray-900 text-white p-6 rounded-lg shadow-2xl animate-slide-up">
-      <p className="mb-4">{t.consent.message}</p>
+      <p className="mb-4">{consent.message}</p>
       <div className="flex gap-3">
         <button
           onClick={handleAccept}
           className="flex-1 bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-lg font-semibold transition-colors"
         >
-          {t.consent.accept}
+          {consent.accept}
         </button>
         <button
           onClick={handleDecline}
           className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg font-semibold transition-colors"
         >
-          {t.consent.decline}
+          {consent.decline}
         </button>
       </div>
     </div>
@@ -716,14 +386,16 @@ function ConsentBanner({ t, isRTL }: { t: Translation, isRTL: boolean }) {
 // MAIN COMPONENT
 // ============================================
 export default function FoamSanatWebsite() {
-  const [lang, setLang] = useLocalStorage<Lang>('foam-sanat-lang', 'fa');
+  const [lang, setLang] = useLocalStorage<Lang>('foam-sanat-lang', defaultLocale);
   const [theme, setTheme] = useLocalStorage<Theme>('foam-sanat-theme', 'light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const t = translations[lang];
-  const isRTL = lang === 'fa';
+  const messages = getAllMessages(lang);
+  const common = messages.common;
+  const home = messages.home;
+  const isRTL = localeSettings[lang].dir === 'rtl';
 
   useEffect(() => {
     setMounted(true);
@@ -742,7 +414,9 @@ export default function FoamSanatWebsite() {
   }, [lang]);
 
   const toggleLang = useCallback(() => {
-    setLang(lang === 'fa' ? 'en' : 'fa');
+    const currentIndex = locales.indexOf(lang);
+    const nextLang = locales[(currentIndex + 1) % locales.length];
+    setLang(nextLang);
   }, [lang, setLang]);
 
   const toggleTheme = useCallback(() => {
@@ -821,16 +495,16 @@ export default function FoamSanatWebsite() {
                 <span className="text-white font-bold text-lg">FS</span>
               </div>
               <div className="hidden sm:block">
-                <div className="font-bold text-lg leading-tight">{t.companyName}</div>
-                <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{t.tagline}</div>
+              <div className="font-bold text-lg leading-tight">{common.companyName}</div>
+              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{common.tagline}</div>
               </div>
             </a>
 
             <div className="hidden md:flex gap-6 items-center">
-              {Object.entries(t.nav).slice(0, 4).map(([key, value]) => (
-                <a 
+              {Object.entries(common.nav).slice(0, 4).map(([key, value]) => (
+                <a
                   key={key}
-                  href={`/about`} 
+                  href={`#${key}`}
                   className="hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1"
                 >
                   {value}
@@ -840,7 +514,7 @@ export default function FoamSanatWebsite() {
                 href="#contact" 
                 className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
               >
-                {t.nav.contact}
+              {common.nav.contact}
               </a>
             </div>
 
@@ -878,7 +552,7 @@ export default function FoamSanatWebsite() {
               className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
               role="menu"
             >
-              {Object.entries(t.nav).map(([key, value]) => (
+            {Object.entries(common.nav).map(([key, value]) => (
                 <a 
                   key={key}
                   href={`/about`} 
@@ -905,20 +579,20 @@ export default function FoamSanatWebsite() {
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className={isRTL ? 'text-right' : 'text-left'}>
                 <span className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-5 py-2 rounded-full text-sm font-semibold mb-6 shadow-md animate-pulse">
-                  {t.hero.badge}
+                  {home.hero.badge}
                 </span>
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
-                  {t.hero.title}
+                  {home.hero.title}
                 </h1>
                 <p className={`text-lg md:text-xl mb-8 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {t.hero.subtitle}
+                  {home.hero.subtitle}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <a 
                     href="#contact" 
                     className="inline-flex items-center justify-center gap-2 bg-orange-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-orange-600 transition-all hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
                   >
-                    {t.hero.cta1}
+                    {home.hero.cta1}
                     <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${isRTL ? 'rotate-180' : ''}`} />
                   </a>
                   <a 
@@ -929,12 +603,12 @@ export default function FoamSanatWebsite() {
                         : 'border-blue-900 text-blue-900 hover:bg-blue-900 hover:text-white'
                     }`}
                   >
-                    {t.hero.cta2}
+                    {home.hero.cta2}
                   </a>
                 </div>
               </div>
               <div className="relative aspect-video">
-                <HeroSlider slides={t.slider.slides} isRTL={isRTL} isDark={isDark} />
+                <HeroSlider slides={home.slider.slides} isRTL={isRTL} isDark={isDark} />
               </div>
             </div>
           </div>
@@ -945,10 +619,10 @@ export default function FoamSanatWebsite() {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {[
-                { icon: Shield, text: t.trust.iso, color: 'text-blue-600' },
-                { icon: Award, text: t.trust.ce, color: 'text-green-600' },
-                { icon: Users, text: t.trust.experience, color: 'text-purple-600' },
-                { icon: CheckCircle, text: t.trust.projects, color: 'text-orange-600' }
+                { icon: Shield, text: home.trust.iso, color: 'text-blue-600' },
+                { icon: Award, text: home.trust.ce, color: 'text-green-600' },
+                { icon: Users, text: home.trust.experience, color: 'text-purple-600' },
+                { icon: CheckCircle, text: home.trust.projects, color: 'text-orange-600' }
               ].map((item, i) => (
                 <div key={i} className="flex flex-col items-center text-center group">
                   <div className={`w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mb-3 transition-transform group-hover:scale-110 ${item.color}`}>
@@ -965,14 +639,14 @@ export default function FoamSanatWebsite() {
         <section id="products" className="py-20 px-4">
           <div className="container mx-auto">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">{t.services.title}</h2>
-              <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t.services.subtitle}</p>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">{home.services.title}</h2>
+              <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{home.services.subtitle}</p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
               {[
-                { service: t.services.hp, icon: Zap, gradient: 'from-blue-600 to-blue-800' },
-                { service: t.services.lp, icon: HeartHandshake, gradient: 'from-purple-600 to-purple-800' },
-                { service: t.services.custom, icon: Wrench, gradient: 'from-orange-600 to-orange-800' }
+                { service: home.services.hp, icon: Zap, gradient: 'from-blue-600 to-blue-800' },
+                { service: home.services.lp, icon: HeartHandshake, gradient: 'from-purple-600 to-purple-800' },
+                { service: home.services.custom, icon: Wrench, gradient: 'from-orange-600 to-orange-800' }
               ].map((item, i) => (
                 <article 
                   key={i} 
@@ -990,7 +664,7 @@ export default function FoamSanatWebsite() {
                       href="#contact" 
                       className="inline-flex items-center gap-2 text-orange-500 font-semibold hover:text-orange-600 transition-colors group focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
                     >
-                      {t.services.cta}
+                      {home.services.cta}
                       <ArrowRight className={`w-4 h-4 transition-transform group-hover:translate-x-1 ${isRTL ? 'rotate-180' : ''}`} />
                     </a>
                   </div>
@@ -1005,12 +679,12 @@ export default function FoamSanatWebsite() {
           <div className="container mx-auto">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div>
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">{t.whyUs.title}</h2>
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">{home.whyUs.title}</h2>
                 <p className={`text-lg mb-8 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {t.whyUs.subtitle}
+                  {home.whyUs.subtitle}
                 </p>
                 <div className="space-y-6">
-                  {t.whyUs.features.map((feature, i) => (
+                  {home.whyUs.features.map((feature, i) => (
                     <div key={i} className="flex gap-4">
                       <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                         <CheckCircle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
@@ -1035,9 +709,9 @@ export default function FoamSanatWebsite() {
         {/* FAQ */}
         <section id="faq" className="py-20 px-4">
           <div className="container mx-auto max-w-4xl">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-16">{t.faq.title}</h2>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-16">{home.faq.title}</h2>
             <div className="space-y-4">
-              {t.faq.items.map((item, i) => (
+              {home.faq.items.map((item, i) => (
                 <details 
                   key={i} 
                   className={`group rounded-xl shadow-md overflow-hidden ${cardBg}`}
@@ -1059,27 +733,27 @@ export default function FoamSanatWebsite() {
         <section id="contact" className={`py-20 px-4 ${sectionBg}`}>
           <div className="container mx-auto max-w-6xl">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">{t.contact.title}</h2>
-              <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t.contact.subtitle}</p>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">{home.contact.title}</h2>
+              <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{home.contact.subtitle}</p>
             </div>
 
             <div className="grid lg:grid-cols-2 gap-12">
               {/* Contact Form */}
               <div className={`rounded-2xl shadow-xl p-8 ${cardBg}`}>
-                <ContactForm t={t} isRTL={isRTL} isDark={isDark} />
+            <ContactForm contact={home.contact} isRTL={isRTL} isDark={isDark} />
               </div>
 
               {/* Contact Info */}
               <div className="space-y-8">
                 <div className={`rounded-2xl shadow-xl p-8 ${cardBg}`}>
-                  <h3 className="text-2xl font-bold mb-6">{t.contact.info.title}</h3>
+              <h3 className="text-2xl font-bold mb-6">{home.contact.info.title}</h3>
                   <div className="space-y-6">
                     <div className="flex items-start gap-4">
                       <MapPin className="w-6 h-6 text-orange-500 flex-shrink-0 mt-1" />
                       <div>
                         <p className="font-semibold mb-1">{isRTL ? 'آدرس' : 'Address'}</p>
                         <p className={`leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                          {t.contact.info.address}
+                        {home.contact.info.address}
                         </p>
                         <a
                           href="https://maps.app.goo.gl/wXxY2HxHnZ6M971h9"
@@ -1103,14 +777,14 @@ export default function FoamSanatWebsite() {
                             className={`block hover:text-orange-500 transition-colors ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
                             dir="ltr"
                           >
-                            {t.contact.info.phone1}
+                            {home.contact.info.phone1}
                           </a>
                           <a 
                             href="tel:+989197302064" 
                             className={`block hover:text-orange-500 transition-colors ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
                             dir="ltr"
                           >
-                            {t.contact.info.phone2}
+                            {home.contact.info.phone2}
                           </a>
                         </div>
                       </div>
@@ -1122,16 +796,16 @@ export default function FoamSanatWebsite() {
                         <p className="font-semibold mb-1">{isRTL ? 'ایمیل' : 'Email'}</p>
                         <div className="space-y-2">
                           <a 
-                            href={`mailto:${t.contact.info.email1}`} 
+                            href={`mailto:${home.contact.info.email1}`}
                             className={`block hover:text-orange-500 transition-colors ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
                           >
-                            {t.contact.info.email1}
+                            {home.contact.info.email1}
                           </a>
                           <a 
-                            href={`mailto:${t.contact.info.email2}`} 
+                            href={`mailto:${home.contact.info.email2}`}
                             className={`block hover:text-orange-500 transition-colors ${isDark ? 'text-gray-300' : 'text-gray-600'}`}
                           >
-                            {t.contact.info.email2}
+                            {home.contact.info.email2}
                           </a>
                         </div>
                       </div>
@@ -1167,9 +841,9 @@ export default function FoamSanatWebsite() {
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center">
                   <span className="text-white font-bold text-lg">FS</span>
                 </div>
-                <h3 className="text-white font-bold text-xl">{t.companyName}</h3>
+                <h3 className="text-white font-bold text-xl">{common.companyName}</h3>
               </div>
-              <p className="leading-relaxed max-w-md mb-6">{t.footer.about}</p>
+              <p className="leading-relaxed max-w-md mb-6">{common.footer.about}</p>
               <div className="flex gap-4">
                 {[Shield, Award, CheckCircle].map((Icon, i) => (
                   <div 
@@ -1184,37 +858,37 @@ export default function FoamSanatWebsite() {
               </div>
             </div>
             <div>
-              <h4 className="text-white font-semibold mb-4">{t.footer.contact}</h4>
+              <h4 className="text-white font-semibold mb-4">{common.footer.contact}</h4>
               <address className="not-italic space-y-3">
                 <a 
                   href="tel:+989128336085" 
                   className="flex items-center gap-2 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
                 >
                   <Phone className="w-4 h-4" />
-                  <span dir="ltr">{t.footer.phone}</span>
+                  <span dir="ltr">{common.footer.phone}</span>
                 </a>
                 <a 
-                  href={`mailto:${t.footer.email}`} 
+                  href={`mailto:${common.footer.email}`}
                   className="flex items-center gap-2 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
                 >
                   <Mail className="w-4 h-4" />
-                  {t.footer.email}
+                  {common.footer.email}
                 </a>
                 <div className="flex items-start gap-2">
                   <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
-                  <span>{t.footer.address}</span>
+                  <span>{common.footer.address}</span>
                 </div>
               </address>
             </div>
           </div>
           <div className="pt-8 border-t border-gray-800 text-center text-sm">
-            {t.footer.copyright}
+            {common.footer.copyright}
           </div>
         </div>
       </footer>
 
       {/* Consent Banner */}
-      <ConsentBanner t={t} isRTL={isRTL} />
+      <ConsentBanner consent={home.consent} isRTL={isRTL} />
 
       {/* Vazirmatn Font for Persian */}
       {lang === 'fa' && (
