@@ -8,16 +8,8 @@ import {
   Sparkles, Users, Target, Eye, Heart, Leaf, ChevronLeft, ChevronRight,
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
-import {
-  defaultLocale,
-  getAllMessages,
-  isLocale,
-  localeSettings,
-  locales,
-  type Locale,
-  type ProductsMessages,
-  type ProductsNamespaceSchema
-} from '@/app/lib/i18n';
+import { type ProductsMessages, type ProductsNamespaceSchema } from '@/app/lib/i18n';
+import { useLocaleTheme, useMessages } from '@/app/lib/i18n/hooks';
 
 type ProductEntry = ProductsNamespaceSchema['products'][number];
 type ProductCategoryId = ProductsNamespaceSchema['categories'][number]['id'];
@@ -51,13 +43,11 @@ type CommentsState = Record<string, ProductComment[]>;
 
 export default function ProductsPage() {
   // State Management
-  const [lang, setLang] = useState<Locale>(defaultLocale);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { locale: lang, theme, dir, langTag, isReady, toggleLocale, toggleTheme } = useLocaleTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ProductCategoryId>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [mounted, setMounted] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductEntry | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [comments, setComments] = useState<CommentsState>({});
@@ -78,32 +68,7 @@ export default function ProductsPage() {
 
   // Hydration
   useEffect(() => {
-    setMounted(true);
-    const storedLang = localStorage.getItem('foam-sanat-lang');
-    if (storedLang) {
-      try {
-        const parsedLang = JSON.parse(storedLang);
-        if (typeof parsedLang === 'string' && isLocale(parsedLang)) {
-          setLang(parsedLang);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored language', error);
-      }
-    }
-
-    const storedTheme = localStorage.getItem('foam-sanat-theme');
-    if (storedTheme) {
-      try {
-        const parsedTheme = JSON.parse(storedTheme);
-        if (parsedTheme === 'light' || parsedTheme === 'dark') {
-          setTheme(parsedTheme);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored theme', error);
-      }
-    }
-
-    const savedComments = localStorage.getItem('product-comments');
+    const savedComments = typeof window !== 'undefined' ? window.localStorage.getItem('product-comments') : null;
     if (savedComments) {
       try {
         const parsedComments = JSON.parse(savedComments);
@@ -165,21 +130,6 @@ export default function ProductsPage() {
     localStorage.setItem('product-comments', JSON.stringify(updatedComments));
   }, []);
 
-  // Toggle language
-  const toggleLang = useCallback(() => {
-    const currentIndex = locales.indexOf(lang);
-    const nextLang = locales[(currentIndex + 1) % locales.length];
-    setLang(nextLang);
-    localStorage.setItem('foam-sanat-lang', JSON.stringify(nextLang));
-  }, [lang]);
-
-  // Toggle theme
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('foam-sanat-theme', JSON.stringify(newTheme));
-  }, [theme]);
-
   // Add comment handler
   const handleAddComment = useCallback((productId: string) => {
     if (!newComment.text.trim() || !newComment.author.trim()) return;
@@ -191,7 +141,7 @@ export default function ProductsPage() {
       author: newComment.author,
       email: newComment.email,
       text: newComment.text,
-      date: new Date().toLocaleDateString(localeSettings[lang].langTag),
+      date: new Date().toLocaleDateString(langTag),
       replies: []
     };
 
@@ -225,7 +175,7 @@ export default function ProductsPage() {
       id: Date.now(),
       author: lang === 'fa' ? 'مدیر سایت' : 'Site Admin',
       text: replyTxt,
-      date: new Date().toLocaleDateString(localeSettings[lang].langTag),
+      date: new Date().toLocaleDateString(langTag),
       isAdmin: true
     };
 
@@ -237,8 +187,7 @@ export default function ProductsPage() {
   }, [comments, saveComments, lang]);
 
   // Styles
-  const localeMeta = localeSettings[lang];
-  const isRTL = localeMeta.dir === 'rtl';
+  const isRTL = dir === 'rtl';
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
@@ -247,7 +196,12 @@ export default function ProductsPage() {
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
-  const messages = getAllMessages(lang);
+  const messages = useMessages(lang);
+
+  if (!isReady || !messages) {
+    return null;
+  }
+
   const t: ProductsMessages = messages.products;
   const products: ProductEntry[] = t.products;
 
@@ -272,8 +226,6 @@ export default function ProductsPage() {
       product.applications.some((app) => app.toLowerCase().includes(term))
     );
   }, [filteredProducts, searchTerm]);
-
-  if (!mounted) return null;
 
   // Modal Components
   const PriceModal = ({ product, onClose }: { product: ProductEntry | null; onClose: () => void }) => {
@@ -698,7 +650,7 @@ export default function ProductsPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={toggleLang} className={`p-2 rounded-lg transition-colors ${hoverBg}`} aria-label="Toggle language">
+              <button onClick={toggleLocale} className={`p-2 rounded-lg transition-colors ${hoverBg}`} aria-label="Toggle language">
                 <Globe className="w-5 h-5" />
               </button>
               <button onClick={toggleTheme} className={`p-2 rounded-lg transition-colors ${hoverBg}`} aria-label="Toggle theme">

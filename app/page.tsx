@@ -12,22 +12,12 @@ import {
   Zap, HeartHandshake, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 import Script from 'next/script';
-import {
-  defaultLocale,
-  getAllMessages,
-  localeSettings,
-  locales,
-  type HomeMessages,
-  type HomeNamespaceSchema,
-  type Locale
-} from '@/app/lib/i18n';
+import { type HomeMessages, type HomeNamespaceSchema } from '@/app/lib/i18n';
+import { useLocaleTheme, useMessages } from '@/app/lib/i18n/hooks';
 
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
-type Theme = 'light' | 'dark';
-type Lang = Locale;
-
 type HomeContactMessages = HomeMessages['contact'];
 type HomeConsentMessages = HomeMessages['consent'];
 
@@ -37,36 +27,6 @@ type HomeConsentMessages = HomeMessages['consent'];
 // ============================================
 // CUSTOM HOOKS
 // ============================================
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => void] => {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    try {
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
-    } catch (error) {
-      console.error(`Error loading ${key} from localStorage:`, error);
-    }
-  }, [key]);
-
-  const setValue = useCallback((value: T) => {
-    try {
-      setStoredValue(value);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(value));
-      }
-    } catch (error) {
-      console.error(`Error saving ${key} to localStorage:`, error);
-    }
-  }, [key]);
-
-  return [mounted ? storedValue : initialValue, setValue];
-};
-
 // ============================================
 // SLIDER COMPONENT
 // ============================================
@@ -386,20 +346,10 @@ function ConsentBanner({ consent, isRTL }: { consent: HomeConsentMessages; isRTL
 // MAIN COMPONENT
 // ============================================
 export default function FoamSanatWebsite() {
-  const [lang, setLang] = useLocalStorage<Lang>('foam-sanat-lang', defaultLocale);
-  const [theme, setTheme] = useLocalStorage<Theme>('foam-sanat-theme', 'light');
+  const { locale: lang, theme, dir, isReady, toggleLocale, toggleTheme } = useLocaleTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  const messages = getAllMessages(lang);
-  const common = messages.common;
-  const home = messages.home;
-  const isRTL = localeSettings[lang].dir === 'rtl';
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const messages = useMessages(lang);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -413,17 +363,11 @@ export default function FoamSanatWebsite() {
     setMobileMenuOpen(false);
   }, [lang]);
 
-  const toggleLang = useCallback(() => {
-    const currentIndex = locales.indexOf(lang);
-    const nextLang = locales[(currentIndex + 1) % locales.length];
-    setLang(nextLang);
-  }, [lang, setLang]);
+  if (!isReady || !messages) return null;
 
-  const toggleTheme = useCallback(() => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  }, [theme, setTheme]);
-
-  if (!mounted) return null;
+  const common = messages.common;
+  const home = messages.home;
+  const isRTL = dir === 'rtl';
 
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
@@ -519,8 +463,8 @@ export default function FoamSanatWebsite() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button 
-                onClick={toggleLang}
+              <button
+                onClick={toggleLocale}
                 className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
                 aria-label={isRTL ? 'تغییر زبان به انگلیسی' : 'Switch to Persian'}
                 title={lang === 'fa' ? 'English' : 'فارسی'}
@@ -553,16 +497,16 @@ export default function FoamSanatWebsite() {
               role="menu"
             >
             {Object.entries(common.nav).map(([key, value]) => (
-                <a 
-                  key={key}
-                  href={`/about`} 
-                  className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  role="menuitem"
-                >
-                  {value}
-                </a>
-              ))}
+              <a
+                key={key}
+                href={`#${key}`}
+                className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
+                onClick={() => setMobileMenuOpen(false)}
+                role="menuitem"
+              >
+                {value}
+              </a>
+            ))}
             </div>
           )}
         </nav>

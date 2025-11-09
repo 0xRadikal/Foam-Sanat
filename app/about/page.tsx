@@ -8,15 +8,8 @@ import {
   Shield, Lightbulb, Heart, Leaf, Target, Eye, CheckCircle,
   Sparkles, Zap, Factory, Gauge, Clock, Calendar, ChevronDown
 } from 'lucide-react';
-import {
-  defaultLocale,
-  getAllMessages,
-  isLocale,
-  localeSettings,
-  locales,
-  type AboutMessages,
-  type Locale
-} from '@/app/lib/i18n';
+import { type AboutMessages } from '@/app/lib/i18n';
+import { useLocaleTheme, useMessages } from '@/app/lib/i18n/hooks';
 
 // Animated Counter
 function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
@@ -69,38 +62,11 @@ function ParallaxSection({ children, speed = 0.5 }: { children: React.ReactNode;
   );
 }
 export default function AboutPage() {
-  const [lang, setLang] = useState<Locale>(defaultLocale);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { locale: lang, theme, dir, isReady, toggleLocale, toggleTheme } = useLocaleTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('foam-sanat-lang');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed === 'string' && isLocale(parsed)) {
-          setLang(parsed);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored language', error);
-      }
-    }
-
-    const storedTheme = localStorage.getItem('foam-sanat-theme');
-    if (storedTheme) {
-      try {
-        const parsedTheme = JSON.parse(storedTheme);
-        if (parsedTheme === 'light' || parsedTheme === 'dark') {
-          setTheme(parsedTheme);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored theme', error);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -121,21 +87,7 @@ export default function AboutPage() {
       });
     }
   }, []);
-  const toggleLang = () => {
-    const currentIndex = locales.indexOf(lang);
-    const nextLang = locales[(currentIndex + 1) % locales.length];
-    setLang(nextLang);
-    localStorage.setItem('foam-sanat-lang', JSON.stringify(nextLang));
-  };
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('foam-sanat-theme', JSON.stringify(newTheme));
-  };
-
-  const localeMeta = localeSettings[lang];
-  const isRTL = localeMeta.dir === 'rtl';
+  const isRTL = dir === 'rtl';
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
@@ -143,7 +95,12 @@ export default function AboutPage() {
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
 
-  const messages = getAllMessages(lang);
+  const messages = useMessages(lang);
+
+  if (!isReady || !messages) {
+    return null;
+  }
+
   const t: AboutMessages = messages.about;
   const timelineIcons = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
 
@@ -182,7 +139,7 @@ export default function AboutPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={toggleLang} className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors">
+              <button onClick={toggleLocale} className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors">
                 <Globe className="w-5 h-5" />
               </button>
               <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors">

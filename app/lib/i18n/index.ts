@@ -127,12 +127,17 @@ type ValueAtPath<T, Path extends string> =
         ? Extract<T[Path], Primitive>
         : never;
 
-export function createTranslator<L extends Locale, N extends Namespace>(locale: L, namespace: N) {
-  const messages = getNamespaceMessages(locale, namespace);
+export function createTranslator<L extends Locale, N extends Namespace>(
+  locale: L,
+  namespace: N,
+  source?: MessagesByLocale<L>[N]
+) {
+  type NamespaceMessageType = MessagesByLocale<L>[N];
+  const messages = (source ?? getNamespaceMessages(locale, namespace)) as NamespaceMessageType;
 
-  return <Path extends MessagePath<typeof messages>>(
+  return <Path extends MessagePath<NamespaceMessageType>>(
     path: Path
-  ): ValueAtPath<typeof messages, Path> => {
+  ): ValueAtPath<NamespaceMessageType, Path> => {
     const value = path
       .split('.')
       .reduce<unknown>((acc, segment) => {
@@ -148,7 +153,7 @@ export function createTranslator<L extends Locale, N extends Namespace>(locale: 
         return (acc as Record<string, unknown>)[segment];
       }, messages);
 
-    return value as ValueAtPath<typeof messages, Path>;
+    return value as ValueAtPath<NamespaceMessageType, Path>;
   };
 }
 
