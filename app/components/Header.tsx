@@ -1,12 +1,12 @@
 'use client';
 
 import { Menu, X, Globe, Sun, Moon } from 'lucide-react';
-import { Translation } from '@/app/lib/translations';
+import type { CommonMessages, Locale } from '@/app/lib/i18n';
 
 interface HeaderProps {
-  lang: 'fa' | 'en';
+  lang: Locale;
   theme: 'light' | 'dark';
-  t: Translation;
+  messages: CommonMessages;
   scrolled: boolean;
   mobileMenuOpen: boolean;
   onLangToggle: () => void;
@@ -17,7 +17,7 @@ interface HeaderProps {
 export default function Header({
   lang,
   theme,
-  t,
+  messages,
   scrolled,
   mobileMenuOpen,
   onLangToggle,
@@ -44,14 +44,14 @@ export default function Header({
               <span className="text-white font-bold text-lg">FS</span>
             </div>
             <div className="hidden sm:block">
-              <div className="font-bold text-lg leading-tight">{t.companyName}</div>
-              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{t.tagline}</div>
+              <div className="font-bold text-lg leading-tight">{messages.companyName}</div>
+              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{messages.tagline}</div>
             </div>
           </a>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-6 items-center">
-            {Object.entries(t.nav).slice(0, 4).map(([key, value]) => (
+            {Object.entries(messages.nav).slice(0, 4).map(([key, value]) => (
               <a 
                 key={key}
                 href={`#${key}`} 
@@ -64,7 +64,7 @@ export default function Header({
               href="#contact" 
               className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
             >
-              {t.nav.contact}
+              {messages.nav.contact}
             </a>
           </div>
 
@@ -104,7 +104,7 @@ export default function Header({
             className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
             role="menu"
           >
-            {Object.entries(t.nav).map(([key, value]) => (
+            {Object.entries(messages.nav).map(([key, value]) => (
               <a 
                 key={key}
                 href={`#${key}`} 
