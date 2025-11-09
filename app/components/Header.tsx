@@ -1,36 +1,43 @@
 'use client';
 
 import { Menu, X, Globe, Sun, Moon } from 'lucide-react';
-import { Translation } from '@/app/lib/translations';
+import {
+  getNamespace,
+  t,
+  type Locale,
+  type NamespaceTranslations
+} from '@/app/lib/translations';
 
 interface HeaderProps {
-  lang: 'fa' | 'en';
+  lang: Locale;
   theme: 'light' | 'dark';
-  t: Translation;
   scrolled: boolean;
   mobileMenuOpen: boolean;
   onLangToggle: () => void;
   onThemeToggle: () => void;
   onMobileMenuToggle: () => void;
+  commonCopy?: NamespaceTranslations<'common', Locale>;
 }
 
 export default function Header({
   lang,
   theme,
-  t,
   scrolled,
   mobileMenuOpen,
   onLangToggle,
   onThemeToggle,
-  onMobileMenuToggle
+  onMobileMenuToggle,
+  commonCopy
 }: HeaderProps) {
   const isRTL = lang === 'fa';
   const isDark = theme === 'dark';
   const headerBg = isDark ? 'bg-gray-800/95' : 'bg-white/95';
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  const brand = (commonCopy ?? getNamespace(lang, 'common')).brand;
+  const navigation = t(lang, 'common', 'navigation');
 
   return (
-    <header 
+    <header
       className={`fixed top-0 w-full z-40 transition-all duration-300 ${
         scrolled ? `${headerBg} backdrop-blur-md shadow-lg` : 'bg-transparent'
       }`}
@@ -44,27 +51,27 @@ export default function Header({
               <span className="text-white font-bold text-lg">FS</span>
             </div>
             <div className="hidden sm:block">
-              <div className="font-bold text-lg leading-tight">{t.companyName}</div>
-              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{t.tagline}</div>
+              <div className="font-bold text-lg leading-tight">{brand.companyName}</div>
+              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{brand.tagline}</div>
             </div>
           </a>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-6 items-center">
-            {Object.entries(t.nav).slice(0, 4).map(([key, value]) => (
-              <a 
+            {Object.entries(navigation).slice(0, 4).map(([key, value]) => (
+              <a
                 key={key}
-                href={`#${key}`} 
+                href={`#${key}`}
                 className="hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1"
               >
                 {value}
               </a>
             ))}
-            <a 
-              href="#contact" 
+            <a
+              href="#contact"
               className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
             >
-              {t.nav.contact}
+              {navigation.contact}
             </a>
           </div>
 
@@ -99,15 +106,15 @@ export default function Header({
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div 
+          <div
             id="mobile-menu"
             className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
             role="menu"
           >
-            {Object.entries(t.nav).map(([key, value]) => (
-              <a 
+            {Object.entries(navigation).map(([key, value]) => (
+              <a
                 key={key}
-                href={`#${key}`} 
+                href={`#${key}`}
                 className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
                 onClick={onMobileMenuToggle}
                 role="menuitem"
