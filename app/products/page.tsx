@@ -1,29 +1,74 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { 
+import {
   Globe, Sun, Moon, Menu, X, ArrowRight, Phone, Mail, MapPin,
   Factory, Zap, Gauge, Wrench, Shield, Award, TrendingUp,
   ChevronDown, Filter, Search, ExternalLink, Download, Check,
   Sparkles, Users, Target, Eye, Heart, Leaf, ChevronLeft, ChevronRight,
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
+import {
+  defaultLocale,
+  getAllMessages,
+  isLocale,
+  localeSettings,
+  locales,
+  type Locale,
+  type ProductsMessages,
+  type ProductsNamespaceSchema
+} from '@/app/lib/i18n';
+
+type ProductEntry = ProductsNamespaceSchema['products'][number];
+type ProductCategoryId = ProductsNamespaceSchema['categories'][number]['id'];
+
+interface ProductReply {
+  id: number;
+  author: string;
+  text: string;
+  date: string;
+  isAdmin?: boolean;
+}
+
+interface ProductComment {
+  id: number;
+  rating: number;
+  author: string;
+  email: string;
+  text: string;
+  date: string;
+  replies: ProductReply[];
+}
+
+interface PendingComment {
+  rating: number;
+  text: string;
+  author: string;
+  email: string;
+}
+
+type CommentsState = Record<string, ProductComment[]>;
 
 export default function ProductsPage() {
   // State Management
-  const [lang, setLang] = useState('fa');
-  const [theme, setTheme] = useState('light');
+  const [lang, setLang] = useState<Locale>(defaultLocale);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategoryId>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductEntry | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [comments, setComments] = useState<Record<string, any>>({});
-  const [newComment, setNewComment] = useState({ rating: 5, text: '', author: '', email: '' });
+  const [comments, setComments] = useState<CommentsState>({});
+  const [newComment, setNewComment] = useState<PendingComment>({
+    rating: 5,
+    text: '',
+    author: '',
+    email: ''
+  });
   const [showPriceModal, setShowPriceModal] = useState(false);
-  const [priceProduct, setPriceProduct] = useState<any>(null);
+  const [priceProduct, setPriceProduct] = useState<ProductEntry | null>(null);
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
   
@@ -34,17 +79,39 @@ export default function ProductsPage() {
   // Hydration
   useEffect(() => {
     setMounted(true);
-    const stored = localStorage.getItem('foam-sanat-lang');
-    if (stored) setLang(JSON.parse(stored));
+    const storedLang = localStorage.getItem('foam-sanat-lang');
+    if (storedLang) {
+      try {
+        const parsedLang = JSON.parse(storedLang);
+        if (typeof parsedLang === 'string' && isLocale(parsedLang)) {
+          setLang(parsedLang);
+        }
+      } catch (error) {
+        console.error('Failed to parse stored language', error);
+      }
+    }
+
     const storedTheme = localStorage.getItem('foam-sanat-theme');
-    if (storedTheme) setTheme(JSON.parse(storedTheme));
-    
+    if (storedTheme) {
+      try {
+        const parsedTheme = JSON.parse(storedTheme);
+        if (parsedTheme === 'light' || parsedTheme === 'dark') {
+          setTheme(parsedTheme);
+        }
+      } catch (error) {
+        console.error('Failed to parse stored theme', error);
+      }
+    }
+
     const savedComments = localStorage.getItem('product-comments');
     if (savedComments) {
       try {
-        setComments(JSON.parse(savedComments));
-      } catch (e) {
-        console.error('Failed to load comments:', e);
+        const parsedComments = JSON.parse(savedComments);
+        if (parsedComments && typeof parsedComments === 'object') {
+          setComments(parsedComments as CommentsState);
+        }
+      } catch (error) {
+        console.error('Failed to load comments:', error);
       }
     }
   }, []);
@@ -93,16 +160,17 @@ export default function ProductsPage() {
   }, [selectedProduct]);
 
   // Save comments
-  const saveComments = useCallback((updatedComments: Record<string, any>) => {
+  const saveComments = useCallback((updatedComments: CommentsState) => {
     setComments(updatedComments);
     localStorage.setItem('product-comments', JSON.stringify(updatedComments));
   }, []);
 
   // Toggle language
   const toggleLang = useCallback(() => {
-    const newLang = lang === 'fa' ? 'en' : 'fa';
-    setLang(newLang);
-    localStorage.setItem('foam-sanat-lang', JSON.stringify(newLang));
+    const currentIndex = locales.indexOf(lang);
+    const nextLang = locales[(currentIndex + 1) % locales.length];
+    setLang(nextLang);
+    localStorage.setItem('foam-sanat-lang', JSON.stringify(nextLang));
   }, [lang]);
 
   // Toggle theme
@@ -115,29 +183,30 @@ export default function ProductsPage() {
   // Add comment handler
   const handleAddComment = useCallback((productId: string) => {
     if (!newComment.text.trim() || !newComment.author.trim()) return;
-    
-    const updated: Record<string, any> = { ...comments };
-    if (!updated[productId]) updated[productId] = [];
-    
-    updated[productId].push({
+
+    const updated: CommentsState = { ...comments };
+    const comment: ProductComment = {
       id: Date.now(),
       rating: newComment.rating,
       author: newComment.author,
       email: newComment.email,
       text: newComment.text,
-      date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
+      date: new Date().toLocaleDateString(localeSettings[lang].langTag),
       replies: []
-    });
-    
+    };
+
+    const productComments = updated[productId] ? [...updated[productId], comment] : [comment];
+    updated[productId] = productComments;
+
     saveComments(updated);
     setNewComment({ rating: 5, text: '', author: '', email: '' });
-  }, [newComment, comments, saveComments, lang]);
+  }, [comments, newComment, saveComments, lang]);
 
   // Delete comment handler
   const handleDeleteComment = useCallback((productId: string, commentId: number) => {
-    const updated: Record<string, any> = { ...comments };
+    const updated: CommentsState = { ...comments };
     if (updated[productId]) {
-      updated[productId] = updated[productId].filter((c: any) => c.id !== commentId);
+      updated[productId] = updated[productId].filter((c) => c.id !== commentId);
       saveComments(updated);
     }
   }, [comments, saveComments]);
@@ -145,24 +214,31 @@ export default function ProductsPage() {
   // Reply handler
   const handleReply = useCallback((productId: string, commentId: number, replyTxt: string) => {
     if (!replyTxt.trim()) return;
-    
-    const updated: Record<string, any> = { ...comments };
-    const comment = updated[productId]?.find((c: any) => c.id === commentId);
-    if (comment) {
-      if (!comment.replies) comment.replies = [];
-      comment.replies.push({
-        id: Date.now(),
-        author: lang === 'fa' ? 'مدیر سایت' : 'Site Admin',
-        text: replyTxt,
-        date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
-        isAdmin: true
-      });
-      saveComments(updated);
+
+    const updated: CommentsState = { ...comments };
+    const productComments = updated[productId];
+    if (!productComments) {
+      return;
     }
+
+    const reply: ProductReply = {
+      id: Date.now(),
+      author: lang === 'fa' ? 'مدیر سایت' : 'Site Admin',
+      text: replyTxt,
+      date: new Date().toLocaleDateString(localeSettings[lang].langTag),
+      isAdmin: true
+    };
+
+    updated[productId] = productComments.map((comment) =>
+      comment.id === commentId ? { ...comment, replies: [...comment.replies, reply] } : comment
+    );
+
+    saveComments(updated);
   }, [comments, saveComments, lang]);
 
   // Styles
-  const isRTL = lang === 'fa';
+  const localeMeta = localeSettings[lang];
+  const isRTL = localeMeta.dir === 'rtl';
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
@@ -171,456 +247,36 @@ export default function ProductsPage() {
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
-  // Content
-  const content = {
-    fa: {
-      companyName: 'گروه صنعتی فوم صنعت',
-      nav: { home: 'خانه', products: 'محصولات', about: 'درباره ما', contact: 'تماس' },
-      hero: {
-        badge: '🏭 ماشین‌آلات و خطوط تولید فوم',
-        title: 'محصولات',
-        subtitle: 'ماشین‌آلات تزریق فوم پلی‌یورتان با کیفیت جهانی',
-        description: 'تمامی محصولات ما با بهترین فناوری روز و استانداردهای بین‌المللی طراحی و ساخته شده‌اند'
-      },
-      categories: [
-        { id: 'all', name: 'همه', icon: Factory },
-        { id: 'hp', name: 'هایپرشر', icon: Zap },
-        { id: 'lp', name: 'لوپرشر', icon: Gauge },
-        { id: 'rigid', name: 'ریجید', icon: Shield },
-        { id: 'custom', name: 'سفارشی', icon: Wrench }
-      ],
-      products: [
-        {
-          id: 'lp-soft',
-          category: 'lp',
-          name: 'ماشین تزریق فوم نرم',
-          images: ['🛋️', '🛏️', '🪑'],
-          price: 'نیاز به مشاوره',
-          badge: 'پرفروش',
-          shortDesc: 'برای تشک‌ها و مبلمان',
-          description: 'ماشین تزریق فوم نرم با فشار کم برای تولید مبلمان، تشک، کوسن و محصولات راحتی.',
-          fullDescription: `فوم نرم (Soft Foam) یکی از محبوب‌ترین انواع فوم‌های پلی‌اورتان است که به‌طور گسترده‌ای در صنایع تولید مبلمان، تشک‌های خواب و کوسن‌ها استفاده می‌شود.
-
-ماشین تزریق فوم نرم (لوپرشر) ماشینسازی سامکو و فوم صنعت بر اساس تکنولوژی لوپرشر (کم‌فشار) طراحی و ساخته شده است.
-
-ویژگی‌های برجسته:
-• فشار کار: 3-10 بار
-• ظرفیت تولید: 50-300 قطعه در روز
-• سیستم اتوماتیک ریختگری
-• صرفه‌جویی در مصرف مواد خام تا 20%
-• کاهش مصرف برق 30%`,
-          features: [
-            'فشار کم (3-10 بار)',
-            'مناسب برای فوم‌های نرم',
-            'سیستم اتوماتیک ریختگری',
-            'کنترل دما دقیق',
-            'صرفه‌جویی مواد خام'
-          ],
-          specs: {
-            pressure: '۳-۱۰ bar',
-            capacity: '۵۰-۳۰۰ قطعه/روز',
-            temp: '۲۰-۶۰ درجه سانتی‌گراد',
-            power: '۱۵-۳۰ کیلووات',
-            dimensions: '۲۵۰۰ × ۲۰۰۰ × ۲۴۰۰ میلی‌متر'
-          },
-          applications: ['تشک‌های خواب', 'کوسن‌های مبلمان', 'کوسن‌های صندلی', 'محصولات راحتی'],
-          hasPrice: false
-        },
-        {
-          id: 'rigid-panel',
-          category: 'rigid',
-          name: 'ماشین تزریق فوم ریجید',
-          images: ['🏭', '🏗️', '❄️'],
-          price: 'نیاز به مشاوره',
-          badge: 'جدید',
-          shortDesc: 'برای ساندویچ پانل',
-          description: 'دستگاه تزریق فوم ریجید برای ساندویچ پانل صنعتی، یخچال و درب ضد سرقت.',
-          fullDescription: `فوم ریجید (Rigid Foam) نوعی فوم پلی‌اورتان است که به‌دلیل خصوصیات عایق‌کاری فوق‌العاده‌ی حرارتی و صوتی کاربردهای گسترده‌ای دارد.
-
-ویژگی‌های برجسته:
-• عایق‌کاری حرارتی و صوتی بسیار بالا
-• قابلیت تزریق با گازهای مختلف
-• سیستم دو تزریق‌کننده
-• کنترل چگالی دقیق`,
-          features: [
-            'عایق حرارتی فوق‌العاده',
-            'عایق صوتی بالا',
-            'تزریق دو مرحله‌ای',
-            'کنترل چگالی دقیق',
-            'مناسب برای پانل‌های مختلف'
-          ],
-          specs: {
-            pressure: '۲-۱۲ bar',
-            capacity: '۵۰۰-۲۰۰۰ متر مربع/روز',
-            temp: '۲۲-۶۵ درجه سانتی‌گراد',
-            power: '۱۰-۲۵ کیلووات',
-            dimensions: '۲۸۰۰ × ۲۲۰۰ × ۲۶۰۰ میلی‌متر'
-          },
-          applications: ['ساندویچ پانل صنعتی', 'یخچال و فریزر', 'درب ضد سرقت', 'پارتیشن اداری'],
-          hasPrice: false
-        },
-        {
-          id: 'hp-integral',
-          category: 'hp',
-          name: 'ماشین تزریق فوم انتگرال',
-          images: ['⚙️', '🔧', '🏭'],
-          price: 'نیاز به مشاوره',
-          badge: 'فاخر',
-          shortDesc: 'برای قطعات خودرو',
-          description: 'سیستم تزریق پیشرفته برای فوم انتگرال مناسب برای قطعات خودرو و مبلمان.',
-          fullDescription: `فوم انتگرال (Integral Foam) نوعی فوم است که در یک تزریق واحد، یک پوسته سخت و یک هسته نرم ایجاد می‌کند.
-
-کاربردهای اصلی:
-• قطعات داخلی خودرو
-• مبلمان پریمیوم و لوکس
-• اسپورتس و تجهیزات ورزشی
-• قطعات صنعتی خاص`,
-          features: [
-            'دو سیستم تزریق',
-            'کنترل دما و فشار دقیق',
-            'سیستم PLC هوشمند',
-            'قالب‌های سفارشی',
-            'تولید قطعات فاخر'
-          ],
-          specs: {
-            pressure: '۱۸۰-۲۲۰ bar',
-            capacity: '۲۰۰-۸۰۰ قطعه/روز',
-            temp: '۱۵-۷۵ درجه سانتی‌گراد',
-            power: '۴۰-۶۵ کیلووات',
-            dimensions: '۳۵۰۰ × ۲۸۰۰ × ۳۰۰۰ میلی‌متر'
-          },
-          applications: ['قطعات خودرو فاخر', 'مبلمان پریمیوم', 'تجهیزات صنعتی'],
-          hasPrice: false
-        },
-        {
-          id: 'hp-standard',
-          category: 'hp',
-          name: 'ماشین تزریق فوم هایپرشر',
-          images: ['🏭', '🔩', '⚡'],
-          price: '۳۵,۰۰۰,۰۰۰ تومان',
-          badge: 'پرفروش',
-          shortDesc: 'برای تولید انبوه',
-          description: 'ماشین تزریق فوم با فشار ۱۵۰+ بار برای تولیدات انبوه‌ای.',
-          fullDescription: `ماشین تزریق فوم هایپرشر (High-Pressure) یکی از پرکاربردترین دستگاه‌های تولید فوم است.
-
-ویژگی‌های برجسته:
-• فشار تا 200 بار
-• ظرفیت تولید بسیار بالا
-• سیستم کنترل PLC پیشرفته
-• تولید 24/7
-• کاهش خسارت مواد خام`,
-          features: [
-            'فشار تا 200 بار',
-            'ظرفیت تولید بالا',
-            'سیستم کنترل PLC',
-            'تولید 24/7',
-            'کیفیت ثابت'
-          ],
-          specs: {
-            pressure: '۱۵۰-۲۰۰ bar',
-            capacity: '۱۰۰۰-۲۰۰۰ قطعه/روز',
-            temp: '۲۰-۸۰ درجه سانتی‌گراد',
-            power: '۳۰-۵۰ کیلووات',
-            dimensions: '۳۰۰۰ × ۲۵۰۰ × ۲۸۰۰ میلی‌متر'
-          },
-          applications: ['قطعات خودرو', 'کوسن‌های صندلی', 'فوم‌های انتگرال'],
-          hasPrice: true
-        },
-        {
-          id: 'filter-line',
-          category: 'hp',
-          name: 'خط تولید فیلتر هوای فوم',
-          images: ['💨', '🔧', '🏭'],
-          price: 'نیاز به مشاوره',
-          shortDesc: 'برای صنایع خودرو',
-          description: 'خط خودکار تولید فیلتر هوای فوم برای موتورخانه‌ها و دستگاه‌های صنعتی.',
-          fullDescription: `خط تولید فیلتر هوای فوم سیستمی کامل و اتوماتیک است.
-
-مزایای فیلتر فوم:
-• عمر طولانی
-• کارایی فیلتراسیون بالا
-• تغییر دور آسان
-• قیمت مناسب
-• وزن سبک`,
-          features: [
-            'خط اتوماتیک',
-            'کیفیت بالا',
-            'ظرفیت بالا',
-            'قابل تطبیق',
-            'صرفه‌جویی مواد'
-          ],
-          specs: {
-            pressure: '۶-۱۲ bar',
-            capacity: '۵۰۰-۲۰۰۰ فیلتر/روز',
-            temp: '۲۰-۷۰ درجه سانتی‌گراد',
-            power: '۲۵-۴۵ کیلووات',
-            dimensions: '۴۰۰۰ × ۳۰۰۰ × ۲۸۰۰ میلی‌متر'
-          },
-          applications: ['فیلتر موتورخانه', 'فیلتر کمپرسور', 'فیلتر صنعتی'],
-          hasPrice: false
-        }
-      ],
-      features: {
-        title: 'ویژگی‌های تمامی محصولات',
-        items: [
-          { icon: Shield, title: 'استانداردهای جهانی', desc: 'ISO 9001:2015 و CE اروپا' },
-          { icon: Zap, title: 'صرفه‌جویی انرژی', desc: '۲۰-۳۰٪ کاهش مصرف' },
-          { icon: Award, title: 'کیفیت برتر', desc: '۰٪ نقص و ضمانت۲۴ ماه' },
-          { icon: Users, title: 'تیم متخصص', desc: 'آموزش و پشتیبانی ۲۴/۷' }
-        ]
-      },
-      comments: {
-        noComments: 'هنوز نظری نیست',
-        addComment: 'اضافه کردن نظر',
-        rating: 'امتیاز',
-        yourName: 'نام شما',
-        yourEmail: 'ایمیل شما',
-        yourComment: 'نظر شما',
-        submit: 'ارسال نظر',
-        replies: 'پاسخ‌ها',
-        reply: 'پاسخ',
-        admin: 'مدیر سایت',
-        delete: 'حذف'
-      },
-      cta: {
-        title: 'محصول مناسب خود را پیدا کردید؟',
-        subtitle: 'تیم ما برای کمک و مشاوره آماده است',
-        button: 'درخواست مشاوره'
-      }
-    },
-    en: {
-      companyName: 'Foam Sanat Industrial Group',
-      nav: { home: 'Home', products: 'Products', about: 'About', contact: 'Contact' },
-      hero: {
-        badge: '🏭 PU Foam Machinery',
-        title: 'Products',
-        subtitle: 'World-Class Foam Injection Machines',
-        description: 'All products designed with cutting-edge technology'
-      },
-      categories: [
-        { id: 'all', name: 'All', icon: Factory },
-        { id: 'hp', name: 'High-Pressure', icon: Zap },
-        { id: 'lp', name: 'Low-Pressure', icon: Gauge },
-        { id: 'rigid', name: 'Rigid', icon: Shield },
-        { id: 'custom', name: 'Custom', icon: Wrench }
-      ],
-      products: [
-        {
-          id: 'lp-soft',
-          category: 'lp',
-          name: 'Low-Pressure Soft Foam Machine',
-          images: ['🛋️', '🛏️', '🪑'],
-          price: 'Contact for quote',
-          badge: 'Best Seller',
-          shortDesc: 'For mattresses & furniture',
-          description: 'Low-pressure soft foam injection machine.',
-          fullDescription: `Soft foam is one of the most popular types of polyurethane foam.
-
-Key Features:
-• Working pressure: 3-10 bar
-• Production capacity: 50-300 pieces per day
-• Automatic casting system
-• Material efficiency up to 20% savings
-• 30% power consumption reduction`,
-          features: [
-            'Low pressure (3-10 bar)',
-            'Soft foam suitable',
-            'Auto casting system',
-            'Precise control',
-            'Material efficiency'
-          ],
-          specs: {
-            pressure: '3-10 bar',
-            capacity: '50-300 pieces/day',
-            temp: '20-60°C',
-            power: '15-30 kW',
-            dimensions: '2500 × 2000 × 2400 mm'
-          },
-          applications: ['Bed mattresses', 'Furniture cushions', 'Chair cushions', 'Comfort products'],
-          hasPrice: false
-        },
-        {
-          id: 'rigid-panel',
-          category: 'rigid',
-          name: 'Rigid Foam Panel Machine',
-          images: ['🏭', '🏗️', '❄️'],
-          price: 'Contact for quote',
-          badge: 'New',
-          shortDesc: 'For sandwich panels',
-          description: 'Rigid foam injection equipment.',
-          fullDescription: `Rigid foam for industrial applications.
-
-Key Features:
-• Exceptional thermal insulation
-• High acoustic insulation
-• Dual injection system`,
-          features: [
-            'Thermal insulation',
-            'Acoustic insulation',
-            'Dual injection',
-            'Density control',
-            'Multi-size compatible'
-          ],
-          specs: {
-            pressure: '2-12 bar',
-            capacity: '500-2000 m²/day',
-            temp: '22-65°C',
-            power: '10-25 kW',
-            dimensions: '2800 × 2200 × 2600 mm'
-          },
-          applications: ['Industrial panels', 'Refrigerator', 'Security doors', 'Office partitions'],
-          hasPrice: false
-        },
-        {
-          id: 'hp-integral',
-          category: 'hp',
-          name: 'Integral Foam Machine',
-          images: ['⚙️', '🔧', '🏭'],
-          price: 'Contact for quote',
-          badge: 'Premium',
-          shortDesc: 'For automotive parts',
-          description: 'Advanced injection system for integral foam.',
-          fullDescription: `Integral foam for premium applications.
-
-Key Features:
-• Dual injection systems
-• Precise control
-• Smart PLC system`,
-          features: [
-            'Dual injection',
-            'Precise control',
-            'Smart PLC',
-            'Custom molds',
-            'Premium parts'
-          ],
-          specs: {
-            pressure: '180-220 bar',
-            capacity: '200-800 pieces/day',
-            temp: '15-75°C',
-            power: '40-65 kW',
-            dimensions: '3500 × 2800 × 3000 mm'
-          },
-          applications: ['Automotive parts', 'Luxury furniture', 'Industrial equipment'],
-          hasPrice: false
-        },
-        {
-          id: 'hp-standard',
-          category: 'hp',
-          name: 'High-Pressure Machine',
-          images: ['🏭', '🔩', '⚡'],
-          price: '1,200,000 USD',
-          badge: 'Best Seller',
-          shortDesc: 'For mass production',
-          description: 'High-pressure foam injection machine.',
-          fullDescription: `High-pressure machines for mass production.
-
-Key Features:
-• Pressure up to 200 bar
-• High capacity
-• PLC control system`,
-          features: [
-            'Pressure 200 bar',
-            'High capacity',
-            'PLC control',
-            '24/7 operation',
-            'Consistent quality'
-          ],
-          specs: {
-            pressure: '150-200 bar',
-            capacity: '1000-2000 pieces/day',
-            temp: '20-80°C',
-            power: '30-50 kW',
-            dimensions: '3000 × 2500 × 2800 mm'
-          },
-          applications: ['Automotive parts', 'Seat cushions', 'Integral foams'],
-          hasPrice: true
-        },
-        {
-          id: 'filter-line',
-          category: 'hp',
-          name: 'Air Filter Line',
-          images: ['💨', '🔧', '🏭'],
-          price: 'Contact for quote',
-          shortDesc: 'For automotive',
-          description: 'Automatic foam filter production line.',
-          fullDescription: `Foam filter production system.
-
-Key Features:
-• Automatic production line
-• Quality control
-• High capacity`,
-          features: [
-            'Automatic line',
-            'High quality',
-            'High capacity',
-            'Adjustable',
-            'Efficiency'
-          ],
-          specs: {
-            pressure: '6-12 bar',
-            capacity: '500-2000 filters/day',
-            temp: '20-70°C',
-            power: '25-45 kW',
-            dimensions: '4000 × 3000 × 2800 mm'
-          },
-          applications: ['Engine filters', 'Compressor filters', 'Industrial filters'],
-          hasPrice: false
-        }
-      ],
-      features: {
-        title: 'All Products Features',
-        items: [
-          { icon: Shield, title: 'Global Standards', desc: 'ISO 9001:2015 & CE' },
-          { icon: Zap, title: 'Energy Efficient', desc: '20-30% reduction' },
-          { icon: Award, title: 'Superior Quality', desc: '0% defect & warranty' },
-          { icon: Users, title: 'Expert Team', desc: 'Training & support' }
-        ]
-      },
-      comments: {
-        noComments: 'No comments',
-        addComment: 'Add Comment',
-        rating: 'Rating',
-        yourName: 'Your Name',
-        yourEmail: 'Your Email',
-        yourComment: 'Your Review',
-        submit: 'Submit',
-        replies: 'Replies',
-        reply: 'Reply',
-        admin: 'Site Admin',
-        delete: 'Delete'
-      },
-      cta: {
-        title: 'Found your ideal product?',
-        subtitle: 'Our team is ready',
-        button: 'Request Consultation'
-      }
-    }
-  };
-
-  const t = content[lang as keyof typeof content];
-  const products = t.products;
+  const messages = getAllMessages(lang);
+  const t: ProductsMessages = messages.products;
+  const products: ProductEntry[] = t.products;
 
   // Filtered products
   const filteredProducts = useMemo(() => {
-    return selectedCategory === 'all' 
-      ? products 
-      : products.filter((p: any) => p.category === selectedCategory);
+    if (selectedCategory === 'all') {
+      return products;
+    }
+
+    return products.filter((product) => product.category === selectedCategory);
   }, [products, selectedCategory]);
 
   const searchedProducts = useMemo(() => {
-    return searchTerm === '' 
-      ? filteredProducts 
-      : filteredProducts.filter((p: any) => 
-          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.applications.some((app: string) => app.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) {
+      return filteredProducts;
+    }
+
+    return filteredProducts.filter((product) =>
+      product.name.toLowerCase().includes(term) ||
+      product.description.toLowerCase().includes(term) ||
+      product.applications.some((app) => app.toLowerCase().includes(term))
+    );
   }, [filteredProducts, searchTerm]);
 
   if (!mounted) return null;
 
   // Modal Components
-  const PriceModal = ({ product, onClose }: { product: any; onClose: () => void }) => {
+  const PriceModal = ({ product, onClose }: { product: ProductEntry | null; onClose: () => void }) => {
     if (!product) return null;
     
     return (
@@ -683,10 +339,10 @@ Key Features:
     );
   };
 
-  const ProductDetailModal = ({ product, onClose }: { product: any; onClose: () => void }) => {
+  const ProductDetailModal = ({ product, onClose }: { product: ProductEntry | null; onClose: () => void }) => {
     if (!product) return null;
 
-    const productComments: any[] = comments[product.id] || [];
+    const productComments: ProductComment[] = comments[product.id] ?? [];
 
     return (
       <div 
@@ -731,7 +387,7 @@ Key Features:
                     <ChevronRight className="w-6 h-6" />
                   </button>
                   <div className="flex justify-center gap-2 mt-4">
-                    {product.images.map((_: any, i: number) => (
+                    {product.images.map((_, i) => (
                       <button
                         key={i}
                         onClick={() => setCurrentSlide(i)}
@@ -914,7 +570,7 @@ Key Features:
               </p>
             ) : (
               <div className="space-y-6">
-                {productComments.map((comment: any) => (
+                {productComments.map((comment) => (
                   <div key={comment.id} className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
                     <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
                       <div>
@@ -942,9 +598,9 @@ Key Features:
                     <p className="mb-4">{comment.text}</p>
 
                     {/* Replies */}
-                    {comment.replies && comment.replies.length > 0 && (
+                    {comment.replies.length > 0 && (
                       <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
-                        {comment.replies.map((reply: any) => (
+                        {comment.replies.map((reply) => (
                           <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
                             <p className="font-bold text-sm text-orange-600">{reply.author}</p>
                             <p className="text-xs text-gray-500 mb-1">{reply.date}</p>
@@ -1006,9 +662,10 @@ Key Features:
   };
 
   return (
-    <div 
+    <div
       className={`min-h-screen ${bgColor} ${textColor} transition-colors duration-300`}
       dir={isRTL ? 'rtl' : 'ltr'}
+      lang={lang}
       style={{ fontFamily: isRTL ? 'Vazirmatn, sans-serif' : 'system-ui' }}
     >
       {/* Header */}
@@ -1352,9 +1009,12 @@ Key Features:
       )}
 
       {showPriceModal && (
-        <PriceModal 
-          product={priceProduct} 
-          onClose={() => setShowPriceModal(false)}
+        <PriceModal
+          product={priceProduct}
+          onClose={() => {
+            setShowPriceModal(false);
+            setPriceProduct(null);
+          }}
         />
       )}
     </div>
