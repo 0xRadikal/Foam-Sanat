@@ -9,13 +9,20 @@ import {
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
 import Header from '@/app/components/Header';
-import type { Locale } from '@/app/lib/i18n';
+import { useSiteChrome } from '@/app/lib/useSiteChrome';
 
 export default function ProductsPage() {
+  const {
+    lang,
+    theme,
+    mobileMenuOpen,
+    isRTL,
+    isDark,
+    toggleLang,
+    toggleTheme,
+    toggleMobileMenu
+  } = useSiteChrome();
   // State Management
-  const [lang, setLang] = useState<Locale>('fa');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,11 +42,6 @@ export default function ProductsPage() {
   // Hydration
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('foam-sanat-lang');
-    if (stored) setLang(JSON.parse(stored));
-    const storedTheme = localStorage.getItem('foam-sanat-theme');
-    if (storedTheme) setTheme(JSON.parse(storedTheme));
-    
     const savedComments = localStorage.getItem('product-comments');
     if (savedComments) {
       try {
@@ -103,19 +105,6 @@ export default function ProductsPage() {
   }, []);
 
   // Toggle language
-  const toggleLang = useCallback(() => {
-    const newLang = lang === 'fa' ? 'en' : 'fa';
-    setLang(newLang);
-    localStorage.setItem('foam-sanat-lang', JSON.stringify(newLang));
-  }, [lang]);
-
-  // Toggle theme
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('foam-sanat-theme', JSON.stringify(newTheme));
-  }, [theme]);
-
   // Add comment handler
   const handleAddComment = useCallback((productId: string) => {
     if (!newComment.text.trim() || !newComment.author.trim()) return;
@@ -166,8 +155,6 @@ export default function ProductsPage() {
   }, [comments, saveComments, lang]);
 
   // Styles
-  const isRTL = lang === 'fa';
-  const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -610,9 +597,6 @@ Key Features:
       })),
     [t.nav]
   );
-  const toggleMobileMenu = useCallback(() => {
-    setMobileMenuOpen((prev) => !prev);
-  }, []);
   const products = t.products;
 
   // Filtered products
