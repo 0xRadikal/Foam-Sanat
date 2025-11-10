@@ -552,17 +552,20 @@ export default function FoamSanatWebsite() {
               className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
               role="menu"
             >
-            {Object.entries(common.nav).map(([key, value]) => (
-                <a 
+            {Object.entries(common.nav).map(([key, value]) => {
+              const href = key === 'contact' ? '#contact' : `#${key}`;
+              return (
+                <a
                   key={key}
-                  href={`/about`} 
+                  href={href}
                   className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
                   onClick={() => setMobileMenuOpen(false)}
                   role="menuitem"
                 >
                   {value}
                 </a>
-              ))}
+              );
+            })}
             </div>
           )}
         </nav>
