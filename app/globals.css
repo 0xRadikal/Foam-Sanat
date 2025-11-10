@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-html:not(.js) body { visibility: hidden; }
 
 
 :root {
