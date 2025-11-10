@@ -17,7 +17,6 @@ export default function ProductsPage() {
   const [scrolled, setScrolled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [mounted, setMounted] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [comments, setComments] = useState<Record<string, any>>({});
@@ -33,7 +32,7 @@ export default function ProductsPage() {
 
   // Hydration
   useEffect(() => {
-    setMounted(true);
+    if (typeof window === 'undefined') return;
     const stored = localStorage.getItem('foam-sanat-lang');
     if (stored) setLang(JSON.parse(stored));
     const storedTheme = localStorage.getItem('foam-sanat-theme');
@@ -51,6 +50,7 @@ export default function ProductsPage() {
 
   // Lock body scroll when modal is open
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     if (selectedProduct) {
       document.body.style.overflow = 'hidden';
       // Focus modal for accessibility
@@ -66,6 +66,7 @@ export default function ProductsPage() {
 
   // Scroll listener
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -83,6 +84,7 @@ export default function ProductsPage() {
 
   // Close modal with Escape key
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && selectedProduct) {
         setSelectedProduct(null);
@@ -616,8 +618,6 @@ Key Features:
           p.applications.some((app: string) => app.toLowerCase().includes(searchTerm.toLowerCase()))
         );
   }, [filteredProducts, searchTerm]);
-
-  if (!mounted) return null;
 
   // Modal Components
   const PriceModal = ({ product, onClose }: { product: any; onClose: () => void }) => {
