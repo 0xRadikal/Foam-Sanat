@@ -1,7 +1,7 @@
 // app/about/page.tsx - نسخه حرفه‌ای و کامل
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Globe, ArrowRight, Phone, Mail, MapPin,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
@@ -9,7 +9,7 @@ import {
   Sparkles, Zap, Factory, Gauge, Clock, Calendar, ChevronDown
 } from 'lucide-react';
 import Header from '@/app/components/Header';
-import type { Locale } from '@/app/lib/i18n';
+import { useSiteChrome } from '@/app/lib/useSiteChrome';
 
 // Animated Counter
 function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
@@ -62,19 +62,19 @@ function ParallaxSection({ children, speed = 0.5 }: { children: React.ReactNode;
   );
 }
 export default function AboutPage() {
-  const [lang, setLang] = useState<Locale>('fa');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const {
+    lang,
+    theme,
+    mobileMenuOpen,
+    isRTL,
+    isDark,
+    toggleLang,
+    toggleTheme,
+    toggleMobileMenu
+  } = useSiteChrome();
   const [scrolled, setScrolled] = useState(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem('foam-sanat-lang');
-    if (stored) setLang(JSON.parse(stored));
-    const storedTheme = localStorage.getItem('foam-sanat-theme');
-    if (storedTheme) setTheme(JSON.parse(storedTheme));
-  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -95,20 +95,6 @@ export default function AboutPage() {
       });
     }
   }, []);
-  const toggleLang = useCallback(() => {
-    const newLang = lang === 'fa' ? 'en' : 'fa';
-    setLang(newLang);
-    localStorage.setItem('foam-sanat-lang', JSON.stringify(newLang));
-  }, [lang]);
-
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('foam-sanat-theme', JSON.stringify(newTheme));
-  }, [theme]);
-
-  const isRTL = lang === 'fa';
-  const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -528,10 +514,6 @@ export default function AboutPage() {
       })),
     [t.nav]
   );
-  const toggleMobileMenu = useCallback(() => {
-    setMobileMenuOpen((prev) => !prev);
-  }, []);
-
   return (
     <div 
       className={`min-h-screen ${bgColor} ${textColor} transition-all duration-300`}
