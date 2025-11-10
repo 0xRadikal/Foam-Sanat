@@ -4,6 +4,7 @@
 // ============================================
 
 'use client';
+import Link from 'next/link';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -552,17 +553,48 @@ export default function FoamSanatWebsite() {
               className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
               role="menu"
             >
-            {Object.entries(common.nav).map(([key, value]) => (
-                <a 
-                  key={key}
-                  href={`/about`} 
-                  className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  role="menuitem"
-                >
-                  {value}
-                </a>
-              ))}
+              
+{Object.entries(common.nav).map(([key, value]) => {
+  const hrefMap: Record<string, string> = {
+    home: '/',
+    about: '/about',
+    products: '/products',
+    whyUs: '/#why-us',
+    faq: '/#faq',
+    contact: '/#contact',
+  };
+
+  const href = hrefMap[key] || '/';
+
+  // تشخیص اینکه مسیر Page هست یا Anchor
+  const isPageRoute = href.startsWith('/about') || href.startsWith('/products');
+
+  if (isPageRoute) {
+    return (
+      <Link
+        key={key}
+        href={href}
+        className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
+        onClick={() => setMobileMenuOpen(false)}
+        role="menuitem"
+      >
+        {value}
+      </Link>
+    );
+  } else {
+    return (
+      <a
+        key={key}
+        href={href}
+        className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
+        onClick={() => setMobileMenuOpen(false)}
+        role="menuitem"
+      >
+        {value}
+      </a>
+    );
+  }
+})}
             </div>
           )}
         </nav>
