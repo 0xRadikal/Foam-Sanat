@@ -254,6 +254,7 @@ export const productsMessages = {
         name: 'خط تولید فیلتر هوای فوم',
         images: ['💨', '🔧', '🏭'],
         price: 'نیاز به مشاوره',
+        badge: 'جدید',
         shortDesc: 'برای صنایع خودرو',
         description: 'خط خودکار تولید فیلتر هوای فوم برای موتورخانه‌ها و دستگاه‌های صنعتی.',
         fullDescription: `خط تولید فیلتر هوای فوم سیستمی کامل و اتوماتیک است.
@@ -508,6 +509,7 @@ Highlights:
         name: 'Foam Air Filter Line',
         images: ['💨', '🔧', '🏭'],
         price: 'Contact for pricing',
+        badge: 'New',
         shortDesc: 'For automotive industry',
         description: 'Automated foam air filter line for industrial and HVAC applications.',
         fullDescription: `Complete and automated foam air filter production line.
