@@ -10,19 +10,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    console.log('Contact form submission received', {
+    console.info('Contact form submission received', {
       meta: {
         contactEmail: CONTACT_EMAIL,
         contactPhone: CONTACT_PHONE,
         siteUrl: SITE_URL,
       },
-      payload: body,
+      payload: redactPayload(body),
     });
 
     return NextResponse.json({
       success: true,
       message: 'Contact request received.',
-      contactEmail: CONTACT_EMAIL,
     });
   } catch (error) {
     console.error('Failed to process contact form submission:', error);
@@ -35,4 +34,16 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+}
+
+function redactPayload(payload: unknown): Record<string, string> | string {
+  if (!payload || typeof payload !== 'object') {
+    return '[REDACTED]';
+  }
+
+  const entries = Object.keys(payload as Record<string, unknown>).map(
+    (key) => [key, '[REDACTED]'] as const,
+  );
+
+  return Object.fromEntries(entries);
 }
