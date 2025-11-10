@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { 
-  Globe, Sun, Moon, Menu, X, ArrowRight, Phone, Mail, MapPin,
+import {
+  Phone, Mail, MapPin, X,
   Factory, Zap, Gauge, Wrench, Shield, Award, TrendingUp,
   ChevronDown, Filter, Search, ExternalLink, Download, Check,
   Sparkles, Users, Target, Eye, Heart, Leaf, ChevronLeft, ChevronRight,
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
+import Header from '@/app/components/Header';
+import type { Locale } from '@/app/lib/i18n';
 
 export default function ProductsPage() {
   // State Management
-  const [lang, setLang] = useState('fa');
-  const [theme, setTheme] = useState('light');
+  const [lang, setLang] = useState<Locale>('fa');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -168,7 +170,6 @@ export default function ProductsPage() {
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
-  const headerBg = isDark ? 'bg-gray-800/95' : 'bg-white/95';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
@@ -600,6 +601,18 @@ Key Features:
   };
 
   const t = content[lang as keyof typeof content];
+  const headerNavItems = useMemo(
+    () =>
+      Object.entries(t.nav).map(([key, label]) => ({
+        key,
+        label,
+        href: key === 'home' ? '/' : `/${key}`
+      })),
+    [t.nav]
+  );
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen((prev) => !prev);
+  }, []);
   const products = t.products;
 
   // Filtered products
@@ -1011,59 +1024,19 @@ Key Features:
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily: isRTL ? 'Vazirmatn, sans-serif' : 'system-ui' }}
     >
-      {/* Header */}
-      <header className={`fixed top-0 w-full z-40 transition-all duration-300 ${
-        scrolled ? `${headerBg} backdrop-blur-lg shadow-2xl` : 'bg-transparent'
-      }`}>
-        <nav className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <a href="/" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform flex-shrink-0">
-                <span className="text-white font-bold text-sm">FS</span>
-              </div>
-              <span className="font-bold text-sm hidden sm:block line-clamp-1">
-                {t.companyName}
-              </span>
-            </a>
-
-            <div className="hidden md:flex gap-6 items-center">
-              {Object.entries(t.nav).map(([key, value]) => (
-                <a 
-                  key={key}
-                  href={key === 'home' ? '/' : `/${key}`}
-                  className={`hover:text-orange-500 transition-colors font-bold text-sm ${
-                    key === 'products' ? 'text-orange-500' : ''
-                  }`}
-                >
-                  {value}
-                </a>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button onClick={toggleLang} className={`p-2 rounded-lg transition-colors ${hoverBg}`} aria-label="Toggle language">
-                <Globe className="w-5 h-5" />
-              </button>
-              <button onClick={toggleTheme} className={`p-2 rounded-lg transition-colors ${hoverBg}`} aria-label="Toggle theme">
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className={`md:hidden p-2 rounded-lg transition-colors ${hoverBg}`} aria-label="Toggle menu">
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-
-          {mobileMenuOpen && (
-            <div className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-              {Object.entries(t.nav).map(([key, value]) => (
-                <a key={key} href={key === 'home' ? '/' : `/${key}`} className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`} onClick={() => setMobileMenuOpen(false)}>
-                  {value}
-                </a>
-              ))}
-            </div>
-          )}
-        </nav>
-      </header>
+      <Header
+        lang={lang}
+        theme={theme}
+        companyName={t.companyName}
+        navItems={headerNavItems}
+        activeNavKey="products"
+        logoHref="/"
+        scrolled={scrolled}
+        mobileMenuOpen={mobileMenuOpen}
+        onLangToggle={toggleLang}
+        onThemeToggle={toggleTheme}
+        onMobileMenuToggle={toggleMobileMenu}
+      />
 
       <main className="pt-32">
         {/* Hero */}

@@ -1,12 +1,24 @@
 'use client';
 
+import Link from 'next/link';
 import { Menu, X, Globe, Sun, Moon } from 'lucide-react';
-import type { CommonMessages, Locale } from '@/app/lib/i18n';
+import type { Locale } from '@/app/lib/i18n';
+
+type HeaderNavItem = {
+  key: string;
+  label: string;
+  href: string;
+  variant?: 'link' | 'button';
+};
 
 interface HeaderProps {
   lang: Locale;
   theme: 'light' | 'dark';
-  messages: CommonMessages;
+  companyName: string;
+  tagline?: string;
+  navItems: HeaderNavItem[];
+  activeNavKey?: string;
+  logoHref?: string;
   scrolled: boolean;
   mobileMenuOpen: boolean;
   onLangToggle: () => void;
@@ -17,7 +29,11 @@ interface HeaderProps {
 export default function Header({
   lang,
   theme,
-  messages,
+  companyName,
+  tagline,
+  navItems,
+  activeNavKey,
+  logoHref,
   scrolled,
   mobileMenuOpen,
   onLangToggle,
@@ -28,9 +44,52 @@ export default function Header({
   const isDark = theme === 'dark';
   const headerBg = isDark ? 'bg-gray-800/95' : 'bg-white/95';
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  const regularNavItems = navItems.filter((item) => item.variant !== 'button');
+  const ctaItem = navItems.find((item) => item.variant === 'button');
+  const logoLink = logoHref ?? '#home';
+
+  const renderLink = (
+    item: HeaderNavItem,
+    { isMobile }: { isMobile: boolean }
+  ) => {
+    const isHashLink = item.href.startsWith('#');
+    const isActive = activeNavKey === item.key;
+    const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverBg}`;
+    const desktopClasses = `hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1${
+      isActive ? ' text-orange-500 font-semibold' : ''
+    }`;
+
+    const className = isMobile ? mobileClasses : desktopClasses;
+
+    if (isHashLink) {
+      return (
+        <a
+          key={item.key}
+          href={item.href}
+          className={className}
+          onClick={isMobile ? onMobileMenuToggle : undefined}
+          role={isMobile ? 'menuitem' : undefined}
+        >
+          {item.label}
+        </a>
+      );
+    }
+
+    return (
+      <Link
+        key={item.key}
+        href={item.href}
+        className={className}
+        onClick={isMobile ? onMobileMenuToggle : undefined}
+        role={isMobile ? 'menuitem' : undefined}
+      >
+        {item.label}
+      </Link>
+    );
+  };
 
   return (
-    <header 
+    <header
       className={`fixed top-0 w-full z-40 transition-all duration-300 ${
         scrolled ? `${headerBg} backdrop-blur-md shadow-lg` : 'bg-transparent'
       }`}
@@ -39,38 +98,48 @@ export default function Header({
       <nav className="container mx-auto px-4 py-4" aria-label="Main navigation">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <a href="#home" className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg">
+          <a
+            href={logoLink}
+            className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+          >
             <div className="w-12 h-12 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
               <span className="text-white font-bold text-lg">FS</span>
             </div>
             <div className="hidden sm:block">
-              <div className="font-bold text-lg leading-tight">{messages.companyName}</div>
-              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{messages.tagline}</div>
+              <div className="font-bold text-lg leading-tight">{companyName}</div>
+              {tagline ? (
+                <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{tagline}</div>
+              ) : null}
             </div>
           </a>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-6 items-center">
-            {Object.entries(messages.nav).slice(0, 4).map(([key, value]) => (
-              <a 
-                key={key}
-                href={`#${key}`} 
-                className="hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1"
-              >
-                {value}
-              </a>
-            ))}
-            <a 
-              href="#contact" 
-              className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
-            >
-              {messages.nav.contact}
-            </a>
+            {regularNavItems.map((item) => renderLink(item, { isMobile: false }))}
+            {ctaItem
+              ? ctaItem.href.startsWith('#')
+                ? (
+                    <a
+                      href={ctaItem.href}
+                      className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
+                    >
+                      {ctaItem.label}
+                    </a>
+                  )
+                : (
+                    <Link
+                      href={ctaItem.href}
+                      className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
+                    >
+                      {ctaItem.label}
+                    </Link>
+                  )
+              : null}
           </div>
 
           {/* Controls */}
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={onLangToggle}
               className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
               aria-label={isRTL ? 'تغییر زبان به انگلیسی' : 'Switch to Persian'}
@@ -97,27 +166,19 @@ export default function Header({
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div 
-            id="mobile-menu"
-            className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
-            role="menu"
-          >
-            {Object.entries(messages.nav).map(([key, value]) => (
-              <a 
-                key={key}
-                href={`#${key}`} 
-                className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
-                onClick={onMobileMenuToggle}
-                role="menuitem"
-              >
-                {value}
-              </a>
-            ))}
-          </div>
-        )}
-      </nav>
-    </header>
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div
+              id="mobile-menu"
+              className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
+              role="menu"
+            >
+              {[...regularNavItems, ...(ctaItem ? [ctaItem] : [])].map((item) =>
+                renderLink(item, { isMobile: true })
+              )}
+            </div>
+          )}
+        </nav>
+      </header>
   );
 }
