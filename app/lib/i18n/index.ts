@@ -1,26 +1,43 @@
 import { defaultLocale, isLocale, locales, localeSettings, type Locale, type LocaleRecord } from './locales';
 import { commonMessages, type CommonMessages } from './translations/common';
 import { homeMessages, type HomeMessages, type HomeNamespaceSchema } from './translations/home';
+import { aboutMessages, type AboutMessages, type AboutNamespaceSchema } from './translations/about';
+import { productsMessages, type ProductsMessages, type ProductsNamespaceSchema } from './translations/products';
 
 export { defaultLocale, isLocale, locales, localeSettings };
-export type { Locale, CommonMessages, HomeMessages, HomeNamespaceSchema };
+export type {
+  Locale,
+  CommonMessages,
+  HomeMessages,
+  HomeNamespaceSchema,
+  AboutMessages,
+  AboutNamespaceSchema,
+  ProductsMessages,
+  ProductsNamespaceSchema
+};
 
-export const namespaces = ['common', 'home'] as const;
+export const namespaces = ['common', 'home', 'about', 'products'] as const;
 export type Namespace = (typeof namespaces)[number];
 
 const namespaceRegistry = {
   common: commonMessages,
-  home: homeMessages
+  home: homeMessages,
+  about: aboutMessages,
+  products: productsMessages
 } as const;
 
 export const staticResources = {
   fa: {
     common: namespaceRegistry.common.fa,
-    home: namespaceRegistry.home.fa
+    home: namespaceRegistry.home.fa,
+    about: namespaceRegistry.about.fa,
+    products: namespaceRegistry.products.fa
   },
   en: {
     common: namespaceRegistry.common.en,
-    home: namespaceRegistry.home.en
+    home: namespaceRegistry.home.en,
+    about: namespaceRegistry.about.en,
+    products: namespaceRegistry.products.en
   }
 } as const;
 
@@ -38,24 +55,39 @@ export const getNamespaceMessages = <L extends Locale, N extends Namespace>(
 
 const namespaceLoaders = {
   common: () => import('./translations/common'),
-  home: () => import('./translations/home')
+  home: () => import('./translations/home'),
+  about: () => import('./translations/about'),
+  products: () => import('./translations/products')
 } as const;
 
 export async function loadMessages(
   locale: Locale,
   namespace: Namespace
-): Promise<CommonMessages | HomeMessages> {
+): Promise<CommonMessages | HomeMessages | AboutMessages | ProductsMessages> {
   if (process.env.NODE_ENV !== 'production') {
     return staticResources[locale][namespace];
   }
 
-  if (namespace === 'common') {
-    const mod = await namespaceLoaders.common();
-    return mod.commonMessages[locale];
+  switch (namespace) {
+    case 'common': {
+      const mod = await namespaceLoaders.common();
+      return mod.commonMessages[locale];
+    }
+    case 'home': {
+      const mod = await namespaceLoaders.home();
+      return mod.homeMessages[locale];
+    }
+    case 'about': {
+      const mod = await namespaceLoaders.about();
+      return mod.aboutMessages[locale];
+    }
+    case 'products': {
+      const mod = await namespaceLoaders.products();
+      return mod.productsMessages[locale];
+    }
+    default:
+      return staticResources[locale][namespace];
   }
-
-  const mod = await namespaceLoaders.home();
-  return mod.homeMessages[locale];
 }
 
 type Primitive = string | number | boolean;
