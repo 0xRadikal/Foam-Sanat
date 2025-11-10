@@ -335,6 +335,7 @@ function ConsentBanner({ consent, isRTL }: { consent: HomeConsentMessages; isRTL
   const [hasConsent, setHasConsent] = useState(false);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const consent = localStorage.getItem('foam-sanat-analytics-consent');
     if (!consent) {
       setShowConsent(true);
@@ -391,7 +392,6 @@ export default function FoamSanatWebsite() {
   const [theme, setTheme] = useLocalStorage<Theme>('foam-sanat-theme', 'light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   const messages = getAllMessages(lang);
   const common = messages.common;
@@ -399,10 +399,7 @@ export default function FoamSanatWebsite() {
   const isRTL = localeSettings[lang].dir === 'rtl';
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
     };
@@ -423,8 +420,6 @@ export default function FoamSanatWebsite() {
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   }, [theme, setTheme]);
-
-  if (!mounted) return null;
 
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
