@@ -50,6 +50,8 @@ export type HomeNamespaceSchema = {
       sending: string;
       success: string;
       error: string;
+      captchaError: string;
+      rateLimitError: string;
     };
     info: {
       title: string;
@@ -162,7 +164,9 @@ export const homeMessages = {
         submit: 'ارسال پیام',
         sending: 'در حال ارسال...',
         success: 'پیام شما با موفقیت ارسال شد',
-        error: 'خطا در ارسال پیام'
+        error: 'خطا در ارسال پیام',
+        captchaError: 'لطفاً تأیید امنیتی را تکمیل کنید.',
+        rateLimitError: 'درخواست‌های متعددی ارسال شده است. لطفاً بعداً تلاش کنید.'
       },
       info: {
         title: 'اطلاعات تماس',
@@ -273,7 +277,9 @@ export const homeMessages = {
         submit: 'Send Message',
         sending: 'Sending...',
         success: 'Your message has been sent successfully',
-        error: 'Error sending message'
+        error: 'Error sending message',
+        captchaError: 'Please complete the security check.',
+        rateLimitError: 'Too many requests. Please try again later.'
       },
       info: {
         title: 'Contact Information',
