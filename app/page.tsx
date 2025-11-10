@@ -4,11 +4,10 @@
 // ============================================
 
 'use client';
-import Link from 'next/link';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
-  Menu, X, Globe, Sun, Moon, ChevronDown, Phone, Mail, MapPin,
+  ChevronDown, Phone, Mail, MapPin,
   Award, Shield, Users, Wrench, CheckCircle, ArrowRight, Factory,
   Zap, HeartHandshake, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
@@ -22,6 +21,7 @@ import {
   type HomeNamespaceSchema,
   type Locale
 } from '@/app/lib/i18n';
+import Header from '@/app/components/Header';
 
 // ============================================
 // TYPE DEFINITIONS
@@ -424,10 +424,22 @@ export default function FoamSanatWebsite() {
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
-  const headerBg = isDark ? 'bg-gray-800/95' : 'bg-white/95';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  const headerNavItems = useMemo(
+    () => [
+      { key: 'home', label: common.nav.home, href: '#home' },
+      { key: 'products', label: common.nav.products, href: '#products' },
+      { key: 'whyUs', label: common.nav.whyUs, href: '#why-us' },
+      { key: 'faq', label: common.nav.faq, href: '#faq' },
+      { key: 'contact', label: common.nav.contact, href: '#contact', variant: 'button' as const }
+    ],
+    [common.nav.contact, common.nav.faq, common.nav.home, common.nav.products, common.nav.whyUs]
+  );
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen((prev) => !prev);
+  }, []);
 
   return (
     <div 
@@ -477,123 +489,18 @@ export default function FoamSanatWebsite() {
         {isRTL ? 'پرش به محتوا' : 'Skip to content'}
       </a>
 
-      {/* Header */}
-      <header 
-        className={`fixed top-0 w-full z-40 transition-all duration-300 ${
-          scrolled ? `${headerBg} backdrop-blur-md shadow-lg` : 'bg-transparent'
-        }`}
-        role="banner"
-      >
-        <nav className="container mx-auto px-4 py-4" aria-label="Main navigation">
-          <div className="flex justify-between items-center">
-            <a href="#home" className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
-                <span className="text-white font-bold text-lg">FS</span>
-              </div>
-              <div className="hidden sm:block">
-              <div className="font-bold text-lg leading-tight">{common.companyName}</div>
-              <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{common.tagline}</div>
-              </div>
-            </a>
-
-            <div className="hidden md:flex gap-6 items-center">
-              {Object.entries(common.nav).slice(0, 4).map(([key, value]) => (
-                <a
-                  key={key}
-                  href={`#${key}`}
-                  className="hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1"
-                >
-                  {value}
-                </a>
-              ))}
-              <a 
-                href="#contact" 
-                className="bg-orange-500 text-white px-6 py-2.5 rounded-lg hover:bg-orange-600 transition-all font-semibold shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
-              >
-              {common.nav.contact}
-              </a>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={toggleLang}
-                className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
-                aria-label={isRTL ? 'تغییر زبان به انگلیسی' : 'Switch to Persian'}
-                title={lang === 'fa' ? 'English' : 'فارسی'}
-              >
-                <Globe className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={toggleTheme}
-                className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
-                aria-label={isDark ? (isRTL ? 'تغییر به حالت روشن' : 'Switch to light mode') : (isRTL ? 'تغییر به حالت تاریک' : 'Switch to dark mode')}
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button 
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className={`md:hidden p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
-                aria-label={mobileMenuOpen ? 'بستن منو' : 'باز کردن منو'}
-                aria-expanded={mobileMenuOpen}
-                aria-controls="mobile-menu"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-
-          {mobileMenuOpen && (
-            <div 
-              id="mobile-menu"
-              className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
-              role="menu"
-            >
-              
-{Object.entries(common.nav).map(([key, value]) => {
-  const hrefMap: Record<string, string> = {
-    home: '/',
-    about: '/about',
-    products: '/products',
-    whyUs: '/#why-us',
-    faq: '/#faq',
-    contact: '/#contact',
-  };
-
-  const href = hrefMap[key] || '/';
-
-  // تشخیص اینکه مسیر Page هست یا Anchor
-  const isPageRoute = href.startsWith('/about') || href.startsWith('/products');
-
-  if (isPageRoute) {
-    return (
-      <Link
-        key={key}
-        href={href}
-        className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
-        onClick={() => setMobileMenuOpen(false)}
-        role="menuitem"
-      >
-        {value}
-      </Link>
-    );
-  } else {
-    return (
-      <a
-        key={key}
-        href={href}
-        className={`block px-4 py-3 rounded-lg transition-colors ${hoverBg}`}
-        onClick={() => setMobileMenuOpen(false)}
-        role="menuitem"
-      >
-        {value}
-      </a>
-    );
-  }
-})}
-            </div>
-          )}
-        </nav>
-      </header>
+      <Header
+        lang={lang}
+        theme={theme}
+        companyName={common.companyName}
+        tagline={common.tagline}
+        navItems={headerNavItems}
+        scrolled={scrolled}
+        mobileMenuOpen={mobileMenuOpen}
+        onLangToggle={toggleLang}
+        onThemeToggle={toggleTheme}
+        onMobileMenuToggle={toggleMobileMenu}
+      />
 
       <main id="main-content" role="main">
         {/* Hero with Slider */}
