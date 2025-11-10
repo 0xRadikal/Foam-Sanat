@@ -14,20 +14,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
-
 import { prisma } from '@/lib/prisma';
 import { rateLimitByIp } from '@/lib/rate-limit';
-import { verifyTurnstileToken } from '@/lib/turnstile';
-
-const contactSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters long.'),
-  email: z.string().email('Please provide a valid email address.'),
-  message: z.string().min(10, 'Message must be at least 10 characters long.'),
-  turnstileToken: z.string().min(1, 'Turnstile token is required.'),
-});
-
-type ContactPayload = z.infer<typeof contactSchema>;
+import { verifyTurnstileToken } from '@/lib/captcha/verify-turnstile';
+import {
+  contactApiSchema,
+  type ContactApiPayload,
+} from '@/lib/validations/contact-schema';
 
 const ONE_MINUTE_MS = 60_000;
 
@@ -50,22 +43,18 @@ function extractClientIp(req: Request): string | undefined {
   return undefined;
 }
 
-function buildValidationError(error: z.ZodError<ContactPayload>) {
-  return error.format();
-}
-
 export async function POST(req: Request) {
-  let parsedBody: ContactPayload;
+  let parsedBody: ContactApiPayload;
 
   try {
     const body = await req.json();
-    const result = contactSchema.safeParse(body);
+    const result = contactApiSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
         {
           success: false,
           error: 'Validation',
-          details: buildValidationError(result.error),
+          details: result.error.format(),
         },
         { status: 400 },
       );
@@ -111,11 +100,13 @@ export async function POST(req: Request) {
       );
     }
 
+    const { turnstileToken, ...messagePayload } = parsedBody;
+
+    const { phone: _phone, ...persistablePayload } = messagePayload;
+
     const record = await prisma.contactMessage.create({
       data: {
-        name: parsedBody.name,
-        email: parsedBody.email,
-        message: parsedBody.message,
+        ...persistablePayload,
         ip: clientIp === 'unknown' ? null : clientIp,
         userAgent,
       },
