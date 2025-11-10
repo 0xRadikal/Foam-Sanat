@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./.tests-dist",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force"
+  },
+  "include": [
+    "app/api/contact/route.ts",
+    "app/api/contact/route.test.ts"
+  ]
+}
