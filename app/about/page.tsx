@@ -1,13 +1,15 @@
 // app/about/page.tsx - نسخه حرفه‌ای و کامل
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { 
-  Globe, Sun, Moon, Menu, X, ArrowRight, Phone, Mail, MapPin,
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import {
+  Globe, ArrowRight, Phone, Mail, MapPin,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
   Shield, Lightbulb, Heart, Leaf, Target, Eye, CheckCircle,
   Sparkles, Zap, Factory, Gauge, Clock, Calendar, ChevronDown
 } from 'lucide-react';
+import Header from '@/app/components/Header';
+import type { Locale } from '@/app/lib/i18n';
 
 // Animated Counter
 function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
@@ -60,7 +62,7 @@ function ParallaxSection({ children, speed = 0.5 }: { children: React.ReactNode;
   );
 }
 export default function AboutPage() {
-  const [lang, setLang] = useState<'fa' | 'en'>('fa');
+  const [lang, setLang] = useState<Locale>('fa');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -93,23 +95,22 @@ export default function AboutPage() {
       });
     }
   }, []);
-  const toggleLang = () => {
+  const toggleLang = useCallback(() => {
     const newLang = lang === 'fa' ? 'en' : 'fa';
     setLang(newLang);
     localStorage.setItem('foam-sanat-lang', JSON.stringify(newLang));
-  };
+  }, [lang]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     localStorage.setItem('foam-sanat-theme', JSON.stringify(newTheme));
-  };
+  }, [theme]);
 
   const isRTL = lang === 'fa';
   const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
-  const headerBg = isDark ? 'bg-gray-800/95' : 'bg-white/95';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
 
@@ -518,6 +519,18 @@ export default function AboutPage() {
 
   const t = content[lang];
   const timelineIcons = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
+  const headerNavItems = useMemo(
+    () =>
+      Object.entries(t.nav).map(([key, label]) => ({
+        key,
+        label,
+        href: key === 'home' ? '/' : `/${key}`
+      })),
+    [t.nav]
+  );
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen((prev) => !prev);
+  }, []);
 
   return (
     <div 
@@ -525,57 +538,19 @@ export default function AboutPage() {
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily: lang === 'fa' ? 'Vazirmatn, sans-serif' : 'system-ui, sans-serif' }}
     >
-      {/* Header */}
-      <header className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        scrolled ? `${headerBg} backdrop-blur-lg shadow-2xl` : 'bg-transparent'
-      }`}>
-        <nav className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <a href="/" className="flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <span className="text-white font-bold text-lg">FS</span>
-              </div>
-              <span className="font-bold text-lg hidden sm:block">{t.companyName}</span>
-            </a>
-
-            <div className="hidden md:flex gap-6 items-center">
-              {Object.entries(t.nav).map(([key, value]) => (
-                <a 
-                  key={key}
-                  href={key === 'home' ? '/' : `/${key}`}
-                  className={`hover:text-orange-500 transition-colors font-medium ${
-                    key === 'about' ? 'text-orange-500 font-bold' : ''
-                  }`}
-                >
-                  {value}
-                </a>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button onClick={toggleLang} className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors">
-                <Globe className="w-5 h-5" />
-              </button>
-              <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-gray-700/50 transition-colors">
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg hover:bg-gray-700/50">
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-
-          {mobileMenuOpen && (
-            <div className="md:hidden mt-4 py-4 border-t border-gray-700 space-y-2">
-              {Object.entries(t.nav).map(([key, value]) => (
-                <a key={key} href={key === 'home' ? '/' : `/${key}`} className="block px-4 py-3 rounded-lg hover:bg-gray-700/50">
-                  {value}
-                </a>
-              ))}
-            </div>
-          )}
-        </nav>
-      </header>
+      <Header
+        lang={lang}
+        theme={theme}
+        companyName={t.companyName}
+        navItems={headerNavItems}
+        activeNavKey="about"
+        logoHref="/"
+        scrolled={scrolled}
+        mobileMenuOpen={mobileMenuOpen}
+        onLangToggle={toggleLang}
+        onThemeToggle={toggleTheme}
+        onMobileMenuToggle={toggleMobileMenu}
+      />
 
       {/* Hero Section with Animation */}
       <section className="relative pt-32 pb-20 px-4 overflow-hidden min-h-screen flex items-center">
