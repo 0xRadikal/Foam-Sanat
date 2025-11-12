@@ -1,6 +1,7 @@
 // app/layout.tsx - Enhanced with SEO, Security, Manifest
 import type { Metadata } from 'next';
 import Script from 'next/script';
+import { defaultLocale, localeSettings } from '@/app/lib/i18n';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -84,6 +85,13 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
 };
 
+const defaultLang = defaultLocale;
+const defaultLocaleConfig = localeSettings[defaultLang];
+const shouldLoadVazirmatn = defaultLang === 'fa';
+const defaultBodyFont = shouldLoadVazirmatn
+  ? 'Vazirmatn, system-ui, sans-serif'
+  : 'system-ui, sans-serif';
+
 export default function RootLayout({
   children,
 }: {
@@ -92,7 +100,7 @@ export default function RootLayout({
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
-    <html lang="fa" suppressHydrationWarning>
+    <html lang={defaultLang} dir={defaultLocaleConfig.dir} suppressHydrationWarning>
       <head>
         {/* Preconnect to external resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -105,10 +113,12 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
         
         {/* Vazirmatn Font - Persian */}
-        <link
-          href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css"
-          rel="stylesheet"
-        />
+        {shouldLoadVazirmatn && (
+          <link
+            href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css"
+            rel="stylesheet"
+          />
+        )}
 
         {/* Theme Color */}
         <meta name="theme-color" content="#FF6700" />
@@ -148,7 +158,11 @@ export default function RootLayout({
           </>
         )}
       </head>
-      <body className="antialiased" suppressHydrationWarning style={{ fontFamily: 'Vazirmatn, system-ui, sans-serif' }}>
+      <body
+        className="antialiased"
+        suppressHydrationWarning
+        style={{ fontFamily: defaultBodyFont }}
+      >
         {children}
         <Script
           id="hydration-fix"
