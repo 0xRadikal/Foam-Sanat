@@ -154,10 +154,18 @@ export default function Header({
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <button 
+            <button
               onClick={onMobileMenuToggle}
               className={`md:hidden p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
-              aria-label={mobileMenuOpen ? 'بستن منو' : 'باز کردن منو'}
+              aria-label={
+                mobileMenuOpen
+                  ? isRTL
+                    ? 'بستن منو'
+                    : 'Close menu'
+                  : isRTL
+                  ? 'باز کردن منو'
+                  : 'Open menu'
+              }
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu"
             >
