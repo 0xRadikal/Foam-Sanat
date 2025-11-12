@@ -93,6 +93,41 @@ describe('contact POST handler', () => {
       },
     });
 
+    const warnMock = mock.method(console, 'warn', () => undefined);
+    const errorMock = mock.method(console, 'error', () => undefined);
+
+    let response;
+    try {
+      response = await POST(request);
+    } finally {
+      warnMock.mock.restore();
+      errorMock.mock.restore();
+    }
+
+    const payload = await response.json();
+
+    assert.equal(response.ok, false);
+    assert.equal(response.status, 400);
+    assert.deepEqual(payload, {
+      success: false,
+      message: 'Invalid request payload.',
+    });
+
+    assert.equal(warnMock.mock.calls.length, 1);
+    const [, logPayload] = warnMock.mock.calls[0].arguments;
+    assert.deepEqual(logPayload, {
+      reason: 'name is too short.',
+    });
+    assert.equal(errorMock.mock.calls.length, 0);
+  });
+
+  it('returns a 500 response when request processing fails unexpectedly', async () => {
+    const request = {
+      async json() {
+        throw new Error('boom');
+      },
+    } as unknown as Request;
+
     const errorMock = mock.method(console, 'error', () => undefined);
 
     let response;
@@ -105,10 +140,12 @@ describe('contact POST handler', () => {
     const payload = await response.json();
 
     assert.equal(response.ok, false);
-    assert.equal(response.status, 400);
+    assert.equal(response.status, 500);
     assert.deepEqual(payload, {
       success: false,
-      message: 'Invalid request payload.',
+      message: 'Unable to process contact request at this time.',
     });
+
+    assert.equal(errorMock.mock.calls.length, 1);
   });
 });
