@@ -127,7 +127,9 @@ function HeroSlider({
           <div
             key={index}
             className={`absolute inset-0 transition-all duration-700 ease-in-out ${
-              index === current ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'
+              index === current
+                ? 'opacity-100 translate-x-0'
+                : `opacity-0 ${isRTL ? '-translate-x-full' : 'translate-x-full'}`
             }`}
             style={{
               transform: index === current ? 'translateX(0)' : isRTL ? 'translateX(-100%)' : 'translateX(100%)'
