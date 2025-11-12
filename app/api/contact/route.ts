@@ -6,6 +6,34 @@ const CONTACT_PHONE =
   process.env.NEXT_PUBLIC_CONTACT_PHONE ?? '+989197302064';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://foamsanat.com';
 
+type ContactPayload = {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+};
+
+class InvalidContactPayloadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidContactPayloadError';
+  }
+}
+
+function isInvalidPayloadError(error: unknown): boolean {
+  return (
+    error instanceof InvalidContactPayloadError || error instanceof SyntaxError
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && typeof error.message === 'string') {
+    return error.message;
+  }
+
+  return 'Unknown error';
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -25,29 +53,29 @@ export async function POST(request: Request) {
       message: 'Contact request received.',
     });
   } catch (error) {
+    if (isInvalidPayloadError(error)) {
+      console.warn('Rejected invalid contact form submission', {
+        reason: getErrorMessage(error),
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid request payload.',
+        },
+        { status: 400 },
+      );
+    }
+
     console.error('Failed to process contact form submission:', error);
 
     return NextResponse.json(
       {
         success: false,
-        message: 'Invalid request payload.',
+        message: 'Unable to process contact request at this time.',
       },
-      { status: 400 },
+      { status: 500 },
     );
-  }
-}
-
-type ContactPayload = {
-  name: string;
-  email: string;
-  phone: string;
-  message: string;
-};
-
-class InvalidContactPayloadError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'InvalidContactPayloadError';
   }
 }
 
