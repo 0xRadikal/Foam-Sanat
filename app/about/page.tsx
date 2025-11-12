@@ -523,10 +523,6 @@ export default function AboutPage() {
         </div>
       )}
 
-      {lang === 'fa' && (
-        <link href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css" rel="stylesheet" />
-      )}
-
       <style jsx>{`
         @keyframes float {
           0%, 100% { transform: translateY(0) scale(1); }

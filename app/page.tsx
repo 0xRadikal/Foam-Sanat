@@ -831,13 +831,6 @@ export default function FoamSanatWebsite() {
       {/* Consent Banner */}
       <ConsentBanner consent={home.consent} isRTL={isRTL} />
 
-      {/* Vazirmatn Font for Persian */}
-      {lang === 'fa' && (
-        <link
-          href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css"
-          rel="stylesheet"
-        />
-      )}
     </div>
   );
 }
