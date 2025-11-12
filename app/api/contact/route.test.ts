@@ -10,7 +10,8 @@ describe('contact POST handler', () => {
       body: JSON.stringify({
         name: 'Test User',
         email: 'user@example.com',
-        message: 'Hello',
+        phone: '+1 (555) 010-0000',
+        message: 'Hello from the test suite!',
       }),
       headers: {
         'content-type': 'application/json',
@@ -42,6 +43,7 @@ describe('contact POST handler', () => {
       body: JSON.stringify({
         name: 'Sensitive Name',
         email: 'sensitive@example.com',
+        phone: '+44 20 7946 0123',
         message: 'Sensitive message',
       }),
       headers: {
@@ -68,11 +70,45 @@ describe('contact POST handler', () => {
         payload: {
           name: '[REDACTED]',
           email: '[REDACTED]',
+          phone: '[REDACTED]',
           message: '[REDACTED]',
         },
       });
     } finally {
       infoMock.mock.restore();
     }
+  });
+
+  it('rejects malformed payloads with a 400 response', async () => {
+    const request = new Request('http://localhost/api/contact', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: '  ',
+        email: 'invalid-email',
+        phone: 'abc',
+        message: 'short',
+      }),
+      headers: {
+        'content-type': 'application/json',
+      },
+    });
+
+    const errorMock = mock.method(console, 'error', () => undefined);
+
+    let response;
+    try {
+      response = await POST(request);
+    } finally {
+      errorMock.mock.restore();
+    }
+
+    const payload = await response.json();
+
+    assert.equal(response.ok, false);
+    assert.equal(response.status, 400);
+    assert.deepEqual(payload, {
+      success: false,
+      message: 'Invalid request payload.',
+    });
   });
 });
