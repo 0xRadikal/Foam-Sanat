@@ -6,7 +6,7 @@ import {
   Globe, ArrowRight, Phone, Mail, MapPin,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
   Shield, Lightbulb, Heart, Leaf, Target, Eye, CheckCircle,
-  Sparkles, Zap, Factory, Gauge, Clock, Calendar, ChevronDown
+  Sparkles, Zap, Gauge, Clock, ChevronDown
 } from 'lucide-react';
 import Header from '@/app/components/Header';
 import { getNamespaceMessages } from '@/app/lib/i18n';
@@ -44,24 +44,6 @@ function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
   return <div ref={ref}>{count}</div>;
 }
 
-// Parallax Section
-function ParallaxSection({ children, speed = 0.5 }: { children: React.ReactNode; speed?: number }) {
-  const [offset, setOffset] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setOffset(window.pageYOffset * speed);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [speed]);
-
-  return (
-    <div style={{ transform: `translateY(${offset}px)` }} className="transition-transform">
-      {children}
-    </div>
-  );
-}
 export default function AboutPage() {
   const {
     lang,
