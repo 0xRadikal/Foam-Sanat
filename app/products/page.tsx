@@ -3,14 +3,83 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Phone, Mail, MapPin, X,
-  Factory, Zap, Gauge, Wrench, Shield, Award, TrendingUp,
-  ChevronDown, Filter, Search, ExternalLink, Download, Check,
-  Sparkles, Users, Target, Eye, Heart, Leaf, ChevronLeft, ChevronRight,
+  Factory, Zap, Gauge, Wrench, Shield, Award,
+  Search, Check,
+  Sparkles, Users, Target, ChevronLeft, ChevronRight,
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
 import Header from '@/app/components/Header';
-import { getNamespaceMessages } from '@/app/lib/i18n';
+import { getNamespaceMessages, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
+
+type Product = ProductsNamespaceSchema['products'][number];
+
+type ProductCommentReply = {
+  id: number;
+  author: string;
+  text: string;
+  date: string;
+  isAdmin?: boolean;
+};
+
+type ProductComment = {
+  id: number;
+  rating: number;
+  author: string;
+  email: string;
+  text: string;
+  date: string;
+  replies: ProductCommentReply[];
+};
+
+type CommentsState = Record<string, ProductComment[]>;
+
+type DraftComment = {
+  rating: number;
+  text: string;
+  author: string;
+  email: string;
+};
+
+const isProductCommentReply = (value: unknown): value is ProductCommentReply => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const reply = value as Partial<ProductCommentReply>;
+  return (
+    typeof reply.id === 'number' &&
+    typeof reply.author === 'string' &&
+    typeof reply.text === 'string' &&
+    typeof reply.date === 'string' &&
+    (reply.isAdmin === undefined || typeof reply.isAdmin === 'boolean')
+  );
+};
+
+const isProductComment = (value: unknown): value is ProductComment => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const comment = value as Partial<ProductComment>;
+  return (
+    typeof comment.id === 'number' &&
+    typeof comment.rating === 'number' &&
+    typeof comment.author === 'string' &&
+    typeof comment.email === 'string' &&
+    typeof comment.text === 'string' &&
+    typeof comment.date === 'string' &&
+    Array.isArray(comment.replies) &&
+    comment.replies.every(isProductCommentReply)
+  );
+};
+
+const isCommentsState = (value: unknown): value is CommentsState => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  return Object.values(value as Record<string, unknown>).every(
+    (entry) => Array.isArray(entry) && entry.every(isProductComment)
+  );
+};
 
 export default function ProductsPage() {
   const {
@@ -27,12 +96,12 @@ export default function ProductsPage() {
   const [scrolled, setScrolled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [comments, setComments] = useState<Record<string, any>>({});
-  const [newComment, setNewComment] = useState({ rating: 5, text: '', author: '', email: '' });
+  const [comments, setComments] = useState<CommentsState>({});
+  const [newComment, setNewComment] = useState<DraftComment>({ rating: 5, text: '', author: '', email: '' });
   const [showPriceModal, setShowPriceModal] = useState(false);
-  const [priceProduct, setPriceProduct] = useState<any>(null);
+  const [priceProduct, setPriceProduct] = useState<Product | null>(null);
   const [replyingTo, setReplyingTo] = useState<number | null>(null);
   const [replyText, setReplyText] = useState('');
   
@@ -46,9 +115,12 @@ export default function ProductsPage() {
     const savedComments = localStorage.getItem('product-comments');
     if (savedComments) {
       try {
-        setComments(JSON.parse(savedComments));
-      } catch (e) {
-        console.error('Failed to load comments:', e);
+        const parsed = JSON.parse(savedComments) as unknown;
+        if (isCommentsState(parsed)) {
+          setComments(parsed);
+        }
+      } catch (error) {
+        console.error('Failed to load comments:', error);
       }
     }
   }, []);
@@ -100,7 +172,7 @@ export default function ProductsPage() {
   }, [selectedProduct]);
 
   // Save comments
-  const saveComments = useCallback((updatedComments: Record<string, any>) => {
+  const saveComments = useCallback((updatedComments: CommentsState) => {
     setComments(updatedComments);
     localStorage.setItem('product-comments', JSON.stringify(updatedComments));
   }, []);
@@ -109,11 +181,11 @@ export default function ProductsPage() {
   // Add comment handler
   const handleAddComment = useCallback((productId: string) => {
     if (!newComment.text.trim() || !newComment.author.trim()) return;
-    
-    const updated: Record<string, any> = { ...comments };
-    if (!updated[productId]) updated[productId] = [];
-    
-    updated[productId].push({
+
+    const updated: CommentsState = { ...comments };
+    const productComments = [...(updated[productId] ?? [])];
+
+    productComments.push({
       id: Date.now(),
       rating: newComment.rating,
       author: newComment.author,
@@ -122,16 +194,19 @@ export default function ProductsPage() {
       date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
       replies: []
     });
-    
+
+    updated[productId] = productComments;
+
     saveComments(updated);
     setNewComment({ rating: 5, text: '', author: '', email: '' });
   }, [newComment, comments, saveComments, lang]);
 
   // Delete comment handler
   const handleDeleteComment = useCallback((productId: string, commentId: number) => {
-    const updated: Record<string, any> = { ...comments };
-    if (updated[productId]) {
-      updated[productId] = updated[productId].filter((c: any) => c.id !== commentId);
+    const updated: CommentsState = { ...comments };
+    const productComments = updated[productId];
+    if (productComments) {
+      updated[productId] = productComments.filter((comment) => comment.id !== commentId);
       saveComments(updated);
     }
   }, [comments, saveComments]);
@@ -139,20 +214,32 @@ export default function ProductsPage() {
   // Reply handler
   const handleReply = useCallback((productId: string, commentId: number, replyTxt: string) => {
     if (!replyTxt.trim()) return;
-    
-    const updated: Record<string, any> = { ...comments };
-    const comment = updated[productId]?.find((c: any) => c.id === commentId);
-    if (comment) {
-      if (!comment.replies) comment.replies = [];
-      comment.replies.push({
-        id: Date.now(),
-        author: lang === 'fa' ? 'مدیر سایت' : 'Site Admin',
-        text: replyTxt,
-        date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
-        isAdmin: true
-      });
-      saveComments(updated);
+
+    const updated: CommentsState = { ...comments };
+    const productComments = updated[productId];
+    if (!productComments) {
+      return;
     }
+
+    updated[productId] = productComments.map((comment) =>
+      comment.id === commentId
+        ? {
+            ...comment,
+            replies: [
+              ...comment.replies,
+              {
+                id: Date.now(),
+                author: lang === 'fa' ? 'مدیر سایت' : 'Site Admin',
+                text: replyTxt,
+                date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
+                isAdmin: true
+              }
+            ]
+          }
+        : comment
+    );
+
+    saveComments(updated);
   }, [comments, saveComments, lang]);
 
   // Styles
@@ -178,27 +265,27 @@ export default function ProductsPage() {
     label,
     href: key === 'home' ? '/' : `/${key}`
   }));
-  const products = t.products;
+  const products = t.products as Product[];
 
   // Filtered products
   const filteredProducts = useMemo(() => {
-    return selectedCategory === 'all' 
-      ? products 
-      : products.filter((p: any) => p.category === selectedCategory);
+    return selectedCategory === 'all'
+      ? products
+      : products.filter((product) => product.category === selectedCategory);
   }, [products, selectedCategory]);
 
   const searchedProducts = useMemo(() => {
-    return searchTerm === '' 
-      ? filteredProducts 
-      : filteredProducts.filter((p: any) => 
-          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.applications.some((app: string) => app.toLowerCase().includes(searchTerm.toLowerCase()))
+    return searchTerm === ''
+      ? filteredProducts
+      : filteredProducts.filter((product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.applications.some((app) => app.toLowerCase().includes(searchTerm.toLowerCase()))
         );
   }, [filteredProducts, searchTerm]);
 
   // Modal Components
-  const PriceModal = ({ product, onClose }: { product: any; onClose: () => void }) => {
+  const PriceModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
     if (!product) return null;
     
     return (
@@ -251,10 +338,10 @@ export default function ProductsPage() {
     );
   };
 
-  const ProductDetailModal = ({ product, onClose }: { product: any; onClose: () => void }) => {
+  const ProductDetailModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
     if (!product) return null;
 
-    const productComments: any[] = comments[product.id] || [];
+    const productComments: ProductComment[] = comments[product.id] ?? [];
 
     return (
       <div 
@@ -299,7 +386,7 @@ export default function ProductsPage() {
                     <ChevronRight className="w-6 h-6" />
                   </button>
                   <div className="flex justify-center gap-2 mt-4">
-                    {product.images.map((_: any, i: number) => (
+                    {product.images.map((_, i) => (
                       <button
                         key={i}
                         onClick={() => setCurrentSlide(i)}
@@ -364,7 +451,7 @@ export default function ProductsPage() {
                   {t.ui.specifications}
                 </h3>
               <div className="grid sm:grid-cols-2 gap-4">
-                {Object.entries(product.specs).map(([key, value]: [string, any]) => (
+                {Object.entries(product.specs).map(([key, value]) => (
                   <div key={key} className={`p-4 rounded-xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
                     <p className="text-sm font-bold text-orange-600 mb-1 capitalize">{key}</p>
                     <p className="font-bold">{String(value)}</p>
@@ -378,12 +465,12 @@ export default function ProductsPage() {
               <h3 className="text-xl md:text-2xl font-black mb-4" style={{ fontFamily: isRTL ? 'Vazirmatn, sans-serif' : 'system-ui' }}>
                 {t.ui.applications}
               </h3>
-              <div className="flex flex-wrap gap-3">
-                {product.applications.map((app: string, i: number) => (
-                  <span key={i} className="px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-full font-bold text-sm">
-                    ✓ {app}
-                  </span>
-                ))}
+                <div className="flex flex-wrap gap-3">
+                  {product.applications.map((app, i) => (
+                    <span key={i} className="px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-full font-bold text-sm">
+                      ✓ {app}
+                    </span>
+                  ))}
               </div>
             </div>
 
@@ -481,8 +568,8 @@ export default function ProductsPage() {
                 {t.comments.noComments}
               </p>
             ) : (
-              <div className="space-y-6">
-                {productComments.map((comment: any) => (
+                <div className="space-y-6">
+                  {productComments.map((comment) => (
                   <div key={comment.id} className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
                     <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
                       <div>
@@ -498,8 +585,8 @@ export default function ProductsPage() {
                       </button>
                     </div>
 
-                    <div className="flex gap-0.5 mb-3">
-                      {[...Array(5)].map((_: number, i: number) => (
+                      <div className="flex gap-0.5 mb-3">
+                        {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
                           className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
@@ -510,9 +597,9 @@ export default function ProductsPage() {
                     <p className="mb-4">{comment.text}</p>
 
                     {/* Replies */}
-                    {comment.replies && comment.replies.length > 0 && (
-                      <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
-                        {comment.replies.map((reply: any) => (
+                      {comment.replies.length > 0 && (
+                        <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
+                          {comment.replies.map((reply) => (
                           <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
                             <p className="font-bold text-sm text-orange-600">{reply.author}</p>
                             <p className="text-xs text-gray-500 mb-1">{reply.date}</p>

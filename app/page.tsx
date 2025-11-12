@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   ChevronDown, Phone, Mail, MapPin,
-  Award, Shield, Users, Wrench, CheckCircle, ArrowRight, Factory,
+  Award, Shield, Users, Wrench, CheckCircle, ArrowRight,
   Zap, HeartHandshake, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 import Script from 'next/script';
@@ -208,6 +208,7 @@ function ContactForm({
     message: ''
   });
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const labelAlignment = isRTL ? 'text-right' : 'text-left';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,21 +230,26 @@ function ContactForm({
         setTimeout(() => setStatus('idle'), 5000);
       }
     } catch (error) {
+      console.error('Failed to submit contact form', error);
       setStatus('error');
       setTimeout(() => setStatus('idle'), 5000);
     }
   };
 
   const inputClasses = `w-full px-4 py-3 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-    isDark 
-      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
+    isDark
+      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
   }`;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`}
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
       <div>
-        <label className="block mb-2 font-semibold" htmlFor="name">
+        <label className={`block mb-2 font-semibold ${labelAlignment}`} htmlFor="name">
           {contact.form.name}
         </label>
         <input
@@ -258,7 +264,7 @@ function ContactForm({
       </div>
 
       <div>
-        <label className="block mb-2 font-semibold" htmlFor="email">
+        <label className={`block mb-2 font-semibold ${labelAlignment}`} htmlFor="email">
           {contact.form.email}
         </label>
         <input
@@ -273,7 +279,7 @@ function ContactForm({
       </div>
 
       <div>
-        <label className="block mb-2 font-semibold" htmlFor="phone">
+        <label className={`block mb-2 font-semibold ${labelAlignment}`} htmlFor="phone">
           {contact.form.phone}
         </label>
         <input
@@ -288,7 +294,7 @@ function ContactForm({
       </div>
 
       <div>
-        <label className="block mb-2 font-semibold" htmlFor="message">
+        <label className={`block mb-2 font-semibold ${labelAlignment}`} htmlFor="message">
           {contact.form.message}
         </label>
         <textarea
@@ -334,21 +340,17 @@ function ContactForm({
 // ============================================
 function ConsentBanner({ consent, isRTL }: { consent: HomeConsentMessages; isRTL: boolean }) {
   const [showConsent, setShowConsent] = useState(false);
-  const [hasConsent, setHasConsent] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const consent = localStorage.getItem('foam-sanat-analytics-consent');
     if (!consent) {
       setShowConsent(true);
-    } else if (consent === 'accepted') {
-      setHasConsent(true);
     }
   }, []);
 
   const handleAccept = () => {
     localStorage.setItem('foam-sanat-analytics-consent', 'accepted');
-    setHasConsent(true);
     setShowConsent(false);
     // Initialize GA
     if (window.gtag) {
@@ -366,7 +368,10 @@ function ConsentBanner({ consent, isRTL }: { consent: HomeConsentMessages; isRTL
   if (!showConsent) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 bg-gray-900 text-white p-6 rounded-lg shadow-2xl animate-slide-up">
+    <div
+      className={`fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-50 bg-gray-900 text-white p-6 rounded-lg shadow-2xl animate-slide-up ${isRTL ? 'text-right' : 'text-left'}`}
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
       <p className="mb-4">{consent.message}</p>
       <div className="flex gap-3">
         <button

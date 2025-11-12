@@ -1,16 +1,27 @@
 // app/lib/analytics.ts
-type GtagEventParams = Record<string, any>;
+type GtagConfig = Record<string, unknown>;
 
-export const gtagSafe = (...args: any[]) => {
-  if (typeof window !== "undefined" && typeof window.gtag === "function") {
+type GtagCommand =
+  | ['config', string, GtagConfig?]
+  | ['event', string, GtagConfig?]
+  | ['consent', 'update', GtagConfig]
+  | ['js', Date];
+
+export const gtagSafe = (...args: GtagCommand) => {
+  if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
     window.gtag(...args);
   }
 };
 
 export const trackPageview = (url: string) => {
-  gtagSafe("config", process.env.NEXT_PUBLIC_GA_ID, { page_path: url });
+  const trackingId = process.env.NEXT_PUBLIC_GA_ID;
+  if (!trackingId) {
+    console.warn('Google Analytics tracking ID is not configured.');
+    return;
+  }
+  gtagSafe('config', trackingId, { page_path: url });
 };
 
-export const trackEvent = (action: string, params?: GtagEventParams) => {
-  gtagSafe("event", action, params ?? {});
+export const trackEvent = (action: string, params?: GtagConfig) => {
+  gtagSafe('event', action, params ?? {});
 };
