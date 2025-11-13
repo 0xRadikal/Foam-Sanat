@@ -11,6 +11,7 @@ import {
 import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
 import ContactInfo from '@/app/components/ContactInfo';
+import { createNavigationItems } from '@/app/lib/navigation';
 import { getNamespaceMessages, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
@@ -522,11 +523,7 @@ export default function ProductsPage() {
   } as const;
   const featureIcons = [Shield, Zap, Award, Users];
   const whyUsIcons = [Shield, Zap, Users, Target];
-  const headerNavItems = Object.entries(t.nav).map(([key, label]) => ({
-    key,
-    label,
-    href: key === 'home' ? '/' : `/${key}`
-  }));
+  const headerNavItems = createNavigationItems(t.nav);
   const products = t.products as Product[];
 
   // Filtered products
