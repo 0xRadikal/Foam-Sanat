@@ -64,10 +64,11 @@ function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
 export default function AboutPage() {
   const {
     lang,
-    theme,
     mobileMenuOpen,
     isRTL,
     isDark,
+    fontFamily,
+    themeClasses,
     toggleLang,
     toggleTheme,
     toggleMobileMenu
@@ -101,10 +102,14 @@ export default function AboutPage() {
       });
     }
   }, []);
-  const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
-  const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
-  const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
-  const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
+  const {
+    pageBackground,
+    pageText,
+    surface: cardBg,
+    section: sectionBg,
+    header: headerBackground,
+    hover: hoverClass
+  } = themeClasses;
   const primaryPhone = contactConfig.phones[0].value;
   const primaryEmail = contactConfig.emails[0].value;
   const mapUrl = contactConfig.mapUrl;
@@ -122,20 +127,23 @@ export default function AboutPage() {
     href: key === 'home' ? '/' : `/${key}`
   }));
   return (
-    <div 
-      className={`min-h-screen ${bgColor} ${textColor} transition-all duration-300`}
+    <div
+      className={`min-h-screen ${pageBackground} ${pageText} transition-all duration-300`}
       dir={isRTL ? 'rtl' : 'ltr'}
-      style={{ fontFamily: lang === 'fa' ? 'Vazirmatn, sans-serif' : 'system-ui, sans-serif' }}
+      style={{ fontFamily }}
     >
       <Header
         lang={lang}
-        theme={theme}
+        isDark={isDark}
+        isRTL={isRTL}
         companyName={t.companyName}
         navItems={headerNavItems}
         activeNavKey="about"
         logoHref="/"
         scrolled={scrolled}
         mobileMenuOpen={mobileMenuOpen}
+        hoverClass={hoverClass}
+        headerBackgroundClass={headerBackground}
         onLangToggle={toggleLang}
         onThemeToggle={toggleTheme}
         onMobileMenuToggle={toggleMobileMenu}

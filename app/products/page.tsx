@@ -76,10 +76,11 @@ type ApiComment = {
 export default function ProductsPage() {
   const {
     lang,
-    theme,
     mobileMenuOpen,
     isRTL,
     isDark,
+    fontFamily,
+    themeClasses,
     toggleLang,
     toggleTheme,
     toggleMobileMenu
@@ -498,14 +499,18 @@ export default function ProductsPage() {
   }, [mapApiComment, selectedProduct, t.comments.loadFailed]);
 
   // Styles
-  const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
-  const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
-  const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
-  const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
+  const {
+    pageBackground,
+    pageText,
+    surface: cardBg,
+    section: sectionBg,
+    hover: hoverBg,
+    header: headerBackground
+  } = themeClasses;
+  const textColor = pageText;
   const primaryPhone = contactConfig.phones[0].value;
   const primaryEmail = contactConfig.emails[0].value;
   const mapUrl = contactConfig.mapUrl;
-  const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
   // Content
   const categoryIconMap = {
@@ -1002,20 +1007,23 @@ export default function ProductsPage() {
   };
 
   return (
-    <div 
-      className={`min-h-screen ${bgColor} ${textColor} transition-colors duration-300`}
+    <div
+      className={`min-h-screen ${pageBackground} ${pageText} transition-colors duration-300`}
       dir={isRTL ? 'rtl' : 'ltr'}
-      style={{ fontFamily: isRTL ? 'Vazirmatn, sans-serif' : 'system-ui' }}
+      style={{ fontFamily }}
     >
       <Header
         lang={lang}
-        theme={theme}
+        isDark={isDark}
+        isRTL={isRTL}
         companyName={t.companyName}
         navItems={headerNavItems}
         activeNavKey="products"
         logoHref="/"
         scrolled={scrolled}
         mobileMenuOpen={mobileMenuOpen}
+        hoverClass={hoverBg}
+        headerBackgroundClass={headerBackground}
         onLangToggle={toggleLang}
         onThemeToggle={toggleTheme}
         onMobileMenuToggle={toggleMobileMenu}
