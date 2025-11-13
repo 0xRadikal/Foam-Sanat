@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Award, CheckCircle, Mail, MapPin, Phone, Shield, Users } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Script from 'next/script';
@@ -16,13 +16,8 @@ import WhyUsSection from '@/app/components/home/WhyUsSection';
 import FaqSection from '@/app/components/home/FaqSection';
 import ContactSection from '@/app/components/home/ContactSection';
 import { contactConfig, getContactAddress } from '@/app/config/contact';
-import {
-  defaultLocale,
-  getAllMessages,
-  localeSettings,
-  locales,
-  type Locale
-} from '@/app/lib/i18n';
+import { getAllMessages } from '@/app/lib/i18n';
+import { useSiteChrome } from '@/app/lib/useSiteChrome';
 
 const ConsentBanner = dynamic(() => import('@/app/components/home/ConsentBanner'), {
   ssr: false
@@ -31,58 +26,23 @@ const ConsentBanner = dynamic(() => import('@/app/components/home/ConsentBanner'
 // ============================================
 // TYPE DEFINITIONS
 // ============================================
-type Theme = 'light' | 'dark';
-type Lang = Locale;
-
-// ============================================
-// TRANSLATION DATA
-// ============================================
-// ============================================
-// CUSTOM HOOKS
-// ============================================
-const useLocalStorage = <T,>(key: string, initialValue: T): [T, (value: T) => void] => {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    try {
-      const item = window.localStorage.getItem(key);
-      if (item) {
-        setStoredValue(JSON.parse(item));
-      }
-    } catch (error) {
-      console.error(`Error loading ${key} from localStorage:`, error);
-    }
-  }, [key]);
-
-  const setValue = useCallback((value: T) => {
-    try {
-      setStoredValue(value);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(value));
-      }
-    } catch (error) {
-      console.error(`Error saving ${key} to localStorage:`, error);
-    }
-  }, [key]);
-
-  return [mounted ? storedValue : initialValue, setValue];
-};
-
-// ============================================
-// MAIN COMPONENT
-// ============================================
 export default function FoamSanatWebsite() {
-  const [lang, setLang] = useLocalStorage<Lang>('foam-sanat-lang', defaultLocale);
-  const [theme, setTheme] = useLocalStorage<Theme>('foam-sanat-theme', 'light');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const {
+    lang,
+    theme,
+    mobileMenuOpen,
+    isRTL,
+    isDark,
+    toggleLang,
+    toggleTheme,
+    toggleMobileMenu,
+    closeMobileMenu
+  } = useSiteChrome();
   const [scrolled, setScrolled] = useState(false);
 
   const messages = getAllMessages(lang);
   const common = messages.common;
   const home = messages.home;
-  const isRTL = localeSettings[lang].dir === 'rtl';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -94,20 +54,9 @@ export default function FoamSanatWebsite() {
   }, []);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [lang]);
+    closeMobileMenu();
+  }, [lang, closeMobileMenu]);
 
-  const toggleLang = useCallback(() => {
-    const currentIndex = locales.indexOf(lang);
-    const nextLang = locales[(currentIndex + 1) % locales.length];
-    setLang(nextLang);
-  }, [lang, setLang]);
-
-  const toggleTheme = useCallback(() => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  }, [theme, setTheme]);
-
-  const isDark = theme === 'dark';
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
@@ -123,10 +72,6 @@ export default function FoamSanatWebsite() {
     ],
     [common.nav.contact, common.nav.faq, common.nav.home, common.nav.products, common.nav.whyUs]
   );
-  const toggleMobileMenu = useCallback(() => {
-    setMobileMenuOpen((prev) => !prev);
-  }, []);
-
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
