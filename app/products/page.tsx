@@ -9,8 +9,11 @@ import {
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
 import Header from '@/app/components/Header';
+import CallToAction from '@/app/components/CallToAction';
+import ContactInfo from '@/app/components/ContactInfo';
 import { getNamespaceMessages, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
+import { contactConfig } from '@/app/config/contact';
 
 type Product = ProductsNamespaceSchema['products'][number];
 
@@ -247,6 +250,9 @@ export default function ProductsPage() {
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
+  const primaryPhone = contactConfig.phones[0].value;
+  const primaryEmail = contactConfig.emails[0].value;
+  const mapUrl = contactConfig.mapUrl;
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
   // Content
@@ -319,14 +325,14 @@ export default function ProductsPage() {
 
           <div className="space-y-3">
             <a
-              href="tel:+989128336085"
+              href={`tel:${primaryPhone}`}
               className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:scale-105 transition-all"
             >
               <Phone className="w-5 h-5" />
               {t.ui.call}
             </a>
             <a
-              href="mailto:info@foamsanat.com"
+              href={`mailto:${primaryEmail}`}
               className={`flex items-center justify-center gap-2 ${cardBg} border-2 border-orange-500 text-orange-500 px-6 py-3 rounded-xl font-bold hover:scale-105 transition-all`}
             >
               <Mail className="w-5 h-5" />
@@ -477,14 +483,14 @@ export default function ProductsPage() {
             {/* CTA */}
             <div className="flex gap-4 mb-8 flex-col sm:flex-row">
              <a
-               href="tel:+989128336085"
+               href={`tel:${primaryPhone}`}
                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold hover:scale-105 transition-all"
              >
                <Phone className="w-6 h-6" />
                 {t.ui.call}
              </a>
              <a
-               href="mailto:info@foamsanat.com"
+               href={`mailto:${primaryEmail}`}
                className={`flex-1 flex items-center justify-center gap-2 ${cardBg} border-2 border-orange-500 text-orange-500 px-8 py-4 rounded-2xl font-bold hover:scale-105 transition-all`}
              >
                <Mail className="w-6 h-6" />
@@ -818,7 +824,7 @@ export default function ProductsPage() {
                         {t.ui.details}
                       </button>
                       <a
-                        href="tel:+989128336085"
+                        href={`tel:${primaryPhone}`}
                         className="w-full text-center border-2 border-orange-500 text-orange-500 px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm bg-transparent"
                       >
                         {t.ui.call}
@@ -869,62 +875,48 @@ export default function ProductsPage() {
         </section>
 
         {/* CTA */}
-        <section className="py-16 px-4">
-          <div className={`container mx-auto max-w-4xl ${cardBg} rounded-3xl p-8 md:p-12 text-center shadow-2xl relative overflow-hidden border-2 border-orange-500/30`}>
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-purple-600/10" />
-            <div className="relative z-10">
-              <h2 className="text-3xl md:text-4xl font-black mb-4">
-                {t.cta.title}
-              </h2>
-              <p className="text-lg md:text-xl mb-8 text-gray-700 dark:text-gray-300">
-                {t.cta.subtitle}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-               <a
-                 href="tel:+989128336085"
-                 className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-8 py-3 rounded-2xl font-bold hover:scale-105 transition-all shadow-xl text-sm md:text-base"
-               >
-                 <Phone className="w-5 h-5" />
-                  {t.ui.call}
-               </a>
-               <a
-                 href="mailto:info@foamsanat.com"
-                 className={`inline-flex items-center justify-center gap-2 ${cardBg} border-2 border-orange-500 text-orange-500 px-8 py-3 rounded-2xl font-bold hover:scale-105 transition-all shadow-xl text-sm md:text-base`}
-               >
-                 <Mail className="w-5 h-5" />
-                  {t.ui.email}
-               </a>
-              </div>
-            </div>
-          </div>
-        </section>
+        <CallToAction
+          title={t.cta.title}
+          subtitle={t.cta.subtitle}
+          actions={[
+            {
+              label: t.ui.call,
+              href: `tel:${primaryPhone}`,
+              icon: Phone
+            },
+            {
+              label: t.ui.email,
+              href: `mailto:${primaryEmail}`,
+              icon: Mail,
+              variant: 'secondary',
+              className: `${cardBg} border-2 border-orange-500 text-orange-500 px-8 py-3 rounded-2xl font-bold hover:scale-105 transition-all shadow-xl text-sm md:text-base`
+            }
+          ]}
+          variant="gradient-card"
+          layout="centered"
+          cardClassName={`${cardBg} p-8 md:p-12 border-2 border-orange-500/30`}
+        />
 
         {/* Contact Info */}
         <section className={`py-16 px-4 ${sectionBg}`}>
           <div className="container mx-auto">
-            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              <div className={`${cardBg} rounded-2xl p-6 shadow-xl text-center border border-orange-500/20`}>
-                <Phone className="w-10 h-10 text-orange-500 mx-auto mb-3" />
-                <h3 className="text-lg font-bold mb-2">{t.ui.phoneLabel}</h3>
-                <a href="tel:+989128336085" className="text-orange-500 hover:text-orange-600 font-bold text-sm md:text-base">
-                  +98 912 833 6085
-                </a>
-              </div>
-              <div className={`${cardBg} rounded-2xl p-6 shadow-xl text-center border border-orange-500/20`}>
-                <Mail className="w-10 h-10 text-orange-500 mx-auto mb-3" />
-                <h3 className="text-lg font-bold mb-2">{t.ui.emailLabel}</h3>
-                <a href="mailto:info@foamsanat.com" className="text-orange-500 hover:text-orange-600 font-bold text-sm md:text-base break-all">
-                  info@foamsanat.com
-                </a>
-              </div>
-              <div className={`${cardBg} rounded-2xl p-6 shadow-xl text-center border border-orange-500/20`}>
-                <MapPin className="w-10 h-10 text-orange-500 mx-auto mb-3" />
-                <h3 className="text-lg font-bold mb-2">{t.ui.addressLabel}</h3>
-                <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {t.ui.addressValue}
-                </p>
-              </div>
-            </div>
+            <ContactInfo
+              locale={lang}
+              labels={{
+                phone: t.ui.phoneLabel,
+                email: t.ui.emailLabel,
+                address: t.ui.addressLabel
+              }}
+              variant="cards"
+              layout="grid"
+              className="max-w-4xl mx-auto"
+              itemClassName={`${cardBg}`}
+              valueClassName={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}
+              linkClassName="font-bold text-sm md:text-base text-orange-500 hover:text-orange-600"
+              showMapLink={false}
+              phoneLimit={1}
+              emailLimit={1}
+            />
           </div>
         </section>
       </main>
@@ -933,13 +925,18 @@ export default function ProductsPage() {
       <footer className="bg-gradient-to-br from-gray-900 to-black text-gray-400 py-12 px-4">
         <div className="container mx-auto">
           <div className="flex justify-center gap-6 mb-8">
-            <a href="tel:+989128336085" className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
+            <a href={`tel:${primaryPhone}`} className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
               <Phone className="w-6 h-6" />
             </a>
-            <a href="mailto:info@foamsanat.com" className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
+            <a href={`mailto:${primaryEmail}`} className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
               <Mail className="w-6 h-6" />
             </a>
-            <a href="#" className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
+            >
               <MapPin className="w-6 h-6" />
             </a>
           </div>
