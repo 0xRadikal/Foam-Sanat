@@ -20,9 +20,20 @@ export type CommonNamespaceSchema = {
   };
 };
 
-const defaultContactPhoneFa = process.env.NEXT_PUBLIC_CONTACT_PHONE_FA ?? '۰۹۱۲۸۳۳۶۰۸۵';
-const defaultContactPhoneEn = process.env.NEXT_PUBLIC_CONTACT_PHONE_EN ?? '+98 912 833 6085';
-const defaultContactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'info@foamsanat.com';
+const defaultContactPhoneFa =
+  process.env.CONTACT_PHONE_FA ??
+  process.env.CONTACT_PHONE ??
+  process.env.NEXT_PUBLIC_CONTACT_PHONE_FA ??
+  '۰۹۱۲۸۳۳۶۰۸۵';
+const defaultContactPhoneEn =
+  process.env.CONTACT_PHONE_EN ??
+  process.env.CONTACT_PHONE ??
+  process.env.NEXT_PUBLIC_CONTACT_PHONE_EN ??
+  '+98 912 833 6085';
+const defaultContactEmail =
+  process.env.CONTACT_EMAIL ??
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL ??
+  'info@foamsanat.com';
 
 export const commonMessages = {
   fa: {
