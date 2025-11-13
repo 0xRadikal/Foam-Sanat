@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import {
   Globe, ArrowRight, Phone, Mail, MapPin,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
@@ -13,6 +14,20 @@ import CallToAction from '@/app/components/CallToAction';
 import { getNamespaceMessages } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
+
+type BlobStyle = CSSProperties;
+
+function generateBlobs(count: number): BlobStyle[] {
+  return Array.from({ length: count }, () => ({
+    width: `${Math.random() * 300 + 50}px`,
+    height: `${Math.random() * 300 + 50}px`,
+    top: `${Math.random() * 100}%`,
+    left: `${Math.random() * 100}%`,
+    animation: `float ${Math.random() * 20 + 10}s ease-in-out infinite`,
+    animationDelay: `${Math.random() * 5}s`,
+    filter: 'blur(60px)'
+  }));
+}
 
 // Animated Counter
 function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
@@ -60,6 +75,12 @@ export default function AboutPage() {
   const [scrolled, setScrolled] = useState(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [blobStyles] = useState(() => generateBlobs(30));
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -124,23 +145,17 @@ export default function AboutPage() {
       <section className="relative pt-32 pb-20 px-4 overflow-hidden min-h-screen flex items-center">
         <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-orange-50'}`}>
           {/* Animated Background */}
-          <div className="absolute inset-0 opacity-20">
-            {[...Array(30)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full bg-gradient-to-r from-orange-500 to-purple-600"
-                style={{
-                  width: Math.random() * 300 + 50 + 'px',
-                  height: Math.random() * 300 + 50 + 'px',
-                  top: Math.random() * 100 + '%',
-                  left: Math.random() * 100 + '%',
-                  animation: `float ${Math.random() * 20 + 10}s ease-in-out infinite`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  filter: 'blur(60px)'
-                }}
-              />
-            ))}
-          </div>
+          {isMounted && (
+            <div className="absolute inset-0 opacity-20">
+              {blobStyles.map((style, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full bg-gradient-to-r from-orange-500 to-purple-600"
+                  style={style}
+                />
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="container mx-auto relative z-10">
