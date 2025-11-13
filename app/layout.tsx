@@ -1,7 +1,8 @@
 // app/layout.tsx - Enhanced with SEO, Security, Manifest
 import type { Metadata } from 'next';
 import Script from 'next/script';
-import { defaultLocale, localeSettings } from '@/app/lib/i18n';
+import { defaultLocale } from '@/app/lib/i18n';
+import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -86,7 +87,6 @@ export const metadata: Metadata = {
 };
 
 const defaultLang = defaultLocale;
-const defaultLocaleConfig = localeSettings[defaultLang];
 const shouldLoadVazirmatn = defaultLang === 'fa';
 const defaultBodyFont = shouldLoadVazirmatn
   ? 'Vazirmatn, system-ui, sans-serif'
@@ -100,7 +100,7 @@ export default function RootLayout({
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
-    <html lang={defaultLang} dir={defaultLocaleConfig.dir} suppressHydrationWarning>
+    <html suppressHydrationWarning>
       <head>
         {/* Preconnect to external resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -161,9 +161,9 @@ export default function RootLayout({
       <body
         className="antialiased"
         suppressHydrationWarning
-        style={{ fontFamily: defaultBodyFont }}
+        style={{ fontFamily: `var(--site-font-family, ${defaultBodyFont})` }}
       >
-        {children}
+        <SiteChromeProvider>{children}</SiteChromeProvider>
         <Script
           id="hydration-fix"
           suppressHydrationWarning
