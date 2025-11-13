@@ -3,7 +3,9 @@
 import { ExternalLink } from 'lucide-react';
 import ContactInfo from '@/app/components/ContactInfo';
 import type { HomeNamespaceSchema, Locale } from '@/app/lib/i18n';
-import ContactForm from './ContactForm';
+import dynamic from 'next/dynamic';
+
+const ContactForm = dynamic(() => import('./ContactForm'));
 
 type ContactSectionProps = {
   contact: HomeNamespaceSchema['contact'];
