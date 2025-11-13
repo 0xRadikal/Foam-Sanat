@@ -3,13 +3,7 @@
 import Link from 'next/link';
 import { Menu, X, Globe, Sun, Moon } from 'lucide-react';
 import type { Locale } from '@/app/lib/i18n';
-
-type HeaderNavItem = {
-  key: string;
-  label: string;
-  href: string;
-  variant?: 'link' | 'button';
-};
+import type { NavigationItem } from '@/app/lib/navigation';
 
 interface HeaderProps {
   lang: Locale;
@@ -17,7 +11,7 @@ interface HeaderProps {
   isRTL: boolean;
   companyName: string;
   tagline?: string;
-  navItems: HeaderNavItem[];
+  navItems: NavigationItem[];
   activeNavKey?: string;
   logoHref?: string;
   scrolled: boolean;
@@ -51,7 +45,7 @@ export default function Header({
   const logoLink = logoHref ?? '#home';
 
   const renderLink = (
-    item: HeaderNavItem,
+    item: NavigationItem,
     { isMobile }: { isMobile: boolean }
   ) => {
     const isHashLink = item.href.startsWith('#');

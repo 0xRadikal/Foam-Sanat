@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
+import { createNavigationItems } from '@/app/lib/navigation';
 import { getNamespaceMessages } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
@@ -121,11 +122,7 @@ export default function AboutPage() {
   const valuesIcons = [Shield, Lightbulb, Heart, Leaf];
   const teamIcons = [Building2, Zap, Gauge, Users];
   const achievementIcons = [Shield, Award, Trophy, Star];
-  const headerNavItems = Object.entries(t.nav).map(([key, label]) => ({
-    key,
-    label,
-    href: key === 'home' ? '/' : `/${key}`
-  }));
+  const headerNavItems = createNavigationItems(t.nav);
   return (
     <div
       className={`min-h-screen ${pageBackground} ${pageText} transition-all duration-300`}
