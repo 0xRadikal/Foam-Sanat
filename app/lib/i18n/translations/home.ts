@@ -53,11 +53,12 @@ export type HomeNamespaceSchema = {
     };
     info: {
       title: string;
-      address: string;
-      phone1: string;
-      phone2: string;
-      email1: string;
-      email2: string;
+      labels: {
+        address: string;
+        phone: string;
+        email: string;
+        viewMap: string;
+      };
     };
   };
   consent: {
@@ -166,11 +167,12 @@ export const homeMessages = {
       },
       info: {
         title: 'اطلاعات تماس',
-        address: 'تهران، کرج، جاده ماهدشت - خیابان زیبادشت',
-        phone1: '۰۹۱۲۸۳۳۶۰۸۵',
-        phone2: '۰۹۱۹۷۳۰۲۰۶۴',
-        email1: 'info@foamsanat.com',
-        email2: 'saeidniazpour@yahoo.com'
+        labels: {
+          address: 'آدرس',
+          phone: 'تلفن',
+          email: 'ایمیل',
+          viewMap: 'مشاهده در نقشه'
+        }
       }
     },
     consent: {
@@ -277,11 +279,12 @@ export const homeMessages = {
       },
       info: {
         title: 'Contact Information',
-        address: 'Tehran, Karaj, Mahdasht Road - Zibadasht Street',
-        phone1: '+98 912 833 6085',
-        phone2: '+98 919 730 2064',
-        email1: 'info@foamsanat.com',
-        email2: 'saeidniazpour@yahoo.com'
+        labels: {
+          address: 'Address',
+          phone: 'Phone',
+          email: 'Email',
+          viewMap: 'View on Map'
+        }
       }
     },
     consent: {
