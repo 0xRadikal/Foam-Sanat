@@ -29,10 +29,11 @@ const ConsentBanner = dynamic(() => import('@/app/components/home/ConsentBanner'
 export default function FoamSanatWebsite() {
   const {
     lang,
-    theme,
     mobileMenuOpen,
     isRTL,
     isDark,
+    fontFamily,
+    themeClasses,
     toggleLang,
     toggleTheme,
     toggleMobileMenu,
@@ -57,11 +58,14 @@ export default function FoamSanatWebsite() {
     closeMobileMenu();
   }, [lang, closeMobileMenu]);
 
-  const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
-  const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
-  const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
-  const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
-  const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
+  const {
+    pageBackground,
+    pageText,
+    surface: cardBg,
+    section: sectionBg,
+    hover: hoverBg,
+    header: headerBackground
+  } = themeClasses;
   const headerNavItems = useMemo(
     () => [
       { key: 'home', label: common.nav.home, href: '#home' },
@@ -100,10 +104,10 @@ export default function FoamSanatWebsite() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${bgColor} ${textColor}`}
+      className={`min-h-screen transition-colors duration-300 ${pageBackground} ${pageText}`}
       dir={isRTL ? 'rtl' : 'ltr'}
       lang={lang}
-      style={{ fontFamily: lang === 'fa' ? 'Vazirmatn, sans-serif' : 'system-ui, sans-serif' }}
+      style={{ fontFamily }}
     >
       {/* JSON-LD Schema */}
       <Script
@@ -124,12 +128,15 @@ export default function FoamSanatWebsite() {
 
       <Header
         lang={lang}
-        theme={theme}
+        isDark={isDark}
+        isRTL={isRTL}
         companyName={common.companyName}
         tagline={common.tagline}
         navItems={headerNavItems}
         scrolled={scrolled}
         mobileMenuOpen={mobileMenuOpen}
+        hoverClass={hoverBg}
+        headerBackgroundClass={headerBackground}
         onLangToggle={toggleLang}
         onThemeToggle={toggleTheme}
         onMobileMenuToggle={toggleMobileMenu}
