@@ -13,7 +13,8 @@ type HeaderNavItem = {
 
 interface HeaderProps {
   lang: Locale;
-  theme: 'light' | 'dark';
+  isDark: boolean;
+  isRTL: boolean;
   companyName: string;
   tagline?: string;
   navItems: HeaderNavItem[];
@@ -21,6 +22,8 @@ interface HeaderProps {
   logoHref?: string;
   scrolled: boolean;
   mobileMenuOpen: boolean;
+  hoverClass: string;
+  headerBackgroundClass: string;
   onLangToggle: () => void;
   onThemeToggle: () => void;
   onMobileMenuToggle: () => void;
@@ -28,7 +31,8 @@ interface HeaderProps {
 
 export default function Header({
   lang,
-  theme,
+  isDark,
+  isRTL,
   companyName,
   tagline,
   navItems,
@@ -36,14 +40,12 @@ export default function Header({
   logoHref,
   scrolled,
   mobileMenuOpen,
+  hoverClass,
+  headerBackgroundClass,
   onLangToggle,
   onThemeToggle,
   onMobileMenuToggle
 }: HeaderProps) {
-  const isRTL = lang === 'fa';
-  const isDark = theme === 'dark';
-  const headerBg = isDark ? 'bg-gray-800/95' : 'bg-white/95';
-  const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
   const regularNavItems = navItems.filter((item) => item.variant !== 'button');
   const ctaItem = navItems.find((item) => item.variant === 'button');
   const logoLink = logoHref ?? '#home';
@@ -54,7 +56,7 @@ export default function Header({
   ) => {
     const isHashLink = item.href.startsWith('#');
     const isActive = activeNavKey === item.key;
-    const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverBg}`;
+    const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverClass}`;
     const desktopClasses = `hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1${
       isActive ? ' text-orange-500 font-semibold' : ''
     }`;
@@ -91,7 +93,7 @@ export default function Header({
   return (
     <header
       className={`fixed top-0 w-full z-40 transition-all duration-300 ${
-        scrolled ? `${headerBg} backdrop-blur-md shadow-lg` : 'bg-transparent'
+        scrolled ? `${headerBackgroundClass} backdrop-blur-md shadow-lg` : 'bg-transparent'
       }`}
       role="banner"
     >
@@ -141,22 +143,22 @@ export default function Header({
           <div className="flex items-center gap-2">
             <button
               onClick={onLangToggle}
-              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
+              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverClass}`}
               aria-label={isRTL ? 'تغییر زبان به انگلیسی' : 'Switch to Persian'}
               title={lang === 'fa' ? 'English' : 'فارسی'}
             >
               <Globe className="w-5 h-5" />
             </button>
-            <button 
+            <button
               onClick={onThemeToggle}
-              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
+              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverClass}`}
               aria-label={isDark ? (isRTL ? 'تغییر به حالت روشن' : 'Switch to light mode') : (isRTL ? 'تغییر به حالت تاریک' : 'Switch to dark mode')}
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             <button
               onClick={onMobileMenuToggle}
-              className={`md:hidden p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverBg}`}
+              className={`md:hidden p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 ${hoverClass}`}
               aria-label={
                 mobileMenuOpen
                   ? isRTL
