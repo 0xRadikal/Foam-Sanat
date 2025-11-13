@@ -10,6 +10,8 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "tsc --project tsconfig.test.json && node --test ./.tests-dist/route.test.js",
+    "test:e2e": "playwright test",
+    "test:ci": "npm run test && npm run test:e2e",
     "analyze": "source-map-explorer .next/static/chunks/*.js --html analyzer-report.html",
     "sitemap": "next-sitemap",
     "axe": "axe http://localhost:3000 --chromium --timeout 60000 --exit 0",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@axe-core/cli": "4.10.0",
+    "@playwright/test": "^1.49.0",
     "@types/node": "^20.14.10",
     "@types/react": "^18.3.9",
     "autoprefixer": "^10.4.21",

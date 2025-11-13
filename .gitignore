@@ -31,7 +31,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lighthouse-report.html
-package-lock.json
+playwright-report/
+test-results/
+blob-report/
+trace.zip
 # =========================================
 # 💻 System / IDE files
 # =========================================

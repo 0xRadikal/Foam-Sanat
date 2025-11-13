@@ -54,7 +54,12 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   }`;
 
   return (
-    <form onSubmit={handleSubmit} className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+    <form
+      onSubmit={handleSubmit}
+      className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`}
+      dir={isRTL ? 'rtl' : 'ltr'}
+      data-testid="contact-form"
+    >
       <div>
         <label className={`block mb-2 font-semibold ${labelAlignment}`} htmlFor="name">
           {contact.form.name}
@@ -128,13 +133,19 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       </button>
 
       {status === 'success' && (
-        <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg">
+        <div
+          className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg"
+          data-testid="contact-form-status"
+        >
           {contact.form.success}
         </div>
       )}
 
       {status === 'error' && (
-        <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 p-4 rounded-lg">
+        <div
+          className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 p-4 rounded-lg"
+          data-testid="contact-form-status"
+        >
           {contact.form.error}
         </div>
       )}

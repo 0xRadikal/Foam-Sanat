@@ -609,6 +609,7 @@ export default function ProductsPage() {
           ref={modalRef}
           tabIndex={-1}
           className={`${cardBg} rounded-3xl p-6 md:p-8 max-w-4xl w-full shadow-2xl my-8`}
+          data-testid="product-detail-modal"
           onClick={(e) => e.stopPropagation()}
           onWheel={handleModalScroll}
         >
@@ -1110,6 +1111,7 @@ export default function ProductsPage() {
                 <div
                   key={product.id}
                   className={`${cardBg} rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group border border-orange-500/20 cursor-pointer flex flex-col`}
+                  data-testid="product-card"
                 >
                   <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -1155,6 +1157,7 @@ export default function ProductsPage() {
                           setCurrentSlide(0);
                         }}
                         className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm"
+                        data-testid="product-details-button"
                       >
                         {t.ui.details}
                       </button>

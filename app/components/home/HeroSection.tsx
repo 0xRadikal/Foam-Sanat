@@ -23,7 +23,11 @@ type HeroSectionProps = {
 
 export default function HeroSection({ hero, slider, isDark, isRTL }: HeroSectionProps) {
   return (
-    <section id="home" className="relative pt-32 pb-20 px-4 overflow-hidden">
+    <section
+      id="home"
+      className="relative pt-32 pb-20 px-4 overflow-hidden"
+      data-testid="hero-section"
+    >
       <div
         className={`absolute inset-0 opacity-50 ${
           isDark ? 'bg-gradient-to-br from-gray-800 to-gray-900' : 'bg-gradient-to-br from-blue-50 to-orange-50'
