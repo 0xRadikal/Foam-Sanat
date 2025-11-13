@@ -15,6 +15,7 @@ import ServicesSection from '@/app/components/home/ServicesSection';
 import WhyUsSection from '@/app/components/home/WhyUsSection';
 import FaqSection from '@/app/components/home/FaqSection';
 import ContactSection from '@/app/components/home/ContactSection';
+import { contactConfig, getContactAddress } from '@/app/config/contact';
 import {
   defaultLocale,
   getAllMessages,
@@ -126,8 +127,34 @@ export default function FoamSanatWebsite() {
     setMobileMenuOpen((prev) => !prev);
   }, []);
 
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Foam Sanat Industrial Group',
+    alternateName: 'گروه صنعتی فوم صنعت',
+    url: 'https://foamsanat.com',
+    logo: 'https://foamsanat.com/logo.png',
+    description: 'Leading manufacturer of PU foam injection machinery',
+    foundingDate: '2010',
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: contactConfig.phones[0].value,
+      contactType: 'customer service',
+      email: contactConfig.emails[0].value,
+      areaServed: ['IR', 'TR', 'AE', 'EU'],
+      availableLanguage: ['fa', 'en', 'ar', 'tr']
+    },
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: getContactAddress('en'),
+      addressLocality: 'Karaj',
+      addressRegion: 'Tehran',
+      addressCountry: 'IR'
+    }
+  } as const;
+
   return (
-    <div 
+    <div
       className={`min-h-screen transition-colors duration-300 ${bgColor} ${textColor}`}
       dir={isRTL ? 'rtl' : 'ltr'}
       lang={lang}
@@ -138,31 +165,7 @@ export default function FoamSanatWebsite() {
         id="schema-org"
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "Foam Sanat Industrial Group",
-            "alternateName": "گروه صنعتی فوم صنعت",
-            "url": "https://foamsanat.com",
-            "logo": "https://foamsanat.com/logo.png",
-            "description": "Leading manufacturer of PU foam injection machinery",
-            "foundingDate": "2010",
-            "contactPoint": {
-              "@type": "ContactPoint",
-              "telephone": "+98-912-833-6085",
-              "contactType": "customer service",
-              "email": "info@foamsanat.com",
-              "areaServed": ["IR", "TR", "AE", "EU"],
-              "availableLanguage": ["fa", "en", "ar", "tr"]
-            },
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "Mahdasht Road - Zibadasht Street",
-              "addressLocality": "Karaj",
-              "addressRegion": "Tehran",
-              "addressCountry": "IR"
-            }
-          })
+          __html: JSON.stringify(structuredData)
         }}
       />
 
@@ -217,7 +220,14 @@ export default function FoamSanatWebsite() {
 
         <FaqSection faq={home.faq} isDark={isDark} cardBg={cardBg} hoverBg={hoverBg} />
 
-        <ContactSection contact={home.contact} isRTL={isRTL} isDark={isDark} cardBg={cardBg} sectionBg={sectionBg} />
+        <ContactSection
+          contact={home.contact}
+          locale={lang}
+          isRTL={isRTL}
+          isDark={isDark}
+          cardBg={cardBg}
+          sectionBg={sectionBg}
+        />
       </main>
 
       {/* Footer */}
@@ -248,8 +258,8 @@ export default function FoamSanatWebsite() {
             <div>
               <h4 className="text-white font-semibold mb-4">{common.footer.contact}</h4>
               <address className="not-italic space-y-3">
-                <a 
-                  href="tel:+989128336085" 
+                <a
+                  href={`tel:${contactConfig.phones[0].value}`}
                   className="flex items-center gap-2 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
                 >
                   <Phone className="w-4 h-4" />

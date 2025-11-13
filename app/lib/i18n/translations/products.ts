@@ -82,7 +82,6 @@ export type ProductsNamespaceSchema = {
     phoneLabel: string;
     emailLabel: string;
     addressLabel: string;
-    addressValue: string;
   };
   whyUs: {
     title: string;
@@ -333,8 +332,7 @@ export const productsMessages = {
       noProducts: 'محصولی یافت نشد',
       phoneLabel: 'تماس',
       emailLabel: 'ایمیل',
-      addressLabel: 'آدرس',
-      addressValue: 'تهران، ایران'
+      addressLabel: 'آدرس'
     },
     whyUs: {
       title: 'چرا ما؟',
@@ -588,8 +586,7 @@ Foam filter benefits:
       noProducts: 'No products found',
       phoneLabel: 'Phone',
       emailLabel: 'Email',
-      addressLabel: 'Address',
-      addressValue: 'Tehran, Iran'
+      addressLabel: 'Address'
     },
     whyUs: {
       title: 'Why Us?',
