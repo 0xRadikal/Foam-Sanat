@@ -1,18 +1,34 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import type { Locale } from '@/app/lib/i18n';
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode
+} from 'react';
+import {
+  defaultLocale,
+  isLocale,
+  locales,
+  localeSettings,
+  type Locale
+} from '@/app/lib/i18n';
 
 type Theme = 'light' | 'dark';
 
 const LANG_STORAGE_KEY = 'foam-sanat-lang';
 const THEME_STORAGE_KEY = 'foam-sanat-theme';
 
-const DEFAULT_LANG: Locale = 'fa';
+const DEFAULT_LANG: Locale = defaultLocale;
 const DEFAULT_THEME: Theme = 'light';
 
 export interface SiteChromeState {
   lang: Locale;
+  dir: 'ltr' | 'rtl';
   theme: Theme;
   mobileMenuOpen: boolean;
   isRTL: boolean;
@@ -26,7 +42,9 @@ export interface SiteChromeState {
   closeMobileMenu: () => void;
 }
 
-export function useSiteChrome(): SiteChromeState {
+const SiteChromeContext = createContext<SiteChromeState | null>(null);
+
+export function SiteChromeProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Locale>(DEFAULT_LANG);
   const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
   const [mobileMenuOpen, setMobileMenuOpenState] = useState(false);
@@ -37,8 +55,8 @@ export function useSiteChrome(): SiteChromeState {
     try {
       const storedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
       if (storedLang) {
-        const parsed = JSON.parse(storedLang) as Locale;
-        if (parsed === 'fa' || parsed === 'en') {
+        const parsed = JSON.parse(storedLang);
+        if (typeof parsed === 'string' && isLocale(parsed)) {
           setLangState(parsed);
         }
       }
@@ -59,6 +77,21 @@ export function useSiteChrome(): SiteChromeState {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    const { dir, langTag } = localeSettings[lang];
+
+    root.lang = langTag;
+    root.dir = dir;
+    root.dataset.theme = theme;
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.setProperty(
+      '--site-font-family',
+      lang === 'fa' ? 'Vazirmatn, system-ui, sans-serif' : 'system-ui, sans-serif'
+    );
+  }, [lang, theme]);
+
   const persistLang = useCallback((value: Locale) => {
     setLangState(value);
     if (typeof window !== 'undefined') {
@@ -75,7 +108,8 @@ export function useSiteChrome(): SiteChromeState {
 
   const toggleLang = useCallback(() => {
     setLangState((prev) => {
-      const next = prev === 'fa' ? 'en' : 'fa';
+      const currentIndex = locales.indexOf(prev);
+      const next = locales[(currentIndex + 1) % locales.length];
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(next));
       }
@@ -105,18 +139,46 @@ export function useSiteChrome(): SiteChromeState {
     setMobileMenuOpenState(open);
   }, []);
 
-  return {
-    lang,
-    theme,
-    mobileMenuOpen,
-    isRTL: lang === 'fa',
-    isDark: theme === 'dark',
-    setLang: persistLang,
-    setTheme: persistTheme,
-    setMobileMenuOpen: handleSetMobileMenuOpen,
-    toggleLang,
-    toggleTheme,
-    toggleMobileMenu,
-    closeMobileMenu
-  };
+  const { dir } = localeSettings[lang];
+
+  const value = useMemo<SiteChromeState>(
+    () => ({
+      lang,
+      dir,
+      theme,
+      mobileMenuOpen,
+      isRTL: dir === 'rtl',
+      isDark: theme === 'dark',
+      setLang: persistLang,
+      setTheme: persistTheme,
+      setMobileMenuOpen: handleSetMobileMenuOpen,
+      toggleLang,
+      toggleTheme,
+      toggleMobileMenu,
+      closeMobileMenu
+    }),
+    [
+      lang,
+      dir,
+      theme,
+      mobileMenuOpen,
+      persistLang,
+      persistTheme,
+      handleSetMobileMenuOpen,
+      toggleLang,
+      toggleTheme,
+      toggleMobileMenu,
+      closeMobileMenu
+    ]
+  );
+
+  return createElement(SiteChromeContext.Provider, { value }, children);
+}
+
+export function useSiteChrome(): SiteChromeState {
+  const context = useContext(SiteChromeContext);
+  if (!context) {
+    throw new Error('useSiteChrome must be used within a SiteChromeProvider');
+  }
+  return context;
 }
