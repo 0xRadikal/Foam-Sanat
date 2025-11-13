@@ -16,6 +16,7 @@ import WhyUsSection from '@/app/components/home/WhyUsSection';
 import FaqSection from '@/app/components/home/FaqSection';
 import ContactSection from '@/app/components/home/ContactSection';
 import { contactConfig, getContactAddress } from '@/app/config/contact';
+import { createNavigationItems } from '@/app/lib/navigation';
 import { getAllMessages } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 
@@ -66,15 +67,46 @@ export default function FoamSanatWebsite() {
     hover: hoverBg,
     header: headerBackground
   } = themeClasses;
+  const {
+    home: homeNavLabel,
+    products: productsNavLabel,
+    whyUs: whyUsNavLabel,
+    faq: faqNavLabel,
+    contact: contactNavLabel
+  } = common.nav;
   const headerNavItems = useMemo(
-    () => [
-      { key: 'home', label: common.nav.home, href: '#home' },
-      { key: 'products', label: common.nav.products, href: '#products' },
-      { key: 'whyUs', label: common.nav.whyUs, href: '#why-us' },
-      { key: 'faq', label: common.nav.faq, href: '#faq' },
-      { key: 'contact', label: common.nav.contact, href: '#contact', variant: 'button' as const }
-    ],
-    [common.nav.contact, common.nav.faq, common.nav.home, common.nav.products, common.nav.whyUs]
+    () =>
+      createNavigationItems(
+        {
+          home: homeNavLabel,
+          products: productsNavLabel,
+          whyUs: whyUsNavLabel,
+          faq: faqNavLabel,
+          contact: contactNavLabel
+        },
+        {
+          hrefResolver: (key) => {
+            switch (key) {
+              case 'home':
+                return '#home';
+              case 'products':
+                return '#products';
+              case 'whyUs':
+                return '#why-us';
+              case 'faq':
+                return '#faq';
+              case 'contact':
+                return '#contact';
+              default:
+                return `#${key}`;
+            }
+          },
+          overrides: {
+            contact: { variant: 'button' }
+          }
+        }
+      ),
+    [contactNavLabel, faqNavLabel, homeNavLabel, productsNavLabel, whyUsNavLabel]
   );
   const structuredData = {
     '@context': 'https://schema.org',
