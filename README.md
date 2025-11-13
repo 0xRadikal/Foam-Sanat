@@ -73,6 +73,24 @@ Or simply connect your GitHub repo for **automatic builds and previews**.
 
 ---
 
+### 💬 Comment API & Moderation
+
+Product reviews are now persisted through REST endpoints under `/api/comments`:
+
+- `GET /api/comments?productId=...` returns approved comments for a product.
+- `POST /api/comments` submits a comment that enters the moderation queue with basic spam protection.
+- Admin-only routes (`DELETE /api/comments/:id`, `PATCH /api/comments/:id`, `POST /api/comments/:id/replies`) require a bearer token.
+
+Set the moderation token in your environment before starting the app:
+
+```bash
+export COMMENTS_ADMIN_TOKEN="super-secure-token"
+```
+
+Enter the same token in the product modal's moderation panel to delete comments or send official replies. All comments are stored in `app/api/comments/data/comments.json` for simplicity; swap this layer with a real database in production deployments.
+
+---
+
 ### 🔎 SEO & Schema Integration
 - `Organization` schema for company info
 - `FAQPage` schema for customer questions

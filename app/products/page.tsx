@@ -17,22 +17,31 @@ import { contactConfig } from '@/app/config/contact';
 
 type Product = ProductsNamespaceSchema['products'][number];
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const MIN_COMMENT_LENGTH = 20;
+
+type CommentStatus = 'pending' | 'approved' | 'rejected';
+
 type ProductCommentReply = {
-  id: number;
+  id: string;
   author: string;
   text: string;
-  date: string;
+  createdAt: string;
   isAdmin?: boolean;
+  status: CommentStatus;
+  isOptimistic?: boolean;
 };
 
 type ProductComment = {
-  id: number;
+  id: string;
+  productId: string;
   rating: number;
   author: string;
-  email: string;
   text: string;
-  date: string;
+  createdAt: string;
+  status: CommentStatus;
   replies: ProductCommentReply[];
+  isOptimistic?: boolean;
 };
 
 type CommentsState = Record<string, ProductComment[]>;
@@ -44,44 +53,24 @@ type DraftComment = {
   email: string;
 };
 
-const isProductCommentReply = (value: unknown): value is ProductCommentReply => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const reply = value as Partial<ProductCommentReply>;
-  return (
-    typeof reply.id === 'number' &&
-    typeof reply.author === 'string' &&
-    typeof reply.text === 'string' &&
-    typeof reply.date === 'string' &&
-    (reply.isAdmin === undefined || typeof reply.isAdmin === 'boolean')
-  );
+type ApiCommentReply = {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  isAdmin?: boolean;
+  status: CommentStatus;
 };
 
-const isProductComment = (value: unknown): value is ProductComment => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const comment = value as Partial<ProductComment>;
-  return (
-    typeof comment.id === 'number' &&
-    typeof comment.rating === 'number' &&
-    typeof comment.author === 'string' &&
-    typeof comment.email === 'string' &&
-    typeof comment.text === 'string' &&
-    typeof comment.date === 'string' &&
-    Array.isArray(comment.replies) &&
-    comment.replies.every(isProductCommentReply)
-  );
-};
-
-const isCommentsState = (value: unknown): value is CommentsState => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  return Object.values(value as Record<string, unknown>).every(
-    (entry) => Array.isArray(entry) && entry.every(isProductComment)
-  );
+type ApiComment = {
+  id: string;
+  productId: string;
+  rating: number;
+  author: string;
+  text: string;
+  createdAt: string;
+  status: CommentStatus;
+  replies: ApiCommentReply[];
 };
 
 export default function ProductsPage() {
@@ -103,28 +92,29 @@ export default function ProductsPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [comments, setComments] = useState<CommentsState>({});
   const [newComment, setNewComment] = useState<DraftComment>({ rating: 5, text: '', author: '', email: '' });
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceProduct, setPriceProduct] = useState<Product | null>(null);
-  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState<string | null>(null);
+  const [adminToken, setAdminToken] = useState('');
+  const [adminTokenInput, setAdminTokenInput] = useState('');
   
   // Refs
   const modalRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Hydration
+  // Load stored admin token
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const savedComments = localStorage.getItem('product-comments');
-    if (savedComments) {
-      try {
-        const parsed = JSON.parse(savedComments) as unknown;
-        if (isCommentsState(parsed)) {
-          setComments(parsed);
-        }
-      } catch (error) {
-        console.error('Failed to load comments:', error);
-      }
+    const storedToken = localStorage.getItem('comments-admin-token');
+    if (storedToken) {
+      setAdminToken(storedToken);
+      setAdminTokenInput(storedToken);
     }
   }, []);
 
@@ -174,76 +164,338 @@ export default function ProductsPage() {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [selectedProduct]);
 
-  // Save comments
-  const saveComments = useCallback((updatedComments: CommentsState) => {
-    setComments(updatedComments);
-    localStorage.setItem('product-comments', JSON.stringify(updatedComments));
+  useEffect(() => {
+    setCommentError(null);
+    setCommentsError(null);
+    setCommentsLoading(false);
+    setReplyingTo(null);
+    setReplyText('');
+  }, [selectedProduct]);
+
+  const mapApiComment = useCallback((comment: ApiComment): ProductComment => ({
+    id: comment.id,
+    productId: comment.productId,
+    rating: comment.rating,
+    author: comment.author,
+    text: comment.text,
+    createdAt: comment.createdAt,
+    status: comment.status ?? 'approved',
+    replies: (comment.replies ?? []).map((reply) => ({
+      id: reply.id,
+      author: reply.author,
+      text: reply.text,
+      createdAt: reply.createdAt,
+      isAdmin: reply.isAdmin,
+      status: reply.status ?? 'approved'
+    }))
+  }), []);
+
+  const formatDate = useCallback(
+    (isoDate: string) => new Date(isoDate).toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
+    [lang]
+  );
+
+  const t = useMemo(() => getNamespaceMessages(lang, 'products'), [lang]);
+
+  const handleSaveAdminToken = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const trimmed = adminTokenInput.trim();
+    if (trimmed) {
+      localStorage.setItem('comments-admin-token', trimmed);
+      setAdminToken(trimmed);
+    } else {
+      localStorage.removeItem('comments-admin-token');
+      setAdminToken('');
+    }
+    setCommentError(null);
+  }, [adminTokenInput]);
+
+  const handleClearAdminToken = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('comments-admin-token');
+    setAdminToken('');
+    setAdminTokenInput('');
+    setCommentError(null);
   }, []);
 
-  // Toggle language
-  // Add comment handler
-  const handleAddComment = useCallback((productId: string) => {
-    if (!newComment.text.trim() || !newComment.author.trim()) return;
+  const handleAddComment = useCallback(
+    async (productId: string) => {
+      const trimmedAuthor = newComment.author.trim();
+      const trimmedEmail = newComment.email.trim();
+      const trimmedText = newComment.text.trim();
 
-    const updated: CommentsState = { ...comments };
-    const productComments = [...(updated[productId] ?? [])];
+      if (!trimmedAuthor || !trimmedEmail || !trimmedText) {
+        setCommentError(t.comments.validationError);
+        return;
+      }
 
-    productComments.push({
-      id: Date.now(),
-      rating: newComment.rating,
-      author: newComment.author,
-      email: newComment.email,
-      text: newComment.text,
-      date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
-      replies: []
-    });
+      if (!emailPattern.test(trimmedEmail)) {
+        setCommentError(t.comments.invalidEmail);
+        return;
+      }
 
-    updated[productId] = productComments;
+      if (trimmedText.length < MIN_COMMENT_LENGTH) {
+        setCommentError(t.comments.tooShort);
+        return;
+      }
 
-    saveComments(updated);
-    setNewComment({ rating: 5, text: '', author: '', email: '' });
-  }, [newComment, comments, saveComments, lang]);
+      setCommentError(null);
 
-  // Delete comment handler
-  const handleDeleteComment = useCallback((productId: string, commentId: number) => {
-    const updated: CommentsState = { ...comments };
-    const productComments = updated[productId];
-    if (productComments) {
-      updated[productId] = productComments.filter((comment) => comment.id !== commentId);
-      saveComments(updated);
-    }
-  }, [comments, saveComments]);
+      const optimisticComment: ProductComment = {
+        id: `temp-${Date.now()}`,
+        productId,
+        rating: newComment.rating,
+        author: trimmedAuthor,
+        text: trimmedText,
+        createdAt: new Date().toISOString(),
+        status: 'pending',
+        replies: [],
+        isOptimistic: true
+      };
 
-  // Reply handler
-  const handleReply = useCallback((productId: string, commentId: number, replyTxt: string) => {
-    if (!replyTxt.trim()) return;
+      setComments((prev) => {
+        const productComments = prev[productId] ?? [];
+        return {
+          ...prev,
+          [productId]: [...productComments, optimisticComment]
+        };
+      });
 
-    const updated: CommentsState = { ...comments };
-    const productComments = updated[productId];
-    if (!productComments) {
+      setIsSubmittingComment(true);
+
+      try {
+        const response = await fetch('/api/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId,
+            rating: newComment.rating,
+            author: trimmedAuthor,
+            email: trimmedEmail,
+            text: trimmedText
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error ?? t.comments.submitError);
+        }
+
+        const serverComment = mapApiComment(data.comment as ApiComment);
+
+        setComments((prev) => {
+          const productComments = prev[productId] ?? [];
+          return {
+            ...prev,
+            [productId]: productComments.map((comment) =>
+              comment.id === optimisticComment.id ? serverComment : comment
+            )
+          };
+        });
+
+        setNewComment({ rating: 5, text: '', author: '', email: '' });
+      } catch (error) {
+        setComments((prev) => {
+          const productComments = prev[productId] ?? [];
+          return {
+            ...prev,
+            [productId]: productComments.filter((comment) => comment.id !== optimisticComment.id)
+          };
+        });
+
+        setCommentError(error instanceof Error ? error.message : t.comments.submitError);
+      } finally {
+        setIsSubmittingComment(false);
+      }
+    },
+    [mapApiComment, newComment, t.comments.invalidEmail, t.comments.submitError, t.comments.tooShort, t.comments.validationError]
+  );
+
+  const handleDeleteComment = useCallback(
+    async (productId: string, commentId: string) => {
+      if (!adminToken) {
+        setCommentError(t.comments.adminTokenRequired);
+        return;
+      }
+
+      setCommentError(null);
+
+      let previous: ProductComment[] = [];
+
+      setComments((prev) => {
+        previous = prev[productId] ?? [];
+        return {
+          ...prev,
+          [productId]: (prev[productId] ?? []).filter((comment) => comment.id !== commentId)
+        };
+      });
+
+      try {
+        const response = await fetch(`/api/comments/${commentId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${adminToken}`
+          }
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error ?? t.comments.deleteFailed);
+        }
+      } catch (error) {
+        setComments((prev) => ({
+          ...prev,
+          [productId]: [...previous]
+        }));
+        setCommentError(error instanceof Error ? error.message : t.comments.deleteFailed);
+      }
+    },
+    [adminToken, t.comments.adminTokenRequired, t.comments.deleteFailed]
+  );
+
+  const handleReply = useCallback(
+    async (productId: string, commentId: string, replyTxt: string) => {
+      const trimmedReply = replyTxt.trim();
+      if (!trimmedReply) {
+        setCommentError(t.comments.emptyReply);
+        return;
+      }
+
+      if (!adminToken) {
+        setCommentError(t.comments.adminTokenRequired);
+        return;
+      }
+
+      setCommentError(null);
+
+      const optimisticReply: ProductCommentReply = {
+        id: `temp-reply-${Date.now()}`,
+        author: t.comments.admin,
+        text: trimmedReply,
+        createdAt: new Date().toISOString(),
+        isAdmin: true,
+        status: 'pending',
+        isOptimistic: true
+      };
+
+      setReplyLoading(commentId);
+
+      setComments((prev) => ({
+        ...prev,
+        [productId]: (prev[productId] ?? []).map((comment) =>
+          comment.id === commentId
+            ? { ...comment, replies: [...comment.replies, optimisticReply] }
+            : comment
+        )
+      }));
+
+      try {
+        const response = await fetch(`/api/comments/${commentId}/replies`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ text: trimmedReply })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error ?? t.comments.replyFailed);
+        }
+
+        setComments((prev) => ({
+          ...prev,
+          [productId]: (prev[productId] ?? []).map((comment) =>
+            comment.id === commentId
+              ? {
+                  ...comment,
+                  replies: comment.replies.map((reply) =>
+                    reply.id === optimisticReply.id
+                      ? {
+                          ...reply,
+                          ...data.reply,
+                          status: data.reply.status ?? 'approved',
+                          isOptimistic: false
+                        }
+                      : reply
+                  )
+                }
+              : comment
+          )
+        }));
+
+        setReplyText('');
+        setReplyingTo(null);
+      } catch (error) {
+        setComments((prev) => ({
+          ...prev,
+          [productId]: (prev[productId] ?? []).map((comment) =>
+            comment.id === commentId
+              ? {
+                  ...comment,
+                  replies: comment.replies.filter((reply) => reply.id !== optimisticReply.id)
+                }
+              : comment
+          )
+        }));
+        setCommentError(error instanceof Error ? error.message : t.comments.replyFailed);
+      } finally {
+        setReplyLoading(null);
+      }
+    },
+    [adminToken, t.comments.admin, t.comments.adminTokenRequired, t.comments.emptyReply, t.comments.replyFailed]
+  );
+
+  useEffect(() => {
+    if (!selectedProduct) {
       return;
     }
 
-    updated[productId] = productComments.map((comment) =>
-      comment.id === commentId
-        ? {
-            ...comment,
-            replies: [
-              ...comment.replies,
-              {
-                id: Date.now(),
-                author: lang === 'fa' ? 'مدیر سایت' : 'Site Admin',
-                text: replyTxt,
-                date: new Date().toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US'),
-                isAdmin: true
-              }
-            ]
-          }
-        : comment
-    );
+    const controller = new AbortController();
+    const productId = selectedProduct.id;
 
-    saveComments(updated);
-  }, [comments, saveComments, lang]);
+    setCommentsLoading(true);
+    setCommentsError(null);
+
+    (async () => {
+      try {
+        const response = await fetch(`/api/comments?productId=${productId}`, {
+          signal: controller.signal
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error((data as { error?: string }).error ?? t.comments.loadFailed);
+        }
+
+        const apiComments = Array.isArray((data as { comments?: ApiComment[] }).comments)
+          ? ((data as { comments: ApiComment[] }).comments)
+          : [];
+
+        setComments((prev) => ({
+          ...prev,
+          [productId]: apiComments.map(mapApiComment)
+        }));
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setCommentsError(error instanceof Error ? error.message : t.comments.loadFailed);
+      } finally {
+        if (!controller.signal.aborted) {
+          setCommentsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [mapApiComment, selectedProduct, t.comments.loadFailed]);
 
   // Styles
   const bgColor = isDark ? 'bg-gray-900' : 'bg-white';
@@ -256,7 +508,6 @@ export default function ProductsPage() {
   const hoverBg = isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100';
 
   // Content
-  const t = getNamespaceMessages(lang, 'products');
   const categoryIconMap = {
     all: Factory,
     hp: Zap,
@@ -506,12 +757,53 @@ export default function ProductsPage() {
               {t.ui.reviews} ({productComments.length})
             </h3>
 
+            <p className={`mb-6 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              {t.comments.moderationNotice}
+            </p>
+
+            <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-2xl mb-8`}>
+              <p className="text-sm font-bold mb-3">{t.comments.adminControls}</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="password"
+                  value={adminTokenInput}
+                  onChange={(e) => setAdminTokenInput(e.target.value)}
+                  placeholder={t.comments.tokenPlaceholder}
+                  className={`flex-1 px-4 py-3 rounded-lg text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveAdminToken}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-purple-600 hover:scale-105 transition-transform ${
+                      adminTokenInput.trim() === '' ? 'opacity-80' : ''
+                    }`}
+                  >
+                    {t.comments.saveToken}
+                  </button>
+                  {adminToken && (
+                    <button
+                      type="button"
+                      onClick={handleClearAdminToken}
+                      className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'} border border-orange-500/40 hover:border-orange-500`}
+                    >
+                      {t.comments.clearToken}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {commentsError && (
+              <p className="mb-4 text-sm text-red-500">{commentsError}</p>
+            )}
+
             {/* Add Comment Form */}
             <form
               ref={formRef}
               onSubmit={(e) => {
                 e.preventDefault();
-                handleAddComment(product.id);
+                void handleAddComment(product.id);
               }}
               className={`${isDark ? 'bg-gray-700' : 'bg-orange-50'} p-6 rounded-2xl mb-8`}
             >
@@ -548,6 +840,7 @@ export default function ProductsPage() {
                 value={newComment.email}
                 onChange={(e) => setNewComment({ ...newComment, email: e.target.value })}
                 className={`w-full px-4 py-3 rounded-lg mb-3 ${isDark ? 'bg-gray-800 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                required
               />
 
               <textarea
@@ -561,28 +854,53 @@ export default function ProductsPage() {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-6 py-3 rounded-lg font-bold hover:scale-105 transition-all flex items-center justify-center gap-2"
+                disabled={isSubmittingComment}
+                className={`w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${
+                  isSubmittingComment ? 'opacity-60 cursor-not-allowed' : 'hover:scale-105'
+                }`}
               >
                 <Send className="w-5 h-5" />
-                {t.comments.submit}
+                {isSubmittingComment ? t.comments.submitting : t.comments.submit}
               </button>
             </form>
 
+            {commentError && (
+              <p className="mb-8 text-sm text-red-500">{commentError}</p>
+            )}
+
             {/* Comments List */}
-            {productComments.length === 0 ? (
+            {commentsLoading ? (
+              <p className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                {t.comments.loading}
+              </p>
+            ) : productComments.length === 0 ? (
               <p className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 {t.comments.noComments}
               </p>
             ) : (
-                <div className="space-y-6">
-                  {productComments.map((comment) => (
+              <div className="space-y-6">
+                {productComments.map((comment) => (
                   <div key={comment.id} className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
                     <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
-                      <div>
-                        <p className="font-bold text-lg">{comment.author}</p>
-                        <p className="text-xs text-gray-500">{comment.date}</p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-lg">{comment.author}</p>
+                          {comment.status !== 'approved' && (
+                            <span
+                              className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                                comment.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-red-100 text-red-700'
+                              }`}
+                            >
+                              {t.comments.status[comment.status]}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleDeleteComment(product.id, comment.id)}
                         className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
                       >
@@ -591,8 +909,8 @@ export default function ProductsPage() {
                       </button>
                     </div>
 
-                      <div className="flex gap-0.5 mb-3">
-                        {[...Array(5)].map((_, i) => (
+                    <div className="flex gap-0.5 mb-3">
+                      {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
                           className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
@@ -603,13 +921,28 @@ export default function ProductsPage() {
                     <p className="mb-4">{comment.text}</p>
 
                     {/* Replies */}
-                      {comment.replies.length > 0 && (
-                        <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
-                          {comment.replies.map((reply) => (
+                    {comment.replies.length > 0 && (
+                      <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
+                        {comment.replies.map((reply) => (
                           <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
-                            <p className="font-bold text-sm text-orange-600">{reply.author}</p>
-                            <p className="text-xs text-gray-500 mb-1">{reply.date}</p>
-                            <p className="text-sm">{reply.text}</p>
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-sm text-orange-600">{reply.author}</p>
+                                {reply.status !== 'approved' && (
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                                      reply.status === 'pending'
+                                        ? 'bg-yellow-100 text-yellow-700'
+                                        : 'bg-red-100 text-red-700'
+                                    }`}
+                                  >
+                                    {t.comments.status[reply.status]}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400">{formatDate(reply.createdAt)}</p>
+                            </div>
+                            <p className="text-sm mt-1">{reply.text}</p>
                           </div>
                         ))}
                       </div>
@@ -618,6 +951,7 @@ export default function ProductsPage() {
                     {/* Reply Form */}
                     {replyingTo !== comment.id ? (
                       <button
+                        type="button"
                         onClick={() => setReplyingTo(comment.id)}
                         className="text-sm text-orange-500 font-bold hover:underline mt-3 flex items-center gap-1"
                       >
@@ -635,21 +969,22 @@ export default function ProductsPage() {
                         />
                         <div className="flex gap-2">
                           <button
-                            onClick={() => {
-                              handleReply(product.id, comment.id, replyText);
-                              setReplyText('');
-                              setReplyingTo(null);
-                            }}
-                            className="px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm hover:bg-orange-600 transition-all"
+                            type="button"
+                            onClick={() => handleReply(product.id, comment.id, replyText)}
+                            disabled={replyLoading === comment.id}
+                            className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
+                              replyLoading === comment.id ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-600'
+                            }`}
                           >
-                            {t.comments.send}
+                            {replyLoading === comment.id ? t.comments.sendingReply : t.comments.send}
                           </button>
                           <button
+                            type="button"
                             onClick={() => {
                               setReplyingTo(null);
                               setReplyText('');
                             }}
-                            className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-600' : 'bg-gray-300'}`}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-800'}`}
                           >
                             {t.comments.cancel}
                           </button>
