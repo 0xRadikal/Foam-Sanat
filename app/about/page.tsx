@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import {
   Globe, ArrowRight, Phone, Mail, MapPin,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
@@ -9,8 +10,24 @@ import {
   Sparkles, Zap, Gauge, Clock, ChevronDown
 } from 'lucide-react';
 import Header from '@/app/components/Header';
+import CallToAction from '@/app/components/CallToAction';
 import { getNamespaceMessages } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
+import { contactConfig } from '@/app/config/contact';
+
+type BlobStyle = CSSProperties;
+
+function generateBlobs(count: number): BlobStyle[] {
+  return Array.from({ length: count }, () => ({
+    width: `${Math.random() * 300 + 50}px`,
+    height: `${Math.random() * 300 + 50}px`,
+    top: `${Math.random() * 100}%`,
+    left: `${Math.random() * 100}%`,
+    animation: `float ${Math.random() * 20 + 10}s ease-in-out infinite`,
+    animationDelay: `${Math.random() * 5}s`,
+    filter: 'blur(60px)'
+  }));
+}
 
 // Animated Counter
 function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
@@ -58,6 +75,12 @@ export default function AboutPage() {
   const [scrolled, setScrolled] = useState(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [blobStyles] = useState(() => generateBlobs(30));
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -82,6 +105,9 @@ export default function AboutPage() {
   const textColor = isDark ? 'text-gray-100' : 'text-gray-900';
   const cardBg = isDark ? 'bg-gray-800' : 'bg-white';
   const sectionBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
+  const primaryPhone = contactConfig.phones[0].value;
+  const primaryEmail = contactConfig.emails[0].value;
+  const mapUrl = contactConfig.mapUrl;
 
   const t = getNamespaceMessages(lang, 'about');
   const timelineIcons = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
@@ -119,23 +145,17 @@ export default function AboutPage() {
       <section className="relative pt-32 pb-20 px-4 overflow-hidden min-h-screen flex items-center">
         <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-orange-50'}`}>
           {/* Animated Background */}
-          <div className="absolute inset-0 opacity-20">
-            {[...Array(30)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full bg-gradient-to-r from-orange-500 to-purple-600"
-                style={{
-                  width: Math.random() * 300 + 50 + 'px',
-                  height: Math.random() * 300 + 50 + 'px',
-                  top: Math.random() * 100 + '%',
-                  left: Math.random() * 100 + '%',
-                  animation: `float ${Math.random() * 20 + 10}s ease-in-out infinite`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  filter: 'blur(60px)'
-                }}
-              />
-            ))}
-          </div>
+          {isMounted && (
+            <div className="absolute inset-0 opacity-20">
+              {blobStyles.map((style, i) => (
+                <div
+                  key={i}
+                  className="absolute rounded-full bg-gradient-to-r from-orange-500 to-purple-600"
+                  style={style}
+                />
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="container mx-auto relative z-10">
@@ -465,47 +485,73 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4">
-        <div className={`container mx-auto max-w-4xl ${cardBg} rounded-3xl p-16 text-center shadow-2xl relative overflow-hidden`}>
-          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-purple-600/10" />
-          <div className="relative z-10">
-            <Star className="w-20 h-20 text-orange-500 mx-auto mb-6 animate-spin" style={{ animationDuration: '3s' }} />
-            <h2 className="text-4xl md:text-5xl font-black mb-4">{t.cta.title}</h2>
-            <p className={`text-2xl mb-10 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              {t.cta.subtitle}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {t.cta.buttons.map((btn, i) => (
-                <a
-                  key={i}
-                  href={i === 0 ? '/contact' : i === 1 ? 'tel:+989128336085' : '/products'}
-                  className={`inline-flex items-center gap-2 ${
-                    i === 0 
-                      ? 'bg-gradient-to-r from-orange-500 to-purple-600 text-white' 
-                      : `${cardBg} border-2 border-orange-500 text-orange-500`
-                  } px-8 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl`}
-                >
-                  {btn}
-                  <ArrowRight className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <CallToAction
+        title={t.cta.title}
+        subtitle={t.cta.subtitle}
+        icon={<Star className="w-20 h-20 text-orange-500 mx-auto mb-6 animate-spin" style={{ animationDuration: '3s' }} />}
+        actions={[
+          {
+            label: t.cta.buttons[0],
+            href: '/contact',
+            icon: ({ className }) => (
+              <ArrowRight className={`${className ?? ''} ${isRTL ? 'rotate-180' : ''}`} />
+            ),
+            iconPosition: 'right',
+            className:
+              'inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl'
+          },
+          {
+            label: t.cta.buttons[1],
+            href: `tel:${primaryPhone}`,
+            icon: ({ className }) => (
+              <ArrowRight className={`${className ?? ''} ${isRTL ? 'rotate-180' : ''}`} />
+            ),
+            iconPosition: 'right',
+            variant: 'secondary',
+            className: `${cardBg} inline-flex items-center gap-2 border-2 border-orange-500 text-orange-500 px-8 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl`
+          },
+          {
+            label: t.cta.buttons[2],
+            href: '/products',
+            icon: ({ className }) => (
+              <ArrowRight className={`${className ?? ''} ${isRTL ? 'rotate-180' : ''}`} />
+            ),
+            iconPosition: 'right',
+            variant: 'secondary',
+            className: `${cardBg} inline-flex items-center gap-2 border-2 border-orange-500 text-orange-500 px-8 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-xl`
+          }
+        ]}
+        variant="gradient-card"
+        layout="centered"
+        sectionClassName="pt-20 pb-20"
+        cardClassName={`${cardBg} p-16 text-center border-2 border-orange-500/30`}
+        contentClassName="gap-8"
+        descriptionClassName="text-2xl md:text-2xl mb-10"
+        titleClassName="text-4xl md:text-5xl mb-4"
+      />
 
       {/* Footer */}
       <footer className="bg-gradient-to-br from-gray-900 to-black text-gray-400 py-16 px-4">
         <div className="container mx-auto text-center">
           <div className="flex justify-center gap-6 mb-8">
-            <a href="tel:+989128336085" className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
+            <a
+              href={`tel:${primaryPhone}`}
+              className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
+            >
               <Phone className="w-6 h-6" />
             </a>
-            <a href="mailto:info@foamsanat.com" className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
+            <a
+              href={`mailto:${primaryEmail}`}
+              className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
+            >
               <Mail className="w-6 h-6" />
             </a>
-            <a href="https://maps.app.goo.gl/wXxY2HxHnZ6M971h9" target="_blank" rel="noopener noreferrer" className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
+            <a
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
+            >
               <MapPin className="w-6 h-6" />
             </a>
           </div>

@@ -48,13 +48,35 @@ export type ProductsNamespaceSchema = {
     yourEmail: string;
     yourComment: string;
     submit: string;
+    submitting: string;
     replies: string;
     reply: string;
     admin: string;
     delete: string;
+    deleteFailed: string;
     replyPlaceholder: string;
     send: string;
+    sendingReply: string;
     cancel: string;
+    validationError: string;
+    invalidEmail: string;
+    tooShort: string;
+    submitError: string;
+    moderationNotice: string;
+    adminControls: string;
+    tokenPlaceholder: string;
+    saveToken: string;
+    clearToken: string;
+    adminTokenRequired: string;
+    emptyReply: string;
+    replyFailed: string;
+    loadFailed: string;
+    loading: string;
+    status: {
+      pending: string;
+      approved: string;
+      rejected: string;
+    };
   };
   cta: {
     title: string;
@@ -82,7 +104,6 @@ export type ProductsNamespaceSchema = {
     phoneLabel: string;
     emailLabel: string;
     addressLabel: string;
-    addressValue: string;
   };
   whyUs: {
     title: string;
@@ -300,13 +321,35 @@ export const productsMessages = {
       yourEmail: 'ایمیل شما',
       yourComment: 'نظر شما',
       submit: 'ارسال نظر',
+      submitting: 'در حال ارسال...',
       replies: 'پاسخ‌ها',
       reply: 'پاسخ',
       admin: 'مدیر سایت',
       delete: 'حذف',
+      deleteFailed: 'حذف نظر انجام نشد.',
       replyPlaceholder: 'پاسخ',
       send: 'ارسال',
-      cancel: 'لغو'
+      sendingReply: 'در حال ارسال...',
+      cancel: 'لغو',
+      validationError: 'لطفاً همه فیلدها را تکمیل کنید.',
+      invalidEmail: 'آدرس ایمیل معتبر نیست.',
+      tooShort: 'متن نظر باید حداقل ۲۰ کاراکتر باشد.',
+      submitError: 'ارسال نظر انجام نشد. دوباره تلاش کنید.',
+      moderationNotice: 'تمامی نظرات پس از بررسی مدیر منتشر می‌شوند.',
+      adminControls: 'مدیریت نظرات (ویژه مدیر)',
+      tokenPlaceholder: 'توکن مدیریت را وارد کنید',
+      saveToken: 'ثبت توکن',
+      clearToken: 'حذف توکن',
+      adminTokenRequired: 'برای اعمال تغییرات به توکن مدیریت نیاز است.',
+      emptyReply: 'متن پاسخ نمی‌تواند خالی باشد.',
+      replyFailed: 'ارسال پاسخ انجام نشد.',
+      loadFailed: 'امکان بارگذاری نظرات نبود.',
+      loading: 'در حال بارگذاری نظرات...',
+      status: {
+        pending: 'در انتظار تایید',
+        approved: 'تایید شده',
+        rejected: 'رد شده'
+      }
     },
     cta: {
       title: 'محصول مناسب خود را پیدا کردید؟',
@@ -333,8 +376,7 @@ export const productsMessages = {
       noProducts: 'محصولی یافت نشد',
       phoneLabel: 'تماس',
       emailLabel: 'ایمیل',
-      addressLabel: 'آدرس',
-      addressValue: 'تهران، ایران'
+      addressLabel: 'آدرس'
     },
     whyUs: {
       title: 'چرا ما؟',
@@ -555,13 +597,35 @@ Foam filter benefits:
       yourEmail: 'Your Email',
       yourComment: 'Your Review',
       submit: 'Submit',
+      submitting: 'Submitting...',
       replies: 'Replies',
       reply: 'Reply',
       admin: 'Site Admin',
       delete: 'Delete',
+      deleteFailed: 'Unable to delete the comment.',
       replyPlaceholder: 'Reply',
       send: 'Send',
-      cancel: 'Cancel'
+      sendingReply: 'Sending...',
+      cancel: 'Cancel',
+      validationError: 'Please complete all fields before submitting.',
+      invalidEmail: 'Please provide a valid email address.',
+      tooShort: 'Comments must be at least 20 characters long.',
+      submitError: 'Unable to submit your comment. Please try again.',
+      moderationNotice: 'All comments are published after moderator review.',
+      adminControls: 'Moderation controls (admin only)',
+      tokenPlaceholder: 'Enter moderation token',
+      saveToken: 'Save token',
+      clearToken: 'Clear token',
+      adminTokenRequired: 'A moderation token is required for this action.',
+      emptyReply: 'Reply text cannot be empty.',
+      replyFailed: 'Unable to send your reply.',
+      loadFailed: 'Unable to load comments.',
+      loading: 'Loading comments...',
+      status: {
+        pending: 'Pending review',
+        approved: 'Approved',
+        rejected: 'Rejected'
+      }
     },
     cta: {
       title: 'Found your ideal product?',
@@ -588,8 +652,7 @@ Foam filter benefits:
       noProducts: 'No products found',
       phoneLabel: 'Phone',
       emailLabel: 'Email',
-      addressLabel: 'Address',
-      addressValue: 'Tehran, Iran'
+      addressLabel: 'Address'
     },
     whyUs: {
       title: 'Why Us?',
