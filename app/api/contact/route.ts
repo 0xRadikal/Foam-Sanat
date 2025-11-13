@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
 
-const CONTACT_EMAIL =
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'info@foamsanat.com';
-const CONTACT_PHONE =
-  process.env.NEXT_PUBLIC_CONTACT_PHONE ?? '+989197302064';
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? 'info@foamsanat.com';
+const CONTACT_PHONE = process.env.CONTACT_PHONE ?? '+989197302064';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://foamsanat.com';
+const RESEND_API_URL = 'https://api.resend.com/emails';
+
+class EmailProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EmailProviderError';
+  }
+}
 
 type ContactPayload = {
   name: string;
@@ -24,6 +30,10 @@ function isInvalidPayloadError(error: unknown): boolean {
   return (
     error instanceof InvalidContactPayloadError || error instanceof SyntaxError
   );
+}
+
+function isEmailProviderError(error: unknown): error is EmailProviderError {
+  return error instanceof EmailProviderError;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -48,6 +58,8 @@ export async function POST(request: Request) {
       payload: redactPayload(contactPayload),
     });
 
+    await forwardContactSubmission(contactPayload);
+
     return NextResponse.json({
       success: true,
       message: 'Contact request received.',
@@ -64,6 +76,20 @@ export async function POST(request: Request) {
           message: 'Invalid request payload.',
         },
         { status: 400 },
+      );
+    }
+
+    if (isEmailProviderError(error)) {
+      console.error('Failed to forward contact form submission to provider', {
+        reason: error.message,
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Unable to deliver contact request. Please try again later.',
+        },
+        { status: 502 },
       );
     }
 
@@ -151,4 +177,59 @@ function redactPayload(payload: unknown): Record<string, string> | string {
   );
 
   return Object.fromEntries(entries);
+}
+
+async function forwardContactSubmission(payload: ContactPayload): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new EmailProviderError('Email provider API key is not configured.');
+  }
+
+  const fromAddress = process.env.RESEND_FROM_EMAIL ?? CONTACT_EMAIL;
+  const toAddress = CONTACT_EMAIL;
+
+  const response = await fetch(RESEND_API_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      from: fromAddress,
+      to: [toAddress],
+      subject: `New contact form submission from ${payload.name}`,
+      text: formatPlaintextMessage(payload),
+    }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = `Email provider responded with status ${response.status}`;
+
+    try {
+      const errorPayload = await response.json();
+      const detail = errorPayload?.message ?? errorPayload?.error;
+      if (typeof detail === 'string' && detail.trim().length > 0) {
+        errorMessage = detail;
+      }
+    } catch (jsonError) {
+      const message = getErrorMessage(jsonError);
+      errorMessage = `${errorMessage}; failed to parse error response: ${message}`;
+    }
+
+    throw new EmailProviderError(errorMessage);
+  }
+}
+
+function formatPlaintextMessage(payload: ContactPayload): string {
+  const lines = [
+    `Name: ${payload.name}`,
+    `Email: ${payload.email}`,
+    `Phone: ${payload.phone}`,
+    '',
+    payload.message,
+    '',
+    `Submitted from: ${SITE_URL}`,
+  ];
+
+  return lines.join('\n');
 }
