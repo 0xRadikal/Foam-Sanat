@@ -62,8 +62,10 @@ In Vercel Dashboard → Project Settings → Environment Variables:
 ```
 NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
 NEXT_PUBLIC_SITE_URL=https://foamsanat.com
-NEXT_PUBLIC_CONTACT_PHONE=+989197302064
-NEXT_PUBLIC_CONTACT_EMAIL=info@foamsanat.com
+CONTACT_PHONE=+989197302064
+CONTACT_EMAIL=info@foamsanat.com
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=no-reply@foamsanat.com
 ```
 
 4. **Deploy**
@@ -149,8 +151,10 @@ docker build -t foamsanat:latest .
 docker run -p 3000:3000 \
   -e NEXT_PUBLIC_GA_ID="G-XXXXXXXXXX" \
   -e NEXT_PUBLIC_SITE_URL="https://foamsanat.com" \
-  -e NEXT_PUBLIC_CONTACT_PHONE="+989197302064" \
-  -e NEXT_PUBLIC_CONTACT_EMAIL="info@foamsanat.com" \
+  -e CONTACT_PHONE="+989197302064" \
+  -e CONTACT_EMAIL="info@foamsanat.com" \
+  -e RESEND_API_KEY="your_resend_api_key" \
+  -e RESEND_FROM_EMAIL="no-reply@foamsanat.com" \
   foamsanat:latest
 ```
 
@@ -166,8 +170,10 @@ services:
     environment:
       - NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
       - NEXT_PUBLIC_SITE_URL=https://foamsanat.com
-      - NEXT_PUBLIC_CONTACT_PHONE=+989197302064
-      - NEXT_PUBLIC_CONTACT_EMAIL=info@foamsanat.com
+      - CONTACT_PHONE=+989197302064
+      - CONTACT_EMAIL=info@foamsanat.com
+      - RESEND_API_KEY=your_resend_api_key
+      - RESEND_FROM_EMAIL=no-reply@foamsanat.com
     restart: unless-stopped
 ```
 
