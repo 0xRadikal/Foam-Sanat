@@ -38,6 +38,13 @@
 
 ---
 
+### 🧭 Navigation System
+
+- Single source of truth powered by `app/lib/navigation-config.ts` for Home, Products, and About pages
+- Shared helper API ensures consistent labels, href resolution, and button styling across every header
+
+---
+
 ### 🧱 Tech Stack
 
 ```text
