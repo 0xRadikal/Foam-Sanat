@@ -1,15 +1,9 @@
 import HomePageClient from '@/app/components/home/HomePageClient';
-import { defaultLocale, getAllMessages, isLocale, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
+import { getAllMessages, type MessagesByLocale } from '@/app/lib/i18n';
+import { resolveLocale } from '@/app/lib/locale';
 
 interface PageProps {
   searchParams?: { lang?: string };
-}
-
-function resolveLocale(rawLang?: string): Locale {
-  if (rawLang && isLocale(rawLang)) {
-    return rawLang;
-  }
-  return defaultLocale;
 }
 
 export default function HomePage({ searchParams }: PageProps) {
