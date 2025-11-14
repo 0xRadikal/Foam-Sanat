@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 
+import { ensureServerEnvVars } from '@/app/lib/env';
+
 export function getClientIdentifier(request: NextRequest): string {
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
@@ -9,6 +11,8 @@ export function getClientIdentifier(request: NextRequest): string {
 }
 
 export function assertAdmin(request: NextRequest): string | null {
+  ensureServerEnvVars(['COMMENTS_ADMIN_TOKEN']);
+
   const header = request.headers.get('authorization');
   if (!header) {
     return null;

@@ -4,7 +4,6 @@
 type EnvVar = {
   key: string;
   required: boolean;
-  serverOnly?: boolean;
 };
 
 const ENV_VARS: EnvVar[] = [
@@ -15,24 +14,31 @@ const ENV_VARS: EnvVar[] = [
   { key: 'NEXT_PUBLIC_TURNSTILE_SITE_KEY', required: false },
   
   // Server-side only
-  { key: 'COMMENTS_ADMIN_TOKEN', required: true, serverOnly: true },
-  { key: 'RESEND_API_KEY', required: false, serverOnly: true },
-  { key: 'RESEND_FROM_EMAIL', required: false, serverOnly: true },
-  { key: 'TURNSTILE_SECRET_KEY', required: false, serverOnly: true },
-  { key: 'DATABASE_URL', required: false, serverOnly: true },
-  { key: 'CONTACT_EMAIL', required: false, serverOnly: true },
-  { key: 'CONTACT_PHONE', required: false, serverOnly: true },
+  { key: 'COMMENTS_ADMIN_TOKEN', required: true },
+  { key: 'RESEND_API_KEY', required: false },
+  { key: 'RESEND_FROM_EMAIL', required: false },
+  { key: 'TURNSTILE_SECRET_KEY', required: false },
+  { key: 'DATABASE_URL', required: false },
+  { key: 'CONTACT_EMAIL', required: false },
+  { key: 'CONTACT_PHONE', required: false },
 ];
 
-export function validateEnv() {
+let hasValidated = false;
+
+export function validateEnv({ force = false }: { force?: boolean } = {}) {
   const isServer = typeof window === 'undefined';
+  if (!isServer) {
+    return;
+  }
+
+  if (hasValidated && !force) {
+    return;
+  }
+
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  for (const { key, required, serverOnly } of ENV_VARS) {
-    // Skip server-only vars on client
-    if (!isServer && serverOnly) continue;
-
+  for (const { key, required } of ENV_VARS) {
     const value = process.env[key];
 
     if (required && !value) {
@@ -61,9 +67,26 @@ ${warnings.map(key => `  • ${key}`).join('\n')}
 Some features may be disabled. Check .env.example for details.
 `);
   }
+
+  hasValidated = true;
 }
 
-// Validate on module load (server-side only to avoid browser errors)
-if (typeof window === 'undefined') {
-  validateEnv();
+export function ensureServerEnvVars(requiredKeys: string[]) {
+  if (typeof window !== 'undefined' || requiredKeys.length === 0) {
+    return;
+  }
+
+  const missing = requiredKeys.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    const errorMessage = `
+❌ CRITICAL: Missing required environment variables:
+${missing.map(key => `  • ${key}`).join('\n')}
+
+Please set them in your server environment (e.g. .env.local or hosting provider secrets).
+Refer to .env.example for the template.
+`;
+    throw new Error(errorMessage);
+  }
 }
+
