@@ -11,7 +11,7 @@ import WhyUsSection from '@/app/components/home/WhyUsSection';
 import FaqSection from '@/app/components/home/FaqSection';
 import ContactSection from '@/app/components/home/ContactSection';
 import { contactConfig, getContactAddress } from '@/app/config/contact';
-import { createNavigationItems } from '@/app/lib/navigation';
+import { createHomeNavigation } from '@/app/lib/navigation-config';
 import { defaultLocale, getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 
@@ -89,36 +89,13 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
   } = messages.common.nav;
   const headerNavItems = useMemo(
     () =>
-      createNavigationItems(
-        {
-          home: homeNavLabel,
-          products: productsNavLabel,
-          whyUs: whyUsNavLabel,
-          faq: faqNavLabel,
-          contact: contactNavLabel
-        },
-        {
-          hrefResolver: (key) => {
-            switch (key) {
-              case 'home':
-                return '#home';
-              case 'products':
-                return '#products';
-              case 'whyUs':
-                return '#why-us';
-              case 'faq':
-                return '#faq';
-              case 'contact':
-                return '#contact';
-              default:
-                return `#${key}`;
-            }
-          },
-          overrides: {
-            contact: { variant: 'button' }
-          }
-        }
-      ),
+      createHomeNavigation({
+        home: homeNavLabel,
+        products: productsNavLabel,
+        whyUs: whyUsNavLabel,
+        faq: faqNavLabel,
+        contact: contactNavLabel
+      }),
     [contactNavLabel, faqNavLabel, homeNavLabel, productsNavLabel, whyUsNavLabel]
   );
 
