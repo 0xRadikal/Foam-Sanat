@@ -1,3 +1,4 @@
+// app/lib/useSiteChrome.ts - UPDATED to use centralized theme tokens
 'use client';
 
 import {
@@ -17,24 +18,13 @@ import {
   localeSettings,
   type Locale
 } from '@/app/lib/i18n';
-
-type Theme = 'light' | 'dark';
+import { THEME_TOKENS, type Theme, type ChromeThemeTokens } from '@/app/lib/theme-tokens'; // ✅ Import theme tokens
 
 const LANG_STORAGE_KEY = 'foam-sanat-lang';
 const THEME_STORAGE_KEY = 'foam-sanat-theme';
 
 const DEFAULT_LANG: Locale = defaultLocale;
 const DEFAULT_THEME: Theme = 'light';
-
-export interface ChromeThemeTokens {
-  pageBackground: string;
-  pageText: string;
-  surface: string;
-  section: string;
-  hover: string;
-  header: string;
-  border: string;
-}
 
 export interface SiteChromeState {
   lang: Locale;
@@ -158,16 +148,9 @@ export function SiteChromeProvider({ children }: { children: ReactNode }) {
     [lang]
   );
 
+  // ✅ REFACTOR #1: Use centralized theme tokens instead of inline definitions
   const themeClasses = useMemo<ChromeThemeTokens>(
-    () => ({
-      pageBackground: theme === 'dark' ? 'bg-gray-900' : 'bg-white',
-      pageText: theme === 'dark' ? 'text-gray-100' : 'text-gray-900',
-      surface: theme === 'dark' ? 'bg-gray-800' : 'bg-white',
-      section: theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50',
-      hover: theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100',
-      header: theme === 'dark' ? 'bg-gray-800/95' : 'bg-white/95',
-      border: theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-    }),
+    () => THEME_TOKENS[theme],
     [theme]
   );
 

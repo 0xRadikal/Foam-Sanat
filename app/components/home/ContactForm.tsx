@@ -1,3 +1,4 @@
+// app/components/home/ContactForm.tsx - FIXED: Lines 27-49
 'use client';
 
 import { useState } from 'react';
@@ -19,11 +20,14 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
     message: ''
   });
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>(''); // ✅ NEW: Specific error messages
   const labelAlignment = isRTL ? 'text-right' : 'text-left';
 
+  // ✅ FIX #10: Improved error handling with specific messages
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('sending');
+    setErrorMessage('');
 
     try {
       const response = await fetch('/api/contact', {
@@ -32,18 +36,42 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
         body: JSON.stringify(formState)
       });
 
-      if (response.ok) {
-        setStatus('success');
-        setFormState({ name: '', email: '', phone: '', message: '' });
-        setTimeout(() => setStatus('idle'), 5000);
-      } else {
-        setStatus('error');
-        setTimeout(() => setStatus('idle'), 5000);
+      // ✅ FIXED: Properly handle non-OK responses
+      if (!response.ok) {
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { message: 'Server error occurred' };
+        }
+        
+        throw new Error(errorData.message || `Request failed with status ${response.status}`);
       }
-    } catch (error) {
-      console.error('Failed to submit contact form', error);
-      setStatus('error');
+
+      const data = await response.json();
+      
+      setStatus('success');
+      setFormState({ name: '', email: '', phone: '', message: '' });
+      
+      // Auto-clear success message after 5 seconds
       setTimeout(() => setStatus('idle'), 5000);
+      
+    } catch (error) {
+      // ✅ FIXED: Better error logging and user feedback
+      console.error('Contact form submission error:', error);
+      
+      const message = error instanceof Error 
+        ? error.message 
+        : 'Failed to submit form. Please try again.';
+      
+      setErrorMessage(message);
+      setStatus('error');
+      
+      // Auto-clear error after 10 seconds
+      setTimeout(() => {
+        setStatus('idle');
+        setErrorMessage('');
+      }, 10000);
     }
   };
 
@@ -135,7 +163,9 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
 
       {status === 'error' && (
         <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 p-4 rounded-lg">
-          {contact.form.error}
+          {/* ✅ FIXED: Show specific error message */}
+          <p className="font-semibold mb-1">{contact.form.error}</p>
+          {errorMessage && <p className="text-sm">{errorMessage}</p>}
         </div>
       )}
     </form>
