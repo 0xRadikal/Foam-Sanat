@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
-import { createNavigationItems } from '@/app/lib/navigation';
+import { createAboutNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
@@ -147,7 +147,22 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const valuesIcons = [Shield, Lightbulb, Heart, Leaf];
   const teamIcons = [Building2, Zap, Gauge, Users];
   const achievementIcons = [Shield, Award, Trophy, Star];
-  const headerNavItems = createNavigationItems(t.nav);
+  const {
+    home: homeNavLabel,
+    about: aboutNavLabel,
+    products: productsNavLabel,
+    contact: contactNavLabel
+  } = t.nav;
+  const headerNavItems = useMemo(
+    () =>
+      createAboutNavigation({
+        home: homeNavLabel,
+        about: aboutNavLabel,
+        products: productsNavLabel,
+        contact: contactNavLabel
+      }),
+    [aboutNavLabel, contactNavLabel, homeNavLabel, productsNavLabel]
+  );
   return (
     <div
       className={`min-h-screen ${pageBackground} ${pageText} transition-all duration-300`}

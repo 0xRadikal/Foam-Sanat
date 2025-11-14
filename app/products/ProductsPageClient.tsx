@@ -11,7 +11,7 @@ import {
 import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
 import ContactInfo from '@/app/components/ContactInfo';
-import { createNavigationItems } from '@/app/lib/navigation';
+import { createProductsNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
@@ -548,7 +548,22 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   } as const;
   const featureIcons = [Shield, Zap, Award, Users];
   const whyUsIcons = [Shield, Zap, Users, Target];
-  const headerNavItems = createNavigationItems(t.nav);
+  const {
+    home: homeNavLabel,
+    products: productsNavLabel,
+    about: aboutNavLabel,
+    contact: contactNavLabel
+  } = t.nav;
+  const headerNavItems = useMemo(
+    () =>
+      createProductsNavigation({
+        home: homeNavLabel,
+        products: productsNavLabel,
+        about: aboutNavLabel,
+        contact: contactNavLabel
+      }),
+    [aboutNavLabel, contactNavLabel, homeNavLabel, productsNavLabel]
+  );
   const products = t.products as Product[];
 
   // Filtered products
