@@ -1,9 +1,12 @@
-// app/layout.tsx - Enhanced with SEO, Security, Manifest
+// app/layout.tsx - Enhanced with SEO, Security, Manifest, and ENV Validation
 import type { Metadata } from 'next';
 import Script from 'next/script';
 import { defaultLocale } from '@/app/lib/i18n';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
+
+// ✅ FIX #8: Import and run environment validation
+import '@/app/lib/env';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://foamsanat.com'),

@@ -216,7 +216,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
       status: reply.status ?? 'approved'
     }))
   }), []);
-
+  
   const formatDate = useCallback(
     (isoDate: string) => new Date(isoDate).toLocaleDateString(activeLocale === 'fa' ? 'fa-IR' : 'en-US'),
     [activeLocale]
