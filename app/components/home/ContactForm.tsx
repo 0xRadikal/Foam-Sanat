@@ -3,6 +3,8 @@
 
 import { useState } from 'react';
 import type { HomeMessages } from '@/app/lib/i18n';
+import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
+import { validateEmail, validatePhone, VALIDATION_RULES } from '@/app/lib/validation';
 
 type HomeContactMessages = HomeMessages['contact'];
 
@@ -13,6 +15,7 @@ type ContactFormProps = {
 };
 
 export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps) {
+  const theme: Theme = isDark ? 'dark' : 'light';
   const [formState, setFormState] = useState({
     name: '',
     email: '',
@@ -29,11 +32,56 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
     setStatus('sending');
     setErrorMessage('');
 
+    const trimmedName = formState.name.trim();
+    const trimmedEmail = formState.email.trim();
+    const trimmedPhone = formState.phone.trim();
+    const trimmedMessage = formState.message.trim();
+
+    if (
+      trimmedName.length < VALIDATION_RULES.name.minLength ||
+      trimmedName.length > VALIDATION_RULES.name.maxLength
+    ) {
+      setStatus('error');
+      setErrorMessage(contact.form.error);
+      return;
+    }
+
+    if (
+      trimmedEmail.length < VALIDATION_RULES.email.minLength ||
+      trimmedEmail.length > VALIDATION_RULES.email.maxLength ||
+      !validateEmail(trimmedEmail)
+    ) {
+      setStatus('error');
+      setErrorMessage(contact.form.error);
+      return;
+    }
+
+    if (
+      trimmedPhone.length < VALIDATION_RULES.phone.minLength ||
+      trimmedPhone.length > VALIDATION_RULES.phone.maxLength ||
+      !validatePhone(trimmedPhone)
+    ) {
+      setStatus('error');
+      setErrorMessage(contact.form.error);
+      return;
+    }
+
+    if (trimmedMessage.length < 10) {
+      setStatus('error');
+      setErrorMessage(contact.form.error);
+      return;
+    }
+
     try {
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formState)
+        body: JSON.stringify({
+          name: trimmedName,
+          email: trimmedEmail,
+          phone: trimmedPhone,
+          message: trimmedMessage
+        })
       });
 
       // ✅ FIXED: Properly handle non-OK responses
@@ -76,10 +124,8 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   };
 
   const inputClasses = `w-full px-4 py-3 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-    isDark
-      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-  }`;
+    getThemeToken(theme, 'inputSurface')
+  } ${getThemeToken(theme, 'inputBorder')} ${getThemeToken(theme, 'inputText')} ${getThemeToken(theme, 'inputPlaceholder')}`;
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -92,7 +138,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           id="name"
           required
           value={formState.name}
-          onChange={(e) => setFormState({ ...formState, name: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, name: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
@@ -107,7 +159,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           id="email"
           required
           value={formState.email}
-          onChange={(e) => setFormState({ ...formState, email: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, email: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
@@ -122,7 +180,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           id="phone"
           required
           value={formState.phone}
-          onChange={(e) => setFormState({ ...formState, phone: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, phone: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
@@ -137,7 +201,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           required
           rows={5}
           value={formState.message}
-          onChange={(e) => setFormState({ ...formState, message: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, message: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />

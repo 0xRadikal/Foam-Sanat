@@ -1,40 +1,143 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { randomUUID } from 'crypto';
-import type { PublicComment, StoredComment, StoredCommentReply } from './types';
+import { db } from './db';
+import type {
+  CommentStatus,
+  PublicComment,
+  PublicCommentReply,
+  StoredComment,
+  StoredCommentReply,
+} from './types';
 
-const dataDir = path.join(process.cwd(), 'app/api/comments/data');
-const dataPath = path.join(dataDir, 'comments.json');
+type CommentRow = Omit<StoredComment, 'replies'>;
+type ReplyRow = StoredCommentReply;
 
-async function ensureDataFile() {
-  try {
-    await fs.mkdir(dataDir, { recursive: true });
-    await fs.access(dataPath);
-  } catch {
-    await fs.writeFile(dataPath, '[]', 'utf8');
-  }
+const selectApprovedComments = db.prepare<CommentRow>(
+  `SELECT id, productId, rating, author, email, text, status, createdAt
+   FROM comments
+   WHERE productId = ? AND status = 'approved'
+   ORDER BY datetime(createdAt) DESC`,
+);
+
+const selectCommentById = db.prepare<CommentRow>(
+  `SELECT id, productId, rating, author, email, text, status, createdAt
+   FROM comments
+   WHERE id = ?
+   LIMIT 1`,
+);
+
+const selectApprovedReplies = db.prepare<ReplyRow>(
+  `SELECT id, commentId, author, text, createdAt, isAdmin, status
+   FROM comment_replies
+   WHERE commentId = ? AND status = 'approved'
+   ORDER BY datetime(createdAt) ASC`,
+);
+
+const duplicateCommentCheck = db.prepare(
+  `SELECT 1 FROM comments
+   WHERE productId = ? AND lower(email) = lower(?) AND text = ?
+   LIMIT 1`,
+);
+
+const commentExistsStmt = db.prepare(`SELECT 1 FROM comments WHERE id = ? LIMIT 1`);
+const updateCommentStatusStmt = db.prepare(
+  `UPDATE comments SET status = @status WHERE id = @id`,
+);
+const deleteCommentStmt = db.prepare(`DELETE FROM comments WHERE id = ?`);
+const deleteReplyStmt = db.prepare(
+  `DELETE FROM comment_replies WHERE id = @replyId AND commentId = @commentId`,
+);
+
+const insertCommentStmt = db.prepare(
+  `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt)
+   VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt)`,
+);
+
+const insertReplyStmt = db.prepare(
+  `INSERT INTO comment_replies (id, commentId, author, text, isAdmin, status, createdAt)
+   VALUES (@id, @commentId, @author, @text, @isAdmin, @status, @createdAt)`,
+);
+
+export function getApprovedComments(productId: string): PublicComment[] {
+  return selectApprovedComments.all(productId).map((comment) => toPublicComment(comment));
 }
 
-export async function readComments(): Promise<StoredComment[]> {
-  await ensureDataFile();
-  const data = await fs.readFile(dataPath, 'utf8');
-  try {
-    const parsed = JSON.parse(data) as StoredComment[];
-    if (!Array.isArray(parsed)) {
-      return [];
+export function hasDuplicateComment(productId: string, email: string, text: string): boolean {
+  return Boolean(duplicateCommentCheck.get(productId, email, text));
+}
+
+export function createStoredComment(
+  data: Omit<StoredComment, 'id' | 'createdAt' | 'replies'>,
+): StoredComment {
+  const createdAt = new Date().toISOString();
+  const newComment: StoredComment = {
+    ...data,
+    id: randomUUID(),
+    createdAt,
+    replies: [],
+  };
+
+  insertCommentStmt.run({
+    id: newComment.id,
+    productId: newComment.productId,
+    rating: newComment.rating,
+    author: newComment.author,
+    email: newComment.email,
+    text: newComment.text,
+    status: newComment.status,
+    createdAt: newComment.createdAt,
+  });
+
+  return newComment;
+}
+
+export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'createdAt'>): StoredCommentReply {
+  const createdAt = new Date().toISOString();
+  const reply: StoredCommentReply = {
+    ...data,
+    id: randomUUID(),
+    createdAt,
+  };
+
+  const insert = db.transaction((row: StoredCommentReply) => {
+    if (!commentExistsStmt.get(row.commentId)) {
+      throw new Error('Comment not found');
     }
-    return parsed;
-  } catch {
-    return [];
+    insertReplyStmt.run({
+      id: row.id,
+      commentId: row.commentId,
+      author: row.author,
+      text: row.text,
+      isAdmin: row.isAdmin ? 1 : 0,
+      status: row.status,
+      createdAt: row.createdAt,
+    });
+  });
+
+  insert(reply);
+  return reply;
+}
+
+export function updateCommentStatus(id: string, status: CommentStatus): PublicComment | null {
+  const result = updateCommentStatusStmt.run({ id, status });
+  if (result.changes === 0) {
+    return null;
   }
+
+  const updated = selectCommentById.get(id);
+  return updated ? toPublicComment(updated) : null;
 }
 
-export async function writeComments(comments: StoredComment[]): Promise<void> {
-  await ensureDataFile();
-  await fs.writeFile(dataPath, JSON.stringify(comments, null, 2), 'utf8');
+export function deleteStoredComment(id: string): boolean {
+  const result = deleteCommentStmt.run(id);
+  return result.changes > 0;
 }
 
-export function sanitizeComment(comment: StoredComment): PublicComment {
+export function deleteStoredReply(commentId: string, replyId: string): boolean {
+  const result = deleteReplyStmt.run({ commentId, replyId });
+  return result.changes > 0;
+}
+
+export function toPublicComment(comment: CommentRow): PublicComment {
   return {
     id: comment.id,
     productId: comment.productId,
@@ -43,32 +146,15 @@ export function sanitizeComment(comment: StoredComment): PublicComment {
     text: comment.text,
     createdAt: comment.createdAt,
     status: comment.status,
-    replies: comment.replies
-      .filter((reply) => reply.status === 'approved')
-      .map((reply) => ({
-        id: reply.id,
-        author: reply.author,
-        text: reply.text,
-        createdAt: reply.createdAt,
-        isAdmin: reply.isAdmin,
-        status: reply.status
-      }))
-  };
-}
-
-export function createStoredComment(data: Omit<StoredComment, 'id' | 'createdAt' | 'replies'>): StoredComment {
-  return {
-    ...data,
-    id: randomUUID(),
-    createdAt: new Date().toISOString(),
-    replies: []
-  };
-}
-
-export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'createdAt'>): StoredCommentReply {
-  return {
-    ...data,
-    id: randomUUID(),
-    createdAt: new Date().toISOString()
+    replies: selectApprovedReplies
+      .all(comment.id)
+      .map<PublicCommentReply>(({ id, author, text, createdAt, isAdmin, status }) => ({
+        id,
+        author,
+        text,
+        createdAt,
+        isAdmin: Boolean(isAdmin),
+        status,
+      })),
   };
 }

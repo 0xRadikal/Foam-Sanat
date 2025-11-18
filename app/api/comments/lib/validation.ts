@@ -2,10 +2,10 @@ import type { NextRequest } from 'next/server';
 import { sanitizeStringField } from '../../lib/payload';
 import { isRateLimited } from './rateLimit';
 import { getClientIdentifier } from './auth';
+import { validateEmail, VALIDATION_RULES } from '@/app/lib/validation';
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const linkPattern = /(https?:\/\/\S+)/gi;
-const MAX_COMMENT_LENGTH = 2000;
+const MAX_COMMENT_LENGTH = VALIDATION_RULES.comment.maxLength;
 const MAX_SPAM_SCAN_LENGTH = 3000;
 
 export type CommentPayload = {
@@ -49,8 +49,8 @@ export function validateCommentPayload(
 
   const author = sanitizeStringField(payload.author, {
     fieldName: 'author name',
-    minLength: 2,
-    maxLength: 120,
+    minLength: VALIDATION_RULES.name.minLength,
+    maxLength: VALIDATION_RULES.name.maxLength,
   });
 
   if (!author.ok) {
@@ -59,18 +59,18 @@ export function validateCommentPayload(
 
   const email = sanitizeStringField(payload.email, {
     fieldName: 'email',
-    maxLength: 254,
-    minLength: 5,
+    maxLength: VALIDATION_RULES.email.maxLength,
+    minLength: VALIDATION_RULES.email.minLength,
   });
 
-  if (!email.ok || !emailPattern.test(email.value)) {
+  if (!email.ok || !validateEmail(email.value)) {
     return { error: 'A valid email address is required.' };
   }
 
   const text = sanitizeStringField(payload.text, {
     fieldName: 'comment text',
     maxLength: MAX_COMMENT_LENGTH,
-    minLength: 20,
+    minLength: VALIDATION_RULES.comment.minLength,
   });
 
   if (!text.ok) {
