@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
-import { createStoredComment, readComments, sanitizeComment, writeComments } from './lib/store';
+import {
+  createStoredComment,
+  getApprovedComments,
+  hasDuplicateComment,
+  toPublicComment,
+} from './lib/store';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
@@ -10,12 +15,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'productId query parameter is required.' }, { status: 400 });
   }
 
-  const comments = await readComments();
-  const filtered = comments
-    .filter((comment) => comment.productId === productId && comment.status === 'approved')
-    .map(sanitizeComment);
+  const comments = getApprovedComments(productId);
 
-  return NextResponse.json({ comments: filtered });
+  return NextResponse.json({ comments });
 }
 
 export async function POST(request: NextRequest) {
@@ -49,18 +51,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: spamError }, { status: 429 });
   }
 
-  const comments = await readComments();
-  const duplicate = comments.find(
-    (comment) =>
-      comment.productId === sanitized.productId &&
-      comment.email.toLowerCase() === sanitized.email &&
-      comment.text.trim() === sanitized.text
-  );
-
-  if (duplicate) {
+  if (hasDuplicateComment(sanitized.productId, sanitized.email, sanitized.text.trim())) {
     return NextResponse.json(
       { error: 'This comment has already been submitted and is awaiting moderation.' },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
@@ -70,11 +64,11 @@ export async function POST(request: NextRequest) {
     author: sanitized.author,
     email: sanitized.email,
     text: sanitized.text,
-    status: 'pending'
+    status: 'pending',
   });
 
-  comments.push(newComment);
-  await writeComments(comments);
+  const { replies: _replies, ...commentRow } = newComment;
+  const publicComment = toPublicComment(commentRow);
 
-  return NextResponse.json({ comment: sanitizeComment(newComment) }, { status: 201 });
+  return NextResponse.json({ comment: publicComment }, { status: 201 });
 }

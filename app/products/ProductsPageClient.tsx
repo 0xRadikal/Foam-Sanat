@@ -15,11 +15,11 @@ import { createProductsNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
+import { validateEmail, VALIDATION_RULES } from '@/app/lib/validation';
 
 type Product = ProductsNamespaceSchema['products'][number];
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
-const MIN_COMMENT_LENGTH = 20;
+const MIN_COMMENT_LENGTH = VALIDATION_RULES.comment.minLength;
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -256,7 +256,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
         return;
       }
 
-      if (!emailPattern.test(trimmedEmail)) {
+      if (!validateEmail(trimmedEmail)) {
         setCommentError(t.comments.invalidEmail);
         return;
       }
@@ -331,7 +331,16 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
           };
         });
 
-        setCommentError(error instanceof Error ? error.message : t.comments.submitError);
+        const message = error instanceof Error ? error.message : t.comments.submitError;
+
+        console.error('Comment submission failed', {
+          error,
+          productId,
+          context: 'ProductsPageClient.handleCommentSubmit',
+          severity: 'error',
+        });
+
+        setCommentError(message);
       } finally {
         setIsSubmittingComment(false);
       }
