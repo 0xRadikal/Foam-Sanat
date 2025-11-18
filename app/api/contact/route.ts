@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { sanitizeStringField, redactPayload } from '../lib/payload';
+import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
+
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? 'info@foamsanat.com';
 const CONTACT_PHONE = process.env.CONTACT_PHONE ?? '+989197302064';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://foamsanat.com';
@@ -17,6 +20,7 @@ type ContactPayload = {
   email: string;
   phone: string;
   message: string;
+  turnstileToken?: string;
 };
 
 class InvalidContactPayloadError extends Error {
@@ -46,8 +50,33 @@ function getErrorMessage(error: unknown): string {
 
 export async function POST(request: Request) {
   try {
+    const originError = validateRequestOrigin(request);
+    if (originError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid request origin.',
+        },
+        { status: 403 },
+      );
+    }
+
     const body = await request.json();
     const contactPayload = parseContactPayload(body);
+
+    const captchaError = await verifyTurnstileToken(
+      contactPayload.turnstileToken ?? request.headers.get('cf-turnstile-response'),
+    );
+
+    if (captchaError) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: captchaError,
+        },
+        { status: 403 },
+      );
+    }
 
     console.info('Contact form submission received', {
       meta: {
@@ -110,12 +139,15 @@ function parseContactPayload(payload: unknown): ContactPayload {
     throw new InvalidContactPayloadError('Payload must be an object.');
   }
 
-  const { name, email, phone, message } = payload as Record<string, unknown>;
+  const { name, email, phone, message, turnstileToken } = payload as Record<
+    string,
+    unknown
+  >;
 
-  const sanitizedName = sanitizeRequiredString(name, 'name', 100);
-  const sanitizedEmail = sanitizeRequiredString(email, 'email', 254);
-  const sanitizedPhone = sanitizeRequiredString(phone, 'phone', 30);
-  const sanitizedMessage = sanitizeRequiredString(message, 'message', 2000, 10);
+  const sanitizedName = sanitizeRequiredContactField(name, 'name', 100);
+  const sanitizedEmail = sanitizeRequiredContactField(email, 'email', 254);
+  const sanitizedPhone = sanitizeRequiredContactField(phone, 'phone', 30);
+  const sanitizedMessage = sanitizeRequiredContactField(message, 'message', 2000, 10);
 
   if (!isValidEmail(sanitizedEmail)) {
     throw new InvalidContactPayloadError('Email format is invalid.');
@@ -130,30 +162,30 @@ function parseContactPayload(payload: unknown): ContactPayload {
     email: sanitizedEmail,
     phone: sanitizedPhone,
     message: sanitizedMessage,
+    turnstileToken:
+      typeof turnstileToken === 'string' && turnstileToken.trim().length > 0
+        ? turnstileToken.trim()
+        : undefined,
   };
 }
 
-function sanitizeRequiredString(
+function sanitizeRequiredContactField(
   value: unknown,
   field: string,
   maxLength: number,
   minLength = 1,
 ): string {
-  if (typeof value !== 'string') {
-    throw new InvalidContactPayloadError(`${field} must be a string.`);
+  const result = sanitizeStringField(value, {
+    fieldName: field,
+    maxLength,
+    minLength,
+  });
+
+  if (!result.ok) {
+    throw new InvalidContactPayloadError(result.error);
   }
 
-  const trimmed = value.trim();
-
-  if (trimmed.length < minLength) {
-    throw new InvalidContactPayloadError(`${field} is too short.`);
-  }
-
-  if (trimmed.length > maxLength) {
-    throw new InvalidContactPayloadError(`${field} exceeds allowed length.`);
-  }
-
-  return trimmed;
+  return result.value;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -165,18 +197,6 @@ function isValidEmail(email: string): boolean {
 
 function isValidPhone(phone: string): boolean {
   return PHONE_PATTERN.test(phone);
-}
-
-function redactPayload(payload: unknown): Record<string, string> | string {
-  if (!payload || typeof payload !== 'object') {
-    return '[REDACTED]';
-  }
-
-  const entries = Object.keys(payload as Record<string, unknown>).map(
-    (key) => [key, '[REDACTED]'] as const,
-  );
-
-  return Object.fromEntries(entries);
 }
 
 async function forwardContactSubmission(payload: ContactPayload): Promise<void> {
