@@ -56,7 +56,12 @@ ${missingCritical.map(key => `  • ${key}`).join('\n')}
 Please check your .env.local file and ensure all required variables are set.
 Refer to .env.example for the template.
 `;
-    throw new Error(errorMessage);
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(errorMessage);
+    }
+
+    console.warn(errorMessage);
   }
 
   if (warnings.length > 0) {

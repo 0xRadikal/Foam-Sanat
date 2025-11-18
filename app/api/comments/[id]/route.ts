@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertAdmin } from '../lib/auth';
-import { readComments, sanitizeComment, writeComments } from '../lib/store';
+import { deleteStoredComment, updateCommentStatus } from '../lib/store';
 import type { CommentStatus } from '../lib/types';
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
@@ -19,16 +19,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: 'A valid status must be provided.' }, { status: 400 });
   }
 
-  const comments = await readComments();
-  const index = comments.findIndex((comment) => comment.id === params.id);
-  if (index === -1) {
+  const updated = updateCommentStatus(params.id, body.status);
+  if (!updated) {
     return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
   }
 
-  comments[index].status = body.status;
-  await writeComments(comments);
-
-  return NextResponse.json({ comment: sanitizeComment(comments[index]) });
+  return NextResponse.json({ comment: updated });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
@@ -36,14 +32,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
   }
 
-  const comments = await readComments();
-  const index = comments.findIndex((comment) => comment.id === params.id);
-  if (index === -1) {
+  const deleted = deleteStoredComment(params.id);
+  if (!deleted) {
     return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
   }
-
-  comments.splice(index, 1);
-  await writeComments(comments);
 
   return NextResponse.json({ success: true });
 }
