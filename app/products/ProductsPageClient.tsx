@@ -331,7 +331,16 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
           };
         });
 
-        setCommentError(error instanceof Error ? error.message : t.comments.submitError);
+        const message = error instanceof Error ? error.message : t.comments.submitError;
+
+        console.error('Comment submission failed', {
+          error,
+          productId,
+          context: 'ProductsPageClient.handleCommentSubmit',
+          severity: 'error',
+        });
+
+        setCommentError(message);
       } finally {
         setIsSubmittingComment(false);
       }

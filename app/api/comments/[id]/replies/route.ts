@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertAdmin } from '../../lib/auth';
-import { createStoredReply, readComments, writeComments } from '../../lib/store';
+import { createStoredReply } from '../../lib/store';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   if (!assertAdmin(request)) {
@@ -18,31 +18,29 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: 'Reply text must be provided.' }, { status: 400 });
   }
 
-  const comments = await readComments();
-  const index = comments.findIndex((comment) => comment.id === params.id);
-  if (index === -1) {
-    return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
+  try {
+    const reply = createStoredReply({
+      commentId: params.id,
+      author: 'Admin',
+      text: body.text.trim(),
+      isAdmin: true,
+      status: 'approved',
+    });
+
+    return NextResponse.json({
+      reply: {
+        id: reply.id,
+        author: reply.author,
+        text: reply.text,
+        createdAt: reply.createdAt,
+        isAdmin: reply.isAdmin,
+        status: reply.status,
+      },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to add reply.' },
+      { status: 404 },
+    );
   }
-
-  const reply = createStoredReply({
-    commentId: params.id,
-    author: 'Admin',
-    text: body.text.trim(),
-    isAdmin: true,
-    status: 'approved'
-  });
-
-  comments[index].replies.push(reply);
-  await writeComments(comments);
-
-  return NextResponse.json({
-    reply: {
-      id: reply.id,
-      author: reply.author,
-      text: reply.text,
-      createdAt: reply.createdAt,
-      isAdmin: reply.isAdmin,
-      status: reply.status
-    }
-  });
 }

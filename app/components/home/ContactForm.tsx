@@ -92,7 +92,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           id="name"
           required
           value={formState.name}
-          onChange={(e) => setFormState({ ...formState, name: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, name: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
@@ -107,7 +113,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           id="email"
           required
           value={formState.email}
-          onChange={(e) => setFormState({ ...formState, email: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, email: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
@@ -122,7 +134,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           id="phone"
           required
           value={formState.phone}
-          onChange={(e) => setFormState({ ...formState, phone: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, phone: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
@@ -137,7 +155,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           required
           rows={5}
           value={formState.message}
-          onChange={(e) => setFormState({ ...formState, message: e.target.value })}
+          onChange={(e) => {
+            setFormState({ ...formState, message: e.target.value });
+            if (status === 'error') {
+              setStatus('idle');
+              setErrorMessage('');
+            }
+          }}
           className={inputClasses}
           disabled={status === 'sending'}
         />
