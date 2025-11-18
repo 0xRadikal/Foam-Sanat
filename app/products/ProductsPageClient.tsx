@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Phone, Mail, MapPin, X,
+  Phone, Mail, MapPin,
   Factory, Zap, Gauge, Wrench, Shield, Award,
   Search, Check,
   Sparkles, Users, Target, ChevronLeft, ChevronRight,
@@ -11,6 +11,7 @@ import {
 import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
 import ContactInfo from '@/app/components/ContactInfo';
+import Modal from '@/app/components/Modal';
 import { createProductsNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
@@ -132,7 +133,6 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   }, [lang, activeLocale]);
   
   // Refs
-  const modalRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Load stored admin token
@@ -145,22 +145,6 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
     }
   }, []);
 
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (selectedProduct) {
-      document.body.style.overflow = 'hidden';
-      // Focus modal for accessibility
-      setTimeout(() => modalRef.current?.focus(), 100);
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [selectedProduct]);
-
   // Scroll listener
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -168,28 +152,6 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Prevent body scroll when modal is scrolling
-  const handleModalScroll = useCallback((e: React.WheelEvent) => {
-    if (modalRef.current) {
-      const isScrollable = modalRef.current.scrollHeight > modalRef.current.clientHeight;
-      if (isScrollable) {
-        e.stopPropagation();
-      }
-    }
-  }, []);
-
-  // Close modal with Escape key
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && selectedProduct) {
-        setSelectedProduct(null);
-      }
-    };
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [selectedProduct]);
 
   useEffect(() => {
     setCommentError(null);
@@ -595,31 +557,25 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   // Modal Components
   const PriceModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
     if (!product) return null;
-    
+
     return (
-      <div 
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-        onClick={onClose}
+      <Modal
+        isOpen={!!product}
+        onClose={onClose}
+        size="sm"
+        title={product.name}
+        className={`${cardBg} shadow-2xl`}
+        overlayClassName="items-center"
       >
-        <div
-          className={`${cardBg} rounded-3xl p-8 max-w-md w-full shadow-2xl`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-black">{product.name}</h3>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          
+        <div className="space-y-6">
           {product.hasPrice ? (
-            <div className="mb-6">
-              <p className="text-sm font-bold text-orange-500 mb-2">{t.ui.currentPrice}</p>
-              <p className="text-4xl font-black text-orange-600 mb-2">{product.price}</p>
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-orange-500">{t.ui.currentPrice}</p>
+              <p className="text-4xl font-black text-orange-600">{product.price}</p>
               <p className="text-xs text-gray-500">{t.ui.priceIncludes}</p>
             </div>
           ) : (
-            <div className="mb-6 p-4 bg-gradient-to-r from-orange-500/10 to-purple-600/10 rounded-xl">
+            <div className="p-4 bg-gradient-to-r from-orange-500/10 to-purple-600/10 rounded-xl">
               <p className="text-lg font-bold mb-3">{t.ui.variablePrice}</p>
               <p className="text-sm">{t.ui.variablePriceDescription}</p>
             </div>
@@ -642,7 +598,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
             </a>
           </div>
         </div>
-      </div>
+      </Modal>
     );
   };
 
@@ -652,28 +608,16 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
     const productComments: ProductComment[] = comments[product.id] ?? [];
 
     return (
-      <div 
-        className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto"
-        onClick={onClose}
+      <Modal
+        isOpen={!!product}
+        onClose={onClose}
+        size="xl"
+        title={product.name}
+        className={`${cardBg} shadow-2xl`}
       >
-        <div
-          ref={modalRef}
-          tabIndex={-1}
-          className={`${cardBg} rounded-3xl p-6 md:p-8 max-w-4xl w-full shadow-2xl my-8`}
-          onClick={(e) => e.stopPropagation()}
-          onWheel={handleModalScroll}
-        >
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="float-right text-gray-500 hover:text-gray-700 p-2 mb-4"
-            aria-label={t.ui.close}
-          >
-            <X className="w-6 h-6" />
-          </button>
-
+        <div className="space-y-8">
           {/* Image Slider */}
-          <div className="clear-both mb-8">
+          <div className="mb-8">
             <div className="relative mb-4 group">
               <div className="aspect-video bg-gradient-to-br from-orange-400 to-purple-600 rounded-2xl flex items-center justify-center text-6xl md:text-8xl overflow-hidden w-full">
                 {product.images[currentSlide]}
@@ -1048,7 +992,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
             )}
           </div>
         </div>
-      </div>
+      </Modal>
     );
   };
 
