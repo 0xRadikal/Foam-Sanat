@@ -15,6 +15,7 @@ import { createAboutNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
+import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 
 type BlobStyle = CSSProperties;
 
@@ -80,6 +81,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
     toggleMobileMenu,
     setLang
   } = useSiteChrome();
+  const theme: Theme = isDark ? 'dark' : 'light';
   const [scrolled, setScrolled] = useState(false);
   const [activeLocale, setActiveLocale] = useState<Locale>(initialLocale);
   const [messages, setMessages] = useState(initialMessages);
@@ -188,7 +190,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
       {/* Hero Section with Animation */}
       <section className="relative pt-32 pb-20 px-4 overflow-hidden min-h-screen flex items-center">
-        <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-orange-50'}`}>
+        <div className={`absolute inset-0 ${getThemeToken(theme, 'heroGradient')}`}>
           {/* Animated Background */}
           {isMounted && (
             <div className="absolute inset-0 opacity-20">
@@ -222,7 +224,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
               ))}
             </h1>
             
-            <p className={`text-xl md:text-2xl mb-12 max-w-3xl mx-auto ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <p className={`text-xl md:text-2xl mb-12 max-w-3xl mx-auto ${getThemeToken(theme, 'mutedText')}`}>
               {t.hero.subtitle}
             </p>
 
@@ -311,7 +313,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                         </div>
                       </div>
                       <h3 className="text-2xl font-bold mb-3">{item.title}</h3>
-                      <p className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+                      <p className={`text-lg ${getThemeToken(theme, 'mutedText')}`}>{item.desc}</p>
                     </div>
 
                     <div className="hidden md:flex w-2/12 justify-center">
@@ -335,7 +337,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           <div className="text-center mb-16">
             <h2 className="text-5xl md:text-6xl font-black mb-4">{t.story.title}</h2>
             <p className="text-2xl text-orange-500 font-bold mb-2">{t.story.subtitle}</p>
-            <p className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{t.story.intro}</p>
+            <p className={`text-lg ${getThemeToken(theme, 'mutedText')}`}>{t.story.intro}</p>
           </div>
 
           <div className="space-y-8">
@@ -350,7 +352,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                   </div>
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold mb-4">{para.title}</h3>
-                    <p className={`text-lg leading-relaxed mb-4 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <p className={`text-lg leading-relaxed mb-4 ${getThemeToken(theme, 'mutedText')}`}>
                       {para.text}
                     </p>
                     <div className="inline-block bg-gradient-to-r from-orange-500 to-purple-600 text-white px-6 py-2 rounded-full font-bold text-sm">
@@ -375,7 +377,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
               </div>
               <h3 className="text-4xl font-black mb-2">{t.mission.title}</h3>
               <p className="text-sm text-orange-500 font-bold mb-4">{t.mission.subtitle}</p>
-              <p className={`text-lg leading-relaxed mb-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-lg leading-relaxed mb-6 ${getThemeToken(theme, 'mutedText')}`}>
                 {t.mission.content}
               </p>
               <div className="space-y-3">
@@ -398,7 +400,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
               </div>
               <h3 className="text-4xl font-black mb-2">{t.vision.title}</h3>
               <p className="text-sm text-orange-500 font-bold mb-4">{t.vision.subtitle}</p>
-              <p className={`text-lg leading-relaxed mb-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-lg leading-relaxed mb-6 ${getThemeToken(theme, 'mutedText')}`}>
                 {t.vision.content}
               </p>
               <div className="space-y-4">
@@ -409,7 +411,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                     </div>
                     <div>
                       <div className="font-bold text-lg">{goal.title}</div>
-                      <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{goal.desc}</div>
+                      <div className={`text-sm ${getThemeToken(theme, 'mutedText')}`}>{goal.desc}</div>
                     </div>
                   </div>
                 ))}
@@ -439,7 +441,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                     <Icon className="w-10 h-10 text-white" />
                   </div>
                   <h3 className="text-3xl font-black mb-4">{value.title}</h3>
-                  <p className={`text-lg leading-relaxed mb-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  <p className={`text-lg leading-relaxed mb-6 ${getThemeToken(theme, 'mutedText')}`}>
                     {value.desc}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -465,7 +467,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           <div className="text-center mb-16">
             <h2 className="text-5xl md:text-6xl font-black mb-4">{t.team.title}</h2>
             <p className="text-2xl text-orange-500 font-bold mb-2">{t.team.subtitle}</p>
-            <p className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{t.team.intro}</p>
+            <p className={`text-lg ${getThemeToken(theme, 'mutedText')}`}>{t.team.intro}</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -485,7 +487,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                   <h3 className="text-2xl font-bold text-center mb-4">{dept.name}</h3>
                   <div className="space-y-2">
                     {dept.roles.map((role, j) => (
-                      <div key={j} className={`text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <div key={j} className={`text-center text-sm ${getThemeToken(theme, 'mutedText')}`}>
                         • {role}
                       </div>
                     ))}
@@ -522,7 +524,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                       <div className="text-sm font-bold text-orange-500">{item.year}</div>
                     </div>
                   </div>
-                  <p className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+                  <p className={`text-lg ${getThemeToken(theme, 'mutedText')}`}>{item.desc}</p>
                 </div>
               );
             })}
