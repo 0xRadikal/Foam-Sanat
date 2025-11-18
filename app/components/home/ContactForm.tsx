@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import type { HomeMessages } from '@/app/lib/i18n';
 import { validateEmail, validatePhone, VALIDATION_RULES } from '@/app/lib/validation';
+import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 
 type HomeContactMessages = HomeMessages['contact'];
 
@@ -14,6 +15,7 @@ type ContactFormProps = {
 };
 
 export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps) {
+  const theme: Theme = isDark ? 'dark' : 'light';
   const [formState, setFormState] = useState({
     name: '',
     email: '',
@@ -122,10 +124,8 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   };
 
   const inputClasses = `w-full px-4 py-3 rounded-lg border-2 transition-all focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-    isDark
-      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-  }`;
+    getThemeToken(theme, 'surface')
+  } ${getThemeToken(theme, 'border')} ${getThemeToken(theme, 'pageText')} ${getThemeToken(theme, 'placeholder')}`;
 
   return (
     <form onSubmit={handleSubmit} className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>

@@ -194,7 +194,7 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
 
         <WhyUsSection whyUs={messages.home.whyUs} isDark={isDark} sectionBg={sectionBg} />
 
-        <FaqSection faq={messages.home.faq} isDark={isDark} cardBg={cardBg} hoverBg={hoverBg} />
+        <FaqSection faq={messages.home.faq} isDark={isDark} />
 
         <ContactSection
           contact={messages.home.contact}
