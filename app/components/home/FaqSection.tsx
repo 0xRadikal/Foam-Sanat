@@ -2,15 +2,19 @@
 
 import { ChevronDown } from 'lucide-react';
 import type { HomeNamespaceSchema } from '@/app/lib/i18n';
+import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 
 type FaqSectionProps = {
   faq: HomeNamespaceSchema['faq'];
   isDark: boolean;
-  cardBg: string;
-  hoverBg: string;
 };
 
-export default function FaqSection({ faq, isDark, cardBg, hoverBg }: FaqSectionProps) {
+export default function FaqSection({ faq, isDark }: FaqSectionProps) {
+  const theme: Theme = isDark ? 'dark' : 'light';
+  const cardBg = getThemeToken(theme, 'surface');
+  const hoverBg = getThemeToken(theme, 'hover');
+  const answerText = getThemeToken(theme, 'mutedText');
+
   return (
     <section id="faq" className="py-20 px-4">
       <div className="container mx-auto max-w-4xl">
@@ -24,7 +28,7 @@ export default function FaqSection({ faq, isDark, cardBg, hoverBg }: FaqSectionP
                 <span>{item.q}</span>
                 <ChevronDown className="w-5 h-5 transition-transform group-open:rotate-180 flex-shrink-0" />
               </summary>
-              <div className={`px-6 pb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{item.a}</div>
+              <div className={`px-6 pb-6 leading-relaxed ${answerText}`}>{item.a}</div>
             </details>
           ))}
         </div>
