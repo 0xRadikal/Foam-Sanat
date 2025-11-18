@@ -3,24 +3,24 @@
 
 type EnvVar = {
   key: string;
-  required: boolean;
+  level: 'critical' | 'warn';
 };
 
 const ENV_VARS: EnvVar[] = [
   // Client-side (must have NEXT_PUBLIC_ prefix)
-  { key: 'NEXT_PUBLIC_SITE_URL', required: true },
-  { key: 'NEXT_PUBLIC_GA_ID', required: false },
-  { key: 'NEXT_PUBLIC_GTM_ID', required: false },
-  { key: 'NEXT_PUBLIC_TURNSTILE_SITE_KEY', required: false },
-  
+  { key: 'NEXT_PUBLIC_SITE_URL', level: 'warn' },
+  { key: 'NEXT_PUBLIC_GA_ID', level: 'warn' },
+  { key: 'NEXT_PUBLIC_GTM_ID', level: 'warn' },
+  { key: 'NEXT_PUBLIC_TURNSTILE_SITE_KEY', level: 'warn' },
+
   // Server-side only
-  { key: 'COMMENTS_ADMIN_TOKEN', required: true },
-  { key: 'RESEND_API_KEY', required: false },
-  { key: 'RESEND_FROM_EMAIL', required: false },
-  { key: 'TURNSTILE_SECRET_KEY', required: false },
-  { key: 'DATABASE_URL', required: false },
-  { key: 'CONTACT_EMAIL', required: false },
-  { key: 'CONTACT_PHONE', required: false },
+  { key: 'COMMENTS_ADMIN_TOKEN', level: 'critical' },
+  { key: 'RESEND_API_KEY', level: 'warn' },
+  { key: 'RESEND_FROM_EMAIL', level: 'warn' },
+  { key: 'TURNSTILE_SECRET_KEY', level: 'warn' },
+  { key: 'DATABASE_URL', level: 'warn' },
+  { key: 'CONTACT_EMAIL', level: 'warn' },
+  { key: 'CONTACT_PHONE', level: 'warn' },
 ];
 
 let hasValidated = false;
@@ -35,23 +35,23 @@ export function validateEnv({ force = false }: { force?: boolean } = {}) {
     return;
   }
 
-  const missing: string[] = [];
+  const missingCritical: string[] = [];
   const warnings: string[] = [];
 
-  for (const { key, required } of ENV_VARS) {
+  for (const { key, level } of ENV_VARS) {
     const value = process.env[key];
 
-    if (required && !value) {
-      missing.push(key);
-    } else if (!required && !value) {
+    if (level === 'critical' && !value) {
+      missingCritical.push(key);
+    } else if (!value) {
       warnings.push(key);
     }
   }
 
-  if (missing.length > 0) {
+  if (missingCritical.length > 0) {
     const errorMessage = `
 ❌ CRITICAL: Missing required environment variables:
-${missing.map(key => `  • ${key}`).join('\n')}
+${missingCritical.map(key => `  • ${key}`).join('\n')}
 
 Please check your .env.local file and ensure all required variables are set.
 Refer to .env.example for the template.
@@ -59,7 +59,7 @@ Refer to .env.example for the template.
     throw new Error(errorMessage);
   }
 
-  if (warnings.length > 0 && process.env.NODE_ENV === 'development') {
+  if (warnings.length > 0) {
     console.warn(`
 ⚠️  Optional environment variables not set:
 ${warnings.map(key => `  • ${key}`).join('\n')}
