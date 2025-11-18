@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { sanitizeStringField, redactPayload } from '../lib/payload';
 import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
+import {
+  validateEmail,
+  validatePhone,
+  VALIDATION_RULES,
+} from '@/app/lib/validation';
 
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? 'info@foamsanat.com';
 const CONTACT_PHONE = process.env.CONTACT_PHONE ?? '+989197302064';
@@ -144,16 +149,31 @@ function parseContactPayload(payload: unknown): ContactPayload {
     unknown
   >;
 
-  const sanitizedName = sanitizeRequiredContactField(name, 'name', 100);
-  const sanitizedEmail = sanitizeRequiredContactField(email, 'email', 254);
-  const sanitizedPhone = sanitizeRequiredContactField(phone, 'phone', 30);
+  const sanitizedName = sanitizeRequiredContactField(
+    name,
+    'name',
+    VALIDATION_RULES.name.maxLength,
+    VALIDATION_RULES.name.minLength,
+  );
+  const sanitizedEmail = sanitizeRequiredContactField(
+    email,
+    'email',
+    VALIDATION_RULES.email.maxLength,
+    VALIDATION_RULES.email.minLength,
+  );
+  const sanitizedPhone = sanitizeRequiredContactField(
+    phone,
+    'phone',
+    VALIDATION_RULES.phone.maxLength,
+    VALIDATION_RULES.phone.minLength,
+  );
   const sanitizedMessage = sanitizeRequiredContactField(message, 'message', 2000, 10);
 
-  if (!isValidEmail(sanitizedEmail)) {
+  if (!validateEmail(sanitizedEmail)) {
     throw new InvalidContactPayloadError('Email format is invalid.');
   }
 
-  if (!isValidPhone(sanitizedPhone)) {
+  if (!validatePhone(sanitizedPhone)) {
     throw new InvalidContactPayloadError('Phone format is invalid.');
   }
 
@@ -188,16 +208,6 @@ function sanitizeRequiredContactField(
   return result.value;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^[+()\d\s-]{7,}$/;
-
-function isValidEmail(email: string): boolean {
-  return EMAIL_PATTERN.test(email);
-}
-
-function isValidPhone(phone: string): boolean {
-  return PHONE_PATTERN.test(phone);
-}
 
 async function forwardContactSubmission(payload: ContactPayload): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;

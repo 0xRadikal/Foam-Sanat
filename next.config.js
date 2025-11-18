@@ -1,3 +1,21 @@
+const requiredEnvVars = [
+  'NEXT_PUBLIC_SITE_URL',
+  'CONTACT_PHONE_FA',
+  'CONTACT_PHONE_EN',
+  'CONTACT_EMAIL',
+  'COMMENTS_ADMIN_TOKEN'
+];
+
+function validateBuildEnv() {
+  const missing = requiredEnvVars.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+validateBuildEnv();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
