@@ -20,20 +20,19 @@ export type CommonNamespaceSchema = {
   };
 };
 
-const defaultContactPhoneFa =
-  process.env.CONTACT_PHONE_FA ??
-  process.env.CONTACT_PHONE ??
-  process.env.NEXT_PUBLIC_CONTACT_PHONE_FA ??
-  '۰۹۱۲۸۳۳۶۰۸۵';
-const defaultContactPhoneEn =
-  process.env.CONTACT_PHONE_EN ??
-  process.env.CONTACT_PHONE ??
-  process.env.NEXT_PUBLIC_CONTACT_PHONE_EN ??
-  '+98 912 833 6085';
-const defaultContactEmail =
-  process.env.CONTACT_EMAIL ??
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL ??
-  'info@foamsanat.com';
+const requireEnv = (key: string): string => {
+  const value = process.env[key];
+
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+
+  return value;
+};
+
+const defaultContactPhoneFa = requireEnv('CONTACT_PHONE_FA');
+const defaultContactPhoneEn = requireEnv('CONTACT_PHONE_EN');
+const defaultContactEmail = requireEnv('CONTACT_EMAIL');
 
 export const commonMessages = {
   fa: {
