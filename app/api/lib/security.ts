@@ -46,28 +46,42 @@ export async function verifyTurnstileToken(token?: string | null): Promise<strin
     return null;
   }
 
-  if (!token) {
+  if (!token || token.trim().length === 0) {
     console.warn('Turnstile secret configured but token was not provided with the request.');
-    return null;
+    return 'CAPTCHA token is required.';
   }
+
+  const trimmedToken = token.trim();
 
   const formData = new FormData();
   formData.append('secret', secretKey);
-  formData.append('response', token);
+  formData.append('response', trimmedToken);
 
-  const response = await fetch(TURNSTILE_VERIFY_URL, {
-    method: 'POST',
-    body: formData,
-  });
+  let verificationResponse: Response;
+  try {
+    verificationResponse = await fetch(TURNSTILE_VERIFY_URL, {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (error) {
+    console.warn('Turnstile verification request failed', { error });
+    return 'CAPTCHA verification failed.';
+  }
 
-  if (!response.ok) {
+  if (!verificationResponse.ok) {
     console.warn('Turnstile verification failed to respond successfully', {
-      status: response.status,
+      status: verificationResponse.status,
     });
     return 'CAPTCHA verification failed.';
   }
 
-  const verification = (await response.json()) as { success?: boolean };
+  let verification: { success?: boolean };
+  try {
+    verification = (await verificationResponse.json()) as { success?: boolean };
+  } catch (error) {
+    console.warn('Turnstile verification responded with invalid JSON', { error });
+    return 'CAPTCHA verification failed.';
+  }
   if (!verification?.success) {
     return 'CAPTCHA verification failed.';
   }
