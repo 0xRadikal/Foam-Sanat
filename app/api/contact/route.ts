@@ -6,7 +6,7 @@ import {
   validateEmail,
   validatePhone,
   VALIDATION_RULES,
-} from '@/app/lib/validation';
+} from '../../lib/validation';
 
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? 'info@foamsanat.com';
 const CONTACT_PHONE = process.env.CONTACT_PHONE ?? '+989197302064';
