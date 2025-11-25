@@ -9,7 +9,7 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "NODE_ENV=test tsc --project tsconfig.test.json && NODE_ENV=test node --test \"./.tests-dist/**/*.test.js\"",
+    "test": "NODE_ENV=test tsc --project tsconfig.test.json && NODE_ENV=test node --test $(find .tests-dist -name \"*.test.js\")",
     "analyze": "source-map-explorer .next/static/chunks/*.js --html analyzer-report.html",
     "sitemap": "next-sitemap",
     "axe": "axe http://localhost:3000 --chromium --timeout 60000 --exit 0",
@@ -21,6 +21,7 @@
     "better-sqlite3": "^12.4.1",
     "docker": "^0.2.14",
     "lucide-react": "^0.552.0",
+    "redis": "^4.7.0",
     "next": "^14.2.33",
     "react": "18.3.1",
     "react-dom": "18.3.1"

@@ -1,13 +1,38 @@
 import { NextRequest } from 'next/server';
 
-import { ensureServerEnvVars } from '@/app/lib/env';
+import { ensureServerEnvVars } from '../../../lib/env';
+
+const DEFAULT_TRUSTED_PROXIES = new Set(['127.0.0.1', '::1']);
+
+function getTrustedProxies(): Set<string> {
+  const env = process.env.TRUSTED_PROXY_IPS;
+  const proxies = new Set(DEFAULT_TRUSTED_PROXIES);
+
+  if (!env) return proxies;
+
+  for (const entry of env.split(',')) {
+    const trimmed = entry.trim();
+    if (trimmed) {
+      proxies.add(trimmed);
+    }
+  }
+
+  return proxies;
+}
 
 export function getClientIdentifier(request: NextRequest): string {
+  const clientIp = request.ip ?? request.headers.get('x-real-ip');
   const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) {
-    return forwarded.split(',')[0]?.trim() ?? 'unknown';
+  const trustedProxies = getTrustedProxies();
+
+  if (forwarded && clientIp && trustedProxies.has(clientIp)) {
+    const [firstHop] = forwarded.split(',').map((ip) => ip.trim()).filter(Boolean);
+    if (firstHop) {
+      return firstHop;
+    }
   }
-  return request.ip ?? request.headers.get('x-real-ip') ?? 'unknown';
+
+  return clientIp ?? 'unknown';
 }
 
 export function assertAdmin(request: NextRequest): string | null {
