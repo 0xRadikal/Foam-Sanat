@@ -46,9 +46,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: captchaError.message }, { status: captchaError.status });
   }
 
-  const spamError = checkRateLimitOrSpam(request, sanitized.text);
-  if (spamError) {
-    return NextResponse.json({ error: spamError }, { status: 429 });
+  const guardResult = await checkRateLimitOrSpam(request, sanitized.text);
+  if (guardResult) {
+    const headers: HeadersInit | undefined = guardResult.retryAfterSeconds
+      ? { 'Retry-After': guardResult.retryAfterSeconds.toString() }
+      : undefined;
+    return NextResponse.json({ error: guardResult.error }, { status: 429, headers });
   }
 
   if (hasDuplicateComment(sanitized.productId, sanitized.email, sanitized.text.trim())) {
