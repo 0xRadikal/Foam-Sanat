@@ -1,7 +1,7 @@
 // app/components/home/ContactForm.tsx - FIXED: Lines 27-49
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { HomeMessages } from '@/app/lib/i18n';
 import { validateEmail, validatePhone, VALIDATION_RULES } from '@/app/lib/validation';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
@@ -16,6 +16,7 @@ type ContactFormProps = {
 
 export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps) {
   const theme: Theme = isDark ? 'dark' : 'light';
+  const statusMessageId = useId();
   const [formState, setFormState] = useState({
     name: '',
     email: '',
@@ -25,6 +26,7 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>(''); // ✅ NEW: Specific error messages
   const labelAlignment = isRTL ? 'text-right' : 'text-left';
+  const hasError = status === 'error';
 
   // ✅ FIX #10: Improved error handling with specific messages
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,7 +130,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   } ${getThemeToken(theme, 'border')} ${getThemeToken(theme, 'pageText')} ${getThemeToken(theme, 'placeholder')}`;
 
   return (
-    <form onSubmit={handleSubmit} className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+    <form
+      onSubmit={handleSubmit}
+      className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`}
+      dir={isRTL ? 'rtl' : 'ltr'}
+      aria-busy={status === 'sending'}
+      aria-describedby={hasError ? statusMessageId : undefined}
+    >
       <div>
         <label className={`block mb-2 font-semibold ${labelAlignment}`} htmlFor="name">
           {contact.form.name}
@@ -146,6 +154,8 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
             }
           }}
           className={inputClasses}
+          autoComplete="name"
+          aria-invalid={hasError}
           disabled={status === 'sending'}
         />
       </div>
@@ -167,6 +177,9 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
             }
           }}
           className={inputClasses}
+          autoComplete="email"
+          inputMode="email"
+          aria-invalid={hasError}
           disabled={status === 'sending'}
         />
       </div>
@@ -188,6 +201,9 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
             }
           }}
           className={inputClasses}
+          autoComplete="tel"
+          inputMode="tel"
+          aria-invalid={hasError}
           disabled={status === 'sending'}
         />
       </div>
@@ -209,6 +225,8 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
             }
           }}
           className={inputClasses}
+          autoComplete="off"
+          aria-invalid={hasError}
           disabled={status === 'sending'}
         />
       </div>
@@ -226,13 +244,23 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       </button>
 
       {status === 'success' && (
-        <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg">
+        <div
+          id={statusMessageId}
+          role="status"
+          aria-live="polite"
+          className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg"
+        >
           {contact.form.success}
         </div>
       )}
 
       {status === 'error' && (
-        <div className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 p-4 rounded-lg">
+        <div
+          id={statusMessageId}
+          role="alert"
+          aria-live="assertive"
+          className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 p-4 rounded-lg"
+        >
           {/* ✅ FIXED: Show specific error message */}
           <p className="font-semibold mb-1">{contact.form.error}</p>
           {errorMessage && <p className="text-sm">{errorMessage}</p>}
