@@ -1,5 +1,7 @@
+import type Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
-import { db } from './db';
+
+import { getDb } from './db';
 import type {
   CommentStatus,
   PublicComment,
@@ -11,57 +13,82 @@ import type {
 type CommentRow = Omit<StoredComment, 'replies'>;
 type ReplyRow = StoredCommentReply;
 
-const selectApprovedComments = db.prepare<CommentRow>(
-  `SELECT id, productId, rating, author, email, text, status, createdAt
-   FROM comments
-   WHERE productId = ? AND status = 'approved'
-   ORDER BY datetime(createdAt) DESC`,
-);
+type PreparedStatements = {
+  db: ReturnType<typeof getDb>;
+  selectApprovedComments: Database.Statement<CommentRow>;
+  selectCommentById: Database.Statement<CommentRow>;
+  selectApprovedReplies: Database.Statement<ReplyRow>;
+  duplicateCommentCheck: Database.Statement<unknown>;
+  commentExistsStmt: Database.Statement<unknown>;
+  updateCommentStatusStmt: Database.Statement<unknown>;
+  deleteCommentStmt: Database.Statement<unknown>;
+  deleteReplyStmt: Database.Statement<unknown>;
+  insertCommentStmt: Database.Statement<unknown>;
+  insertReplyStmt: Database.Statement<unknown>;
+};
 
-const selectCommentById = db.prepare<CommentRow>(
-  `SELECT id, productId, rating, author, email, text, status, createdAt
-   FROM comments
-   WHERE id = ?
-   LIMIT 1`,
-);
+let preparedStatements: PreparedStatements | null = null;
 
-const selectApprovedReplies = db.prepare<ReplyRow>(
-  `SELECT id, commentId, author, text, createdAt, isAdmin, status
-   FROM comment_replies
-   WHERE commentId = ? AND status = 'approved'
-   ORDER BY datetime(createdAt) ASC`,
-);
+function getPreparedStatements(): PreparedStatements {
+  if (preparedStatements) {
+    return preparedStatements;
+  }
 
-const duplicateCommentCheck = db.prepare(
-  `SELECT 1 FROM comments
-   WHERE productId = ? AND lower(email) = lower(?) AND text = ?
-   LIMIT 1`,
-);
+  const db = getDb();
 
-const commentExistsStmt = db.prepare(`SELECT 1 FROM comments WHERE id = ? LIMIT 1`);
-const updateCommentStatusStmt = db.prepare(
-  `UPDATE comments SET status = @status WHERE id = @id`,
-);
-const deleteCommentStmt = db.prepare(`DELETE FROM comments WHERE id = ?`);
-const deleteReplyStmt = db.prepare(
-  `DELETE FROM comment_replies WHERE id = @replyId AND commentId = @commentId`,
-);
+  preparedStatements = {
+    db,
+    selectApprovedComments: db.prepare<CommentRow>(
+      `SELECT id, productId, rating, author, email, text, status, createdAt
+       FROM comments
+       WHERE productId = ? AND status = 'approved'
+       ORDER BY datetime(createdAt) DESC`,
+    ),
+    selectCommentById: db.prepare<CommentRow>(
+      `SELECT id, productId, rating, author, email, text, status, createdAt
+       FROM comments
+       WHERE id = ?
+       LIMIT 1`,
+    ),
+    selectApprovedReplies: db.prepare<ReplyRow>(
+      `SELECT id, commentId, author, text, createdAt, isAdmin, status
+       FROM comment_replies
+       WHERE commentId = ? AND status = 'approved'
+       ORDER BY datetime(createdAt) ASC`,
+    ),
+    duplicateCommentCheck: db.prepare(
+      `SELECT 1 FROM comments
+       WHERE productId = ? AND lower(email) = lower(?) AND text = ?
+       LIMIT 1`,
+    ),
+    commentExistsStmt: db.prepare(`SELECT 1 FROM comments WHERE id = ? LIMIT 1`),
+    updateCommentStatusStmt: db.prepare(`UPDATE comments SET status = @status WHERE id = @id`),
+    deleteCommentStmt: db.prepare(`DELETE FROM comments WHERE id = ?`),
+    deleteReplyStmt: db.prepare(
+      `DELETE FROM comment_replies WHERE id = @replyId AND commentId = @commentId`,
+    ),
+    insertCommentStmt: db.prepare(
+      `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt)
+       VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt)`,
+    ),
+    insertReplyStmt: db.prepare(
+      `INSERT INTO comment_replies (id, commentId, author, text, isAdmin, status, createdAt)
+       VALUES (@id, @commentId, @author, @text, @isAdmin, @status, @createdAt)`,
+    ),
+  };
 
-const insertCommentStmt = db.prepare(
-  `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt)
-   VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt)`,
-);
-
-const insertReplyStmt = db.prepare(
-  `INSERT INTO comment_replies (id, commentId, author, text, isAdmin, status, createdAt)
-   VALUES (@id, @commentId, @author, @text, @isAdmin, @status, @createdAt)`,
-);
+  return preparedStatements;
+}
 
 export function getApprovedComments(productId: string): PublicComment[] {
+  const { selectApprovedComments } = getPreparedStatements();
+
   return selectApprovedComments.all(productId).map((comment) => toPublicComment(comment));
 }
 
 export function hasDuplicateComment(productId: string, email: string, text: string): boolean {
+  const { duplicateCommentCheck } = getPreparedStatements();
+
   return Boolean(duplicateCommentCheck.get(productId, email, text));
 }
 
@@ -75,6 +102,8 @@ export function createStoredComment(
     createdAt,
     replies: [],
   };
+
+  const { insertCommentStmt } = getPreparedStatements();
 
   insertCommentStmt.run({
     id: newComment.id,
@@ -91,6 +120,8 @@ export function createStoredComment(
 }
 
 export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'createdAt'>): StoredCommentReply {
+  const { commentExistsStmt, insertReplyStmt, db } = getPreparedStatements();
+
   const createdAt = new Date().toISOString();
   const reply: StoredCommentReply = {
     ...data,
@@ -118,6 +149,8 @@ export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'created
 }
 
 export function updateCommentStatus(id: string, status: CommentStatus): PublicComment | null {
+  const { updateCommentStatusStmt, selectCommentById } = getPreparedStatements();
+
   const result = updateCommentStatusStmt.run({ id, status });
   if (result.changes === 0) {
     return null;
@@ -128,16 +161,22 @@ export function updateCommentStatus(id: string, status: CommentStatus): PublicCo
 }
 
 export function deleteStoredComment(id: string): boolean {
+  const { deleteCommentStmt } = getPreparedStatements();
+
   const result = deleteCommentStmt.run(id);
   return result.changes > 0;
 }
 
 export function deleteStoredReply(commentId: string, replyId: string): boolean {
+  const { deleteReplyStmt } = getPreparedStatements();
+
   const result = deleteReplyStmt.run({ commentId, replyId });
   return result.changes > 0;
 }
 
 export function toPublicComment(comment: CommentRow): PublicComment {
+  const { selectApprovedReplies } = getPreparedStatements();
+
   return {
     id: comment.id,
     productId: comment.productId,
