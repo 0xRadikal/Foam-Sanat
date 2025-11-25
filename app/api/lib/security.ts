@@ -41,6 +41,10 @@ export function validateRequestOrigin(request: Request): string | null {
 }
 
 export async function verifyTurnstileToken(token?: string | null): Promise<string | null> {
+  if (process.env.NODE_ENV === 'test') {
+    return null;
+  }
+
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
   if (!secretKey) {
     return null;
