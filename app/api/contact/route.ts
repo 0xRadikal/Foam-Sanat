@@ -77,9 +77,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: captchaError,
+          message: captchaError.message,
         },
-        { status: 403 },
+        { status: captchaError.status },
       );
     }
 
