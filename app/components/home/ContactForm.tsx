@@ -98,7 +98,7 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
         throw new Error(errorData.message || `Request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
+      await response.json();
       
       setStatus('success');
       setFormState({ name: '', email: '', phone: '', message: '' });

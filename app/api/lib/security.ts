@@ -40,19 +40,34 @@ export function validateRequestOrigin(request: Request): string | null {
   return null;
 }
 
-export async function verifyTurnstileToken(token?: string | null): Promise<string | null> {
+type CaptchaVerificationError = {
+  message: string;
+  status: number;
+};
+
+export async function verifyTurnstileToken(
+  token?: string | null,
+): Promise<CaptchaVerificationError | null> {
   if (process.env.NODE_ENV === 'test') {
     return null;
   }
 
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
   if (!secretKey) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Turnstile verification failed: missing TURNSTILE_SECRET_KEY.');
+      return {
+        message: 'CAPTCHA verification is unavailable due to server configuration.',
+        status: 500,
+      };
+    }
+
     return null;
   }
 
   if (!token || token.trim().length === 0) {
     console.warn('Turnstile secret configured but token was not provided with the request.');
-    return 'CAPTCHA token is required.';
+    return { message: 'CAPTCHA token is required.', status: 403 };
   }
 
   const trimmedToken = token.trim();
@@ -69,14 +84,20 @@ export async function verifyTurnstileToken(token?: string | null): Promise<strin
     });
   } catch (error) {
     console.warn('Turnstile verification request failed', { error });
-    return 'CAPTCHA verification failed.';
+    return {
+      message: 'Unable to verify CAPTCHA at this time. Please try again later.',
+      status: 503,
+    };
   }
 
   if (!verificationResponse.ok) {
     console.warn('Turnstile verification failed to respond successfully', {
       status: verificationResponse.status,
     });
-    return 'CAPTCHA verification failed.';
+    return {
+      message: 'Unable to verify CAPTCHA at this time. Please try again later.',
+      status: 503,
+    };
   }
 
   let verification: { success?: boolean };
@@ -84,10 +105,13 @@ export async function verifyTurnstileToken(token?: string | null): Promise<strin
     verification = (await verificationResponse.json()) as { success?: boolean };
   } catch (error) {
     console.warn('Turnstile verification responded with invalid JSON', { error });
-    return 'CAPTCHA verification failed.';
+    return {
+      message: 'Unable to verify CAPTCHA at this time. Please try again later.',
+      status: 503,
+    };
   }
   if (!verification?.success) {
-    return 'CAPTCHA verification failed.';
+    return { message: 'CAPTCHA verification failed.', status: 403 };
   }
 
   return null;
