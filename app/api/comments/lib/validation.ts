@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { sanitizeStringField } from '../../lib/payload';
-import { isRateLimited } from './rateLimit';
+import { checkRateLimit } from './rateLimit';
 import { getClientIdentifier } from './auth';
-import { validateEmail, VALIDATION_RULES } from '@/app/lib/validation';
+import { validateEmail, VALIDATION_RULES } from '../../../lib/validation';
 
 const linkPattern = /(https?:\/\/\S+)/gi;
 const MAX_COMMENT_LENGTH = VALIDATION_RULES.comment.maxLength;
@@ -101,19 +101,28 @@ export function validateCommentPayload(
   };
 }
 
-export function checkRateLimitOrSpam(request: NextRequest, text: string) {
+export type ValidationGuardResult = { error: string; retryAfterSeconds?: number } | null;
+
+export async function checkRateLimitOrSpam(
+  request: NextRequest,
+  text: string,
+): Promise<ValidationGuardResult> {
   const identifier = getClientIdentifier(request);
-  if (isRateLimited(identifier)) {
-    return 'Too many comments submitted. Please try again later.';
+  const rateLimit = await checkRateLimit(identifier);
+  if (rateLimit.limited) {
+    return {
+      error: 'Too many comments submitted. Please try again later.',
+      retryAfterSeconds: rateLimit.retryAfterSeconds,
+    };
   }
 
   if (text.length > MAX_SPAM_SCAN_LENGTH) {
-    return 'Comment text exceeds maximum length.';
+    return { error: 'Comment text exceeds maximum length.' };
   }
 
   const repeatedWordMatch = text.match(/(\b\w+\b)(?:.*\1){4,}/gi);
   if (repeatedWordMatch) {
-    return 'Comment appears to be spam. Please revise and try again.';
+    return { error: 'Comment appears to be spam. Please revise and try again.' };
   }
 
   return null;
