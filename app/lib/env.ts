@@ -17,7 +17,7 @@ const ENV_VARS: EnvVar[] = [
   { key: 'COMMENTS_ADMIN_TOKEN', level: 'critical' },
   { key: 'RESEND_API_KEY', level: 'warn' },
   { key: 'RESEND_FROM_EMAIL', level: 'warn' },
-  { key: 'TURNSTILE_SECRET_KEY', level: 'warn' },
+  { key: 'TURNSTILE_SECRET_KEY', level: 'critical' },
   { key: 'DATABASE_URL', level: 'warn' },
   { key: 'CONTACT_EMAIL', level: 'warn' },
   { key: 'CONTACT_PHONE', level: 'warn' },

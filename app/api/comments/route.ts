@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   );
 
   if (captchaError) {
-    return NextResponse.json({ error: captchaError }, { status: 403 });
+    return NextResponse.json({ error: captchaError.message }, { status: captchaError.status });
   }
 
   const spamError = checkRateLimitOrSpam(request, sanitized.text);
@@ -67,7 +67,8 @@ export async function POST(request: NextRequest) {
     status: 'pending',
   });
 
-  const { replies: _replies, ...commentRow } = newComment;
+  const { replies: _unusedReplies, ...commentRow } = newComment;
+  void _unusedReplies;
   const publicComment = toPublicComment(commentRow);
 
   return NextResponse.json({ comment: publicComment }, { status: 201 });
