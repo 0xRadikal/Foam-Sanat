@@ -44,7 +44,10 @@ export function initializeDatabase(
   initializationAttempted = true;
 
   if (isReadOnlyEnvironment()) {
-    logger.warn('Skipping comment database initialization because the environment is read-only.');
+    initializationError = new Error(
+      'Comment database is disabled because the environment is read-only. Provide COMMENTS_DATABASE_URL or DATABASE_URL to enable it.',
+    );
+    logger.warn(initializationError.message);
     return null;
   }
 
@@ -87,3 +90,15 @@ export function resetDbForTesting(): void {
 }
 
 export { db };
+
+export function isCommentsStorageReady(): boolean {
+  return Boolean(db ?? initializeDatabase());
+}
+
+export function getCommentsStorageError(): Error | null {
+  if (db) return null;
+  if (!initializationAttempted) {
+    initializeDatabase();
+  }
+  return initializationError;
+}

@@ -1,16 +1,26 @@
-const requiredEnvVars = [
-  'NEXT_PUBLIC_SITE_URL',
-  'NEXT_PUBLIC_CONTACT_PHONE_FA',
-  'NEXT_PUBLIC_CONTACT_PHONE_EN',
-  'NEXT_PUBLIC_CONTACT_EMAIL',
-  'COMMENTS_ADMIN_TOKEN'
-];
+const envConfig = require('./env.config');
 
 function validateBuildEnv() {
-  const missing = requiredEnvVars.filter((key) => !process.env[key]);
+  const required = [
+    ...(envConfig.public?.required || []),
+    ...(envConfig.server?.required || []),
+  ];
+  const recommended = [
+    ...(envConfig.public?.recommended || []),
+    ...(envConfig.server?.recommended || []),
+  ];
 
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  const missingRequired = required.filter((key) => !process.env[key]);
+  const missingRecommended = recommended.filter((key) => !process.env[key]);
+
+  if (missingRequired.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingRequired.join(', ')}`);
+  }
+
+  if (missingRecommended.length > 0) {
+    console.warn(
+      `Optional environment variables are not set (some features may be disabled): ${missingRecommended.join(', ')}`,
+    );
   }
 }
 
