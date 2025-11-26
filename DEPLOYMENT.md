@@ -3,10 +3,24 @@
 ## 📋 Pre-Deployment Checklist
 
 ### 1. Environment Setup
-- [ ] Create production `.env.local` file
-- [ ] Add Google Analytics ID
-- [ ] Verify contact information
+- [ ] Create production `.env.local` file using `.env.example` as a template
+- [ ] Add Google Analytics ID (optional)
+- [ ] Verify contact information (both FA/EN)
 - [ ] Test all environment variables locally
+
+**Environment variables overview**
+
+| Scope | Key | Notes |
+| --- | --- | --- |
+| Public | `NEXT_PUBLIC_SITE_URL` | Required. Full site URL (used in SEO and redirects). |
+| Public | `NEXT_PUBLIC_CONTACT_PHONE_FA` / `NEXT_PUBLIC_CONTACT_PHONE_EN` | Recommended. Shows up in footer; server-side `CONTACT_PHONE_*` is used as fallback. |
+| Public | `NEXT_PUBLIC_CONTACT_EMAIL` | Recommended. Footer/email display; falls back to `CONTACT_EMAIL`. |
+| Public | `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional analytics/captcha keys. |
+| Server | `CONTACT_PHONE_FA` / `CONTACT_PHONE_EN` / `CONTACT_EMAIL` | Required. Source of truth for contact forms and i18n fallbacks. |
+| Server | `COMMENTS_ADMIN_TOKEN` | Required. Token for moderating comments. |
+| Server | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `TURNSTILE_SECRET_KEY` | Optional; needed for outbound email/captcha verification. |
+| Server | `COMMENTS_DATABASE_URL` or `DATABASE_URL` | Optional. If omitted, SQLite file storage is used; required on read-only hosts. |
+| Server | `RATE_LIMIT_REDIS_URL` or `REDIS_URL` | Optional. Enables Redis-based rate limiting; defaults to in-memory store. |
 
 ### 2. Code Quality
 ```bash

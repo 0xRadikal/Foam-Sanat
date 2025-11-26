@@ -7,10 +7,25 @@ import {
   validatePhone,
   VALIDATION_RULES,
 } from '../../lib/validation';
+import { getEnvValue } from '../../lib/env';
 
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? 'info@foamsanat.com';
-const CONTACT_PHONE = process.env.CONTACT_PHONE ?? '+989197302064';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://foamsanat.com';
+const CONTACT_EMAIL = getEnvValue(['CONTACT_EMAIL', 'NEXT_PUBLIC_CONTACT_EMAIL'], {
+  visibility: 'server',
+  fallback: 'info@foamsanat.com',
+});
+
+const CONTACT_PHONE = getEnvValue(
+  ['CONTACT_PHONE', 'CONTACT_PHONE_FA', 'NEXT_PUBLIC_CONTACT_PHONE_FA'],
+  {
+    visibility: 'server',
+    fallback: '+989197302064',
+  },
+);
+
+const SITE_URL = getEnvValue('NEXT_PUBLIC_SITE_URL', {
+  visibility: 'public',
+  fallback: 'https://foamsanat.com',
+});
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
 class EmailProviderError extends Error {
