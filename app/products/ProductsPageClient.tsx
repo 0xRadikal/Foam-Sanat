@@ -30,6 +30,9 @@ type ProductCommentReply = {
   text: string;
   createdAt: string;
   isAdmin?: boolean;
+  adminId?: string;
+  adminDisplayName?: string;
+  respondedAt?: string;
   status: CommentStatus;
   isOptimistic?: boolean;
 };
@@ -61,6 +64,9 @@ type ApiCommentReply = {
   text: string;
   createdAt: string;
   isAdmin?: boolean;
+  adminId?: string;
+  adminDisplayName?: string;
+  respondedAt?: string;
   status: CommentStatus;
 };
 
@@ -174,6 +180,9 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
       author: reply.author,
       text: reply.text,
       createdAt: reply.createdAt,
+      respondedAt: reply.respondedAt,
+      adminId: reply.adminId,
+      adminDisplayName: reply.adminDisplayName,
       isAdmin: reply.isAdmin,
       status: reply.status ?? 'approved'
     }))
@@ -367,12 +376,17 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
 
       setCommentError(null);
 
+      const replyTimestamp = new Date().toISOString();
+
       const optimisticReply: ProductCommentReply = {
         id: `temp-reply-${Date.now()}`,
         author: t.comments.admin,
         text: trimmedReply,
-        createdAt: new Date().toISOString(),
+        createdAt: replyTimestamp,
+        respondedAt: replyTimestamp,
         isAdmin: true,
+        adminId: 'local-admin',
+        adminDisplayName: t.comments.admin,
         status: 'pending',
         isOptimistic: true
       };
@@ -922,7 +936,9 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                           <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-2">
-                                <p className="font-bold text-sm text-orange-600">{reply.author}</p>
+                                <p className="font-bold text-sm text-orange-600">
+                                  {reply.adminDisplayName ?? reply.author}
+                                </p>
                                 {reply.status !== 'approved' && (
                                   <span
                                     className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
@@ -935,7 +951,12 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-400">{formatDate(reply.createdAt)}</p>
+                              <div className="flex flex-col text-xs text-gray-400">
+                                {reply.adminId && (
+                                  <span className="text-[11px] font-mono">ID: {reply.adminId}</span>
+                                )}
+                                <span>{formatDate(reply.respondedAt ?? reply.createdAt)}</span>
+                              </div>
                             </div>
                             <p className="text-sm mt-1">{reply.text}</p>
                           </div>
