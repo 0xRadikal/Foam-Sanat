@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS comment_replies (
   author TEXT NOT NULL,
   text TEXT NOT NULL,
   isAdmin INTEGER DEFAULT 0,
+  adminId TEXT,
+  adminDisplayName TEXT,
+  respondedAt TEXT,
   status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')),
   createdAt TEXT NOT NULL,
   FOREIGN KEY (commentId) REFERENCES comments(id) ON DELETE CASCADE
