@@ -4,7 +4,8 @@ import { deleteStoredComment, updateCommentStatus } from '../lib/store';
 import type { CommentStatus } from '../lib/types';
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  if (!assertAdmin(request)) {
+  const admin = assertAdmin(request);
+  if (!admin) {
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
   }
 
@@ -24,11 +25,28 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
   }
 
-  return NextResponse.json({ comment: updated });
+  const moderatedAt = new Date().toISOString();
+  console.info('Comment status updated.', {
+    commentId: params.id,
+    status: body.status,
+    adminId: admin.id,
+    adminDisplayName: admin.displayName,
+    moderatedAt,
+  });
+
+  return NextResponse.json({
+    comment: updated,
+    moderation: {
+      adminId: admin.id,
+      adminDisplayName: admin.displayName,
+      moderatedAt,
+    },
+  });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  if (!assertAdmin(request)) {
+  const admin = assertAdmin(request);
+  if (!admin) {
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
   }
 
@@ -37,5 +55,20 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true });
+  const moderatedAt = new Date().toISOString();
+  console.info('Comment deleted.', {
+    commentId: params.id,
+    adminId: admin.id,
+    adminDisplayName: admin.displayName,
+    moderatedAt,
+  });
+
+  return NextResponse.json({
+    success: true,
+    moderation: {
+      adminId: admin.id,
+      adminDisplayName: admin.displayName,
+      moderatedAt,
+    },
+  });
 }
