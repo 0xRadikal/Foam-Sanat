@@ -206,7 +206,7 @@ export default function RootLayout({
         suppressHydrationWarning
         style={{
           fontFamily: `var(--site-font-family, ${defaultBodyFont})`,
-          ['--site-font-family' as '--site-font-family']: defaultBodyFont,
+          ['--site-font-family' as const]: defaultBodyFont,
         }}
       >
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
