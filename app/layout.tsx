@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import Script from 'next/script';
 import { isLocale, localeSettings } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
+import { renderAnalyticsScripts, renderResourceHints } from '@/app/lib/headResources';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
 
@@ -145,61 +146,14 @@ export default function RootLayout({
   return (
     <html lang={langTag} dir={dir} suppressHydrationWarning>
       <head>
-        {/* Preconnect to external resources */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://www.google-analytics.com" />
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
-        
-        {/* DNS Prefetch */}
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-
-        {/* Vazirmatn Font - Persian */}
-        {shouldLoadVazirmatn && (
-          <link
-            href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css"
-            rel="stylesheet"
-          />
-        )}
+        {renderResourceHints(runtimeLocale)}
 
         {/* Theme Color */}
         <meta name="theme-color" content="#FF6700" />
         <meta name="msapplication-TileColor" content="#FF6700" />
 
         {/* Google Analytics with Consent Mode */}
-        {GA_ID && (
-          <>
-            <Script
-              id="gtag-base"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  
-                  // Default consent to denied
-                  gtag('consent', 'default', {
-                    'analytics_storage': 'denied',
-                    'ad_storage': 'denied',
-                    'wait_for_update': 500
-                  });
-                  
-                  gtag('js', new Date());
-                  gtag('config', '${GA_ID}', {
-                    page_path: window.location.pathname,
-                    anonymize_ip: true,
-                    cookie_flags: 'SameSite=None;Secure'
-                  });
-                `,
-              }}
-            />
-            <Script
-              strategy="afterInteractive"
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-            />
-          </>
-        )}
+        {renderAnalyticsScripts(GA_ID)}
       </head>
       <body
         className="antialiased"
