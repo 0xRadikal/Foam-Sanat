@@ -26,6 +26,6 @@ export type PublicCommentReply = Omit<StoredCommentReply, 'commentId' | 'status'
   status: CommentStatus;
 };
 
-export type PublicComment = Omit<StoredComment, 'email'> & {
+export type PublicComment = Omit<StoredComment, 'email' | 'replies'> & {
   replies: PublicCommentReply[];
 };

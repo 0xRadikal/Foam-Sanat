@@ -6,10 +6,30 @@ import {
   hasDuplicateComment,
   toPublicComment,
 } from './lib/store';
+import { getCommentsStorageError, isCommentsStorageReady } from './lib/db';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
+function ensureCommentsAvailable(): NextResponse | null {
+  if (isCommentsStorageReady()) {
+    return null;
+  }
+
+  const reason = getCommentsStorageError()?.message;
+  console.warn('Comments API is disabled because storage is unavailable.', reason);
+
+  return NextResponse.json(
+    { error: 'Comments are currently unavailable. Please try again later.' },
+    { status: 503 },
+  );
+}
+
 export async function GET(request: NextRequest) {
+  const availabilityResponse = ensureCommentsAvailable();
+  if (availabilityResponse) {
+    return availabilityResponse;
+  }
+
   const productId = request.nextUrl.searchParams.get('productId');
   if (!productId) {
     return NextResponse.json({ error: 'productId query parameter is required.' }, { status: 400 });
@@ -21,6 +41,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const availabilityResponse = ensureCommentsAvailable();
+  if (availabilityResponse) {
+    return availabilityResponse;
+  }
+
   const originError = validateRequestOrigin(request);
   if (originError) {
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });

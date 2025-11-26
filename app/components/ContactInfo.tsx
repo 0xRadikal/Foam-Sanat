@@ -35,7 +35,7 @@ type ContactInfoProps = {
   emailLimit?: number;
 };
 
-const defaultIconRenderer: Required<ContactInfoProps>['iconRenderer'] = {
+const defaultIconRenderer: Record<'phone' | 'email' | 'address', ComponentType<{ className?: string }>> = {
   phone: Phone,
   email: Mail,
   address: MapPin
@@ -119,9 +119,10 @@ export default function ContactInfo({
     .join(' ')
     .trim();
 
-  const IconPhone = iconRenderer.phone ?? defaultIconRenderer.phone;
-  const IconEmail = iconRenderer.email ?? defaultIconRenderer.email;
-  const IconAddress = iconRenderer.address ?? defaultIconRenderer.address;
+  const iconSet = { ...defaultIconRenderer, ...iconRenderer };
+  const IconPhone = iconSet.phone;
+  const IconEmail = iconSet.email;
+  const IconAddress = iconSet.address;
 
   return (
     <div className={containerClasses.join(' ')}>

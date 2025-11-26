@@ -1,97 +1,139 @@
 // app/lib/env.ts
-// ✅ FIX #8: Environment variable validation
+// Centralized environment variable helpers and validation
+import envConfig from '../../env.config';
 
-type EnvVar = {
-  key: string;
-  level: 'critical' | 'warn';
+type EnvVisibility = 'public' | 'server';
+type Severity = 'required' | 'recommended';
+
+type EnvVarConfig = {
+  keys: string[];
+  visibility: EnvVisibility;
+  severity?: Severity;
 };
 
-const ENV_VARS: EnvVar[] = [
-  // Client-side (must have NEXT_PUBLIC_ prefix)
-  { key: 'NEXT_PUBLIC_SITE_URL', level: 'warn' },
-  { key: 'NEXT_PUBLIC_GA_ID', level: 'warn' },
-  { key: 'NEXT_PUBLIC_GTM_ID', level: 'warn' },
-  { key: 'NEXT_PUBLIC_TURNSTILE_SITE_KEY', level: 'warn' },
+const isServerRuntime = typeof window === 'undefined';
+const isProd = process.env.NODE_ENV === 'production';
 
-  // Server-side only
-  { key: 'COMMENTS_ADMIN_TOKEN', level: 'critical' },
-  { key: 'RESEND_API_KEY', level: 'warn' },
-  { key: 'RESEND_FROM_EMAIL', level: 'warn' },
-  { key: 'TURNSTILE_SECRET_KEY', level: 'critical' },
-  { key: 'DATABASE_URL', level: 'warn' },
-  { key: 'CONTACT_EMAIL', level: 'warn' },
-  { key: 'CONTACT_PHONE', level: 'warn' },
-];
+const normalizeList = (value: string | string[]): string[] =>
+  Array.isArray(value) ? value : [value];
 
+const traceKeyList = (keys: string[]): string => keys.join(' | ');
+
+const buildEnvMatrix = () => {
+  const publicRequired = envConfig.public?.required ?? [];
+  const publicRecommended = envConfig.public?.recommended ?? [];
+  const serverRequired = envConfig.server?.required ?? [];
+  const serverRecommended = envConfig.server?.recommended ?? [];
+
+  const mapEntry = (keys: string[], visibility: EnvVisibility, severity: Severity): EnvVarConfig[] =>
+    keys.map((key) => ({ keys: [key], visibility, severity }));
+
+  return [
+    ...mapEntry(publicRequired, 'public', 'required'),
+    ...mapEntry(publicRecommended, 'public', 'recommended'),
+    ...mapEntry(serverRequired, 'server', 'required'),
+    ...mapEntry(serverRecommended, 'server', 'recommended'),
+  ];
+};
+
+const ENV_MATRIX = buildEnvMatrix();
 let hasValidated = false;
 
+function logMissing(keys: string[], visibility: EnvVisibility, severity: Severity) {
+  const header = severity === 'required' ? '❌ CRITICAL' : '⚠️  Optional';
+  const message = `${header}: Missing ${visibility} environment variable(s):\n${keys
+    .map((key) => `  • ${key}`)
+    .join('\n')}`;
+
+  if (severity === 'required' && isProd) {
+    throw new Error(message);
+  }
+
+  if (severity === 'required') {
+    console.error(message);
+  } else {
+    console.warn(message);
+  }
+}
+
 export function validateEnv({ force = false }: { force?: boolean } = {}) {
-  const isServer = typeof window === 'undefined';
-  if (!isServer) {
-    return;
-  }
+  if (!isServerRuntime) return;
+  if (hasValidated && !force) return;
 
-  if (hasValidated && !force) {
-    return;
-  }
+  const missingRequired: EnvVarConfig[] = [];
+  const missingRecommended: EnvVarConfig[] = [];
 
-  const missingCritical: string[] = [];
-  const warnings: string[] = [];
+  for (const entry of ENV_MATRIX) {
+    const value = process.env[entry.keys[0]];
+    if (value) continue;
 
-  for (const { key, level } of ENV_VARS) {
-    const value = process.env[key];
-
-    if (level === 'critical' && !value) {
-      missingCritical.push(key);
-    } else if (!value) {
-      warnings.push(key);
+    if (entry.severity === 'required') {
+      missingRequired.push(entry);
+    } else {
+      missingRecommended.push(entry);
     }
   }
 
-  if (missingCritical.length > 0) {
-    const errorMessage = `
-❌ CRITICAL: Missing required environment variables:
-${missingCritical.map(key => `  • ${key}`).join('\n')}
+  if (missingRequired.length > 0) {
+    for (const visibility of ['server', 'public'] as const) {
+      const keys = missingRequired
+        .filter((item) => item.visibility === visibility)
+        .map((item) => item.keys[0]);
 
-Please check your .env.local file and ensure all required variables are set.
-Refer to .env.example for the template.
-`;
-
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(errorMessage);
+      if (keys.length > 0) {
+        logMissing(keys, visibility, 'required');
+      }
     }
-
-    console.warn(errorMessage);
   }
 
-  if (warnings.length > 0) {
-    console.warn(`
-⚠️  Optional environment variables not set:
-${warnings.map(key => `  • ${key}`).join('\n')}
+  if (missingRecommended.length > 0) {
+    for (const visibility of ['server', 'public'] as const) {
+      const keys = missingRecommended
+        .filter((item) => item.visibility === visibility)
+        .map((item) => item.keys[0]);
 
-Some features may be disabled. Check .env.example for details.
-`);
+      if (keys.length > 0) {
+        logMissing(keys, visibility, 'recommended');
+      }
+    }
   }
 
   hasValidated = true;
 }
 
 export function ensureServerEnvVars(requiredKeys: string[]) {
-  if (typeof window !== 'undefined' || requiredKeys.length === 0) {
-    return;
-  }
+  if (!isServerRuntime || requiredKeys.length === 0) return;
 
   const missing = requiredKeys.filter((key) => !process.env[key]);
-
   if (missing.length > 0) {
-    const errorMessage = `
-❌ CRITICAL: Missing required environment variables:
-${missing.map(key => `  • ${key}`).join('\n')}
-
-Please set them in your server environment (e.g. .env.local or hosting provider secrets).
-Refer to .env.example for the template.
-`;
-    throw new Error(errorMessage);
+    logMissing(missing, 'server', 'required');
   }
 }
 
+type GetEnvOptions = {
+  fallback?: string;
+  visibility: EnvVisibility;
+  allowEmpty?: boolean;
+  severity?: Severity;
+};
+
+export function getEnvValue(keys: string | string[], options: GetEnvOptions): string {
+  const keyList = normalizeList(keys);
+  const value = keyList.map((key) => process.env[key]).find(Boolean);
+
+  if (value !== undefined && (options.allowEmpty || value !== '')) {
+    return value;
+  }
+
+  const severity = options.severity ?? 'required';
+  const message = `Missing ${options.visibility} environment value for ${traceKeyList(keyList)}.`;
+
+  if (severity === 'required' && isProd) {
+    throw new Error(message);
+  }
+
+  const logMethod = severity === 'required' ? console.warn : console.info;
+  logMethod(`${message}${options.fallback ? ` Falling back to: ${options.fallback}` : ''}`);
+
+  return options.fallback ?? '';
+}
