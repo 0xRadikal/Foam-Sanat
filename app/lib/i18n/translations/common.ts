@@ -6,6 +6,7 @@ export type CommonNamespaceSchema = {
   tagline: string;
   nav: {
     home: string;
+    about: string;
     products: string;
     whyUs: string;
     faq: string;
@@ -51,6 +52,7 @@ export const commonMessages = {
     tagline: 'پیشرو در مهندسی فوم پلی‌یورتان',
     nav: {
       home: 'خانه',
+      about: 'درباره ما',
       products: 'محصولات',
       whyUs: 'چرا ما؟',
       faq: 'سوالات متداول',
@@ -70,6 +72,7 @@ export const commonMessages = {
     tagline: 'Leading PU Foam Engineering',
     nav: {
       home: 'Home',
+      about: 'About',
       products: 'Products',
       whyUs: 'Why Us',
       faq: 'FAQ',
