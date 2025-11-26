@@ -6,21 +6,41 @@ import {
   hasDuplicateComment,
   toPublicComment,
 } from './lib/store';
-import { getCommentsStorageError, isCommentsStorageReady } from './lib/db';
+import { getCommentsStorageError, getCommentsStorageStatus } from './lib/db';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
+function buildAvailabilityHeaders(status: 'ready' | 'offline', errorCode?: string | null): HeadersInit {
+  const headers: Record<string, string> = {
+    'X-Comments-Status': status,
+  };
+
+  if (errorCode) {
+    headers['X-Comments-Error-Code'] = errorCode;
+  }
+
+  return headers;
+}
+
 function ensureCommentsAvailable(): NextResponse | null {
-  if (isCommentsStorageReady()) {
+  const status = getCommentsStorageStatus();
+
+  if (status.ready) {
     return null;
   }
 
-  const reason = getCommentsStorageError()?.message;
-  console.warn('Comments API is disabled because storage is unavailable.', reason);
+  const reason = status.error?.message ?? getCommentsStorageError()?.message;
+  console.warn('Comments API is disabled because storage is unavailable.', {
+    error: reason,
+    code: status.errorCode,
+  });
 
   return NextResponse.json(
-    { error: 'Comments are currently unavailable. Please try again later.' },
-    { status: 503 },
+    {
+      error: 'Comments are currently unavailable. Please try again later.',
+      code: status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE',
+    },
+    { status: 503, headers: buildAvailabilityHeaders('offline', status.errorCode) },
   );
 }
 
@@ -37,7 +57,7 @@ export async function GET(request: NextRequest) {
 
   const comments = getApprovedComments(productId);
 
-  return NextResponse.json({ comments });
+  return NextResponse.json({ comments }, { headers: buildAvailabilityHeaders('ready') });
 }
 
 export async function POST(request: NextRequest) {
@@ -99,5 +119,8 @@ export async function POST(request: NextRequest) {
   void _unusedReplies;
   const publicComment = toPublicComment(commentRow);
 
-  return NextResponse.json({ comment: publicComment }, { status: 201 });
+  return NextResponse.json({ comment: publicComment }, {
+    status: 201,
+    headers: buildAvailabilityHeaders('ready'),
+  });
 }

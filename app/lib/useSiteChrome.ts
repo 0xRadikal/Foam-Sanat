@@ -46,8 +46,14 @@ export interface SiteChromeState {
 
 const SiteChromeContext = createContext<SiteChromeState | null>(null);
 
-export function SiteChromeProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Locale>(DEFAULT_LANG);
+export function SiteChromeProvider({
+  children,
+  initialLocale = DEFAULT_LANG
+}: {
+  children: ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [lang, setLangState] = useState<Locale>(initialLocale);
   const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
   const [mobileMenuOpen, setMobileMenuOpenState] = useState(false);
 
