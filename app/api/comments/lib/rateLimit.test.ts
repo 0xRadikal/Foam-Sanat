@@ -96,6 +96,33 @@ describe('comment rate limiting', () => {
     assert.equal(result, null);
   });
 
+  it('sticks to the in-memory fallback after a Redis failure', async () => {
+    class FlakyStore implements RateLimitStore {
+      async increment(): Promise<{ count: number; expiresAt: number }> {
+        throw new Error('Redis connection failed');
+      }
+    }
+
+    configureRateLimitStore(new FlakyStore());
+
+    const request = createRequest('203.0.113.12');
+    const comment = 'This is yet another sufficiently long comment to pass validation rules.';
+
+    // First call triggers the fallback to the in-memory limiter.
+    const firstResult = await checkRateLimitOrSpam(request as never, comment);
+    assert.equal(firstResult, null);
+
+    // Additional calls should keep using the in-memory limiter and eventually hit the limit.
+    for (let i = 0; i < 5; i += 1) {
+      await checkRateLimitOrSpam(request as never, comment);
+    }
+
+    const limited = await checkRateLimitOrSpam(request as never, comment);
+    assert.ok(limited);
+    assert.equal(limited?.error.includes('Too many comments'), true);
+    assert.equal(typeof limited?.retryAfterSeconds, 'number');
+  });
+
   it('ignores spoofed forwarded-for headers from untrusted sources', () => {
     const request = createRequest('198.51.100.25', {
       'x-forwarded-for': '203.0.113.9',

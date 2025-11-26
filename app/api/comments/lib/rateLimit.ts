@@ -40,8 +40,14 @@ class RedisRateLimitStore implements RateLimitStore {
   constructor() {
     const url = process.env.RATE_LIMIT_REDIS_URL ?? process.env.REDIS_URL ?? 'redis://localhost:6379';
     this.clientPromise = createClient({ url })
-      .on('error', (error: unknown) => console.error('Redis client error', error))
-      .connect();
+      .on('error', (error: Error) => {
+        console.error('Redis client error', error);
+      })
+      .connect()
+      .catch((error: Error) => {
+        console.error('Failed to connect to Redis for rate limiting.', error);
+        throw error;
+      });
   }
 
   private async getClient(): Promise<RedisClientType<RedisDefaultModules, RedisFunctions, RedisScripts>> {
