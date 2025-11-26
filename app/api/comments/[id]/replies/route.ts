@@ -3,7 +3,8 @@ import { assertAdmin } from '../../lib/auth';
 import { createStoredReply } from '../../lib/store';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  if (!assertAdmin(request)) {
+  const admin = assertAdmin(request);
+  if (!admin) {
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
   }
 
@@ -18,13 +19,26 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: 'Reply text must be provided.' }, { status: 400 });
   }
 
+  const repliedAt = new Date().toISOString();
+
   try {
     const reply = createStoredReply({
       commentId: params.id,
-      author: 'Admin',
+      author: admin.displayName,
       text: body.text.trim(),
       isAdmin: true,
+      adminId: admin.id,
+      adminDisplayName: admin.displayName,
+      respondedAt: repliedAt,
       status: 'approved',
+    });
+
+    console.info('Comment reply added.', {
+      commentId: params.id,
+      replyId: reply.id,
+      adminId: admin.id,
+      adminDisplayName: admin.displayName,
+      repliedAt,
     });
 
     return NextResponse.json({
@@ -34,6 +48,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         text: reply.text,
         createdAt: reply.createdAt,
         isAdmin: reply.isAdmin,
+        adminId: reply.adminId,
+        adminDisplayName: reply.adminDisplayName,
+        respondedAt: reply.respondedAt,
         status: reply.status,
       },
     });

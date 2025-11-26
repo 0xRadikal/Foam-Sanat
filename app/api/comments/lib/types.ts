@@ -7,6 +7,9 @@ export type StoredCommentReply = {
   text: string;
   createdAt: string;
   isAdmin?: boolean;
+  adminId?: string;
+  adminDisplayName?: string;
+  respondedAt?: string;
   status: CommentStatus;
 };
 
