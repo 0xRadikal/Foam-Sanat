@@ -30,9 +30,9 @@ const requireEnv = (key: string): string => {
   return value;
 };
 
-const defaultContactPhoneFa = requireEnv('CONTACT_PHONE_FA');
-const defaultContactPhoneEn = requireEnv('CONTACT_PHONE_EN');
-const defaultContactEmail = requireEnv('CONTACT_EMAIL');
+const defaultContactPhoneFa = requireEnv('NEXT_PUBLIC_CONTACT_PHONE_FA');
+const defaultContactPhoneEn = requireEnv('NEXT_PUBLIC_CONTACT_PHONE_EN');
+const defaultContactEmail = requireEnv('NEXT_PUBLIC_CONTACT_EMAIL');
 
 export const commonMessages = {
   fa: {
