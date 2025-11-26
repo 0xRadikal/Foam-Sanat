@@ -51,7 +51,7 @@ function getPreparedStatements(): PreparedStatements {
        LIMIT 1`,
     ),
     selectApprovedReplies: db.prepare<ReplyRow>(
-      `SELECT id, commentId, author, text, createdAt, isAdmin, status
+      `SELECT id, commentId, author, text, createdAt, isAdmin, adminId, adminDisplayName, respondedAt, status
        FROM comment_replies
        WHERE commentId = ? AND status = 'approved'
        ORDER BY datetime(createdAt) ASC`,
@@ -72,8 +72,8 @@ function getPreparedStatements(): PreparedStatements {
        VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt)`,
     ),
     insertReplyStmt: db.prepare(
-      `INSERT INTO comment_replies (id, commentId, author, text, isAdmin, status, createdAt)
-       VALUES (@id, @commentId, @author, @text, @isAdmin, @status, @createdAt)`,
+      `INSERT INTO comment_replies (id, commentId, author, text, isAdmin, adminId, adminDisplayName, respondedAt, status, createdAt)
+       VALUES (@id, @commentId, @author, @text, @isAdmin, @adminId, @adminDisplayName, @respondedAt, @status, @createdAt)`,
     ),
   };
 
@@ -120,7 +120,9 @@ export function createStoredComment(
   return newComment;
 }
 
-export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'createdAt'>): StoredCommentReply {
+export function createStoredReply(
+  data: Omit<StoredCommentReply, 'id' | 'createdAt' | 'respondedAt'> & { respondedAt?: string },
+): StoredCommentReply {
   const { commentExistsStmt, insertReplyStmt, db } = getPreparedStatements();
 
   const createdAt = new Date().toISOString();
@@ -128,6 +130,7 @@ export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'created
     ...data,
     id: randomUUID(),
     createdAt,
+    respondedAt: data.respondedAt ?? createdAt,
   };
 
   const insert = db.transaction((row: StoredCommentReply) => {
@@ -140,6 +143,9 @@ export function createStoredReply(data: Omit<StoredCommentReply, 'id' | 'created
       author: row.author,
       text: row.text,
       isAdmin: row.isAdmin ? 1 : 0,
+      adminId: row.adminId,
+      adminDisplayName: row.adminDisplayName,
+      respondedAt: row.respondedAt,
       status: row.status,
       createdAt: row.createdAt,
     });
@@ -188,13 +194,18 @@ export function toPublicComment(comment: CommentRow): PublicComment {
     text: comment.text,
     createdAt: comment.createdAt,
     status: comment.status,
-    replies: replies.map<PublicCommentReply>(({ id, author, text, createdAt, isAdmin, status }) => ({
-      id,
-      author,
-      text,
-      createdAt,
-      isAdmin: Boolean(isAdmin),
-      status,
-    })),
+    replies: replies.map<PublicCommentReply>(
+      ({ id, author, text, createdAt, isAdmin, status, adminId, adminDisplayName, respondedAt }) => ({
+        id,
+        author,
+        text,
+        createdAt,
+        respondedAt: respondedAt ?? createdAt,
+        adminId: adminId ?? undefined,
+        adminDisplayName: adminDisplayName ?? undefined,
+        isAdmin: Boolean(isAdmin),
+        status,
+      }),
+    ),
   };
 }

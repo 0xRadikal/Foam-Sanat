@@ -39,6 +39,23 @@ function resolveConnectionString(explicit?: string): string {
   );
 }
 
+function ensureReplyColumns(db: DatabaseInstance): void {
+  const columns = db.prepare("PRAGMA table_info(comment_replies);").all() as { name: string }[];
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  const migrations: { name: string; sql: string }[] = [
+    { name: 'adminId', sql: "ALTER TABLE comment_replies ADD COLUMN adminId TEXT" },
+    { name: 'adminDisplayName', sql: "ALTER TABLE comment_replies ADD COLUMN adminDisplayName TEXT" },
+    { name: 'respondedAt', sql: "ALTER TABLE comment_replies ADD COLUMN respondedAt TEXT" },
+  ];
+
+  for (const migration of migrations) {
+    if (!columnNames.has(migration.name)) {
+      db.exec(migration.sql);
+    }
+  }
+}
+
 function isReadOnlyEnvironment(): boolean {
   return Boolean(process.env.VERCEL) && !process.env.COMMENTS_DATABASE_URL && !process.env.DATABASE_URL;
 }
@@ -88,6 +105,7 @@ export function initializeDatabase(
 
     const schema = fs.readFileSync(schemaPath, 'utf8');
     instance.exec(schema);
+    ensureReplyColumns(instance);
 
     db = instance;
     initializationError = null;

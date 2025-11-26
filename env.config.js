@@ -20,6 +20,9 @@ const envConfig = {
       'COMMENTS_DATABASE_URL',
       'RATE_LIMIT_REDIS_URL',
       'REDIS_URL',
+      'COMMENTS_ADMIN_IDENTITIES',
+      'COMMENTS_ADMIN_ID',
+      'COMMENTS_ADMIN_NAME',
     ],
   },
 };
