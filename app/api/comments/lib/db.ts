@@ -10,6 +10,23 @@ const schemaPath = path.join(process.cwd(), 'app/api/comments/schema.sql');
 let db: DatabaseInstance | null = null;
 let initializationAttempted = false;
 let initializationError: Error | null = null;
+let initializationErrorCode: string | null = null;
+
+type InitializationMetrics = {
+  attempts: number;
+  successes: number;
+  failures: number;
+  lastAttemptAt: Date | null;
+  lastSuccessAt: Date | null;
+};
+
+const initializationMetrics: InitializationMetrics = {
+  attempts: 0,
+  successes: 0,
+  failures: 0,
+  lastAttemptAt: null,
+  lastSuccessAt: null,
+};
 
 const defaultLogger: Logger = console;
 
@@ -41,13 +58,22 @@ export function initializeDatabase(
     return db;
   }
 
+  initializationMetrics.attempts += 1;
+  initializationMetrics.lastAttemptAt = new Date();
   initializationAttempted = true;
 
   if (isReadOnlyEnvironment()) {
     initializationError = new Error(
       'Comment database is disabled because the environment is read-only. Provide COMMENTS_DATABASE_URL or DATABASE_URL to enable it.',
     );
+    initializationErrorCode = 'COMMENTS_DB_READ_ONLY_ENVIRONMENT';
     logger.warn(initializationError.message);
+    logger.warn('Comment database initialization skipped', {
+      status: 'skipped',
+      code: initializationErrorCode,
+      attempts: initializationMetrics.attempts,
+    });
+    initializationMetrics.failures += 1;
     return null;
   }
 
@@ -64,10 +90,26 @@ export function initializeDatabase(
     instance.exec(schema);
 
     db = instance;
-    logger.info('Comment database initialized.');
+    initializationError = null;
+    initializationErrorCode = null;
+    initializationMetrics.successes += 1;
+    initializationMetrics.lastSuccessAt = new Date();
+    logger.info('Comment database initialized.', {
+      status: 'succeeded',
+      attempts: initializationMetrics.attempts,
+      successes: initializationMetrics.successes,
+    });
   } catch (error) {
     initializationError = error as Error;
-    logger.error('Failed to initialize the comments database.', error);
+    initializationErrorCode = (error as NodeJS.ErrnoException)?.code ?? 'COMMENTS_DB_INIT_FAILED';
+    initializationMetrics.failures += 1;
+    logger.error('Failed to initialize the comments database.', {
+      status: 'failed',
+      code: initializationErrorCode,
+      attempts: initializationMetrics.attempts,
+      failures: initializationMetrics.failures,
+      error,
+    });
   }
 
   return db;
@@ -87,6 +129,12 @@ export function resetDbForTesting(): void {
   db = null;
   initializationAttempted = false;
   initializationError = null;
+  initializationErrorCode = null;
+  initializationMetrics.attempts = 0;
+  initializationMetrics.failures = 0;
+  initializationMetrics.successes = 0;
+  initializationMetrics.lastAttemptAt = null;
+  initializationMetrics.lastSuccessAt = null;
 }
 
 export { db };
@@ -101,4 +149,22 @@ export function getCommentsStorageError(): Error | null {
     initializeDatabase();
   }
   return initializationError;
+}
+
+export function getCommentsStorageStatus(): {
+  ready: boolean;
+  attempted: boolean;
+  error: Error | null;
+  errorCode: string | null;
+  metrics: InitializationMetrics;
+} {
+  const ready = isCommentsStorageReady();
+
+  return {
+    ready,
+    attempted: initializationAttempted,
+    error: initializationError,
+    errorCode: initializationErrorCode,
+    metrics: { ...initializationMetrics },
+  };
 }
