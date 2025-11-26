@@ -15,12 +15,31 @@
 | Public | `NEXT_PUBLIC_SITE_URL` | Required. Full site URL (used in SEO and redirects). |
 | Public | `NEXT_PUBLIC_CONTACT_PHONE_FA` / `NEXT_PUBLIC_CONTACT_PHONE_EN` | Recommended. Shows up in footer; server-side `CONTACT_PHONE_*` is used as fallback. |
 | Public | `NEXT_PUBLIC_CONTACT_EMAIL` | Recommended. Footer/email display; falls back to `CONTACT_EMAIL`. |
-| Public | `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_GTM_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional analytics/captcha keys. |
+| Public | `NEXT_PUBLIC_GA_ID`, `NEXT_PUBLIC_GTM_ID` | Optional analytics keys. |
+| Public | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Required. Blocks boot when missing to avoid disabled CAPTCHA. |
 | Server | `CONTACT_PHONE_FA` / `CONTACT_PHONE_EN` / `CONTACT_EMAIL` | Required. Source of truth for contact forms and i18n fallbacks. |
-| Server | `COMMENTS_ADMIN_TOKEN` | Required. Token for moderating comments. |
-| Server | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `TURNSTILE_SECRET_KEY` | Optional; needed for outbound email/captcha verification. |
+| Server | `TURNSTILE_SECRET_KEY` | Required. CAPTCHA verification fails fast when absent. |
+| Server | `COMMENTS_ADMIN_TOKEN_SECRET` | Required. HMAC secret for signed, expiring admin tokens (rotation supported via `COMMENTS_ADMIN_TOKEN_SECRETS`). |
+| Server | `COMMENTS_ADMIN_TOKEN_SECRETS` | Optional. Comma-separated secret list for key rotation; first entry is considered primary. |
+| Server | `COMMENTS_ADMIN_TOKEN_TTL_MINUTES` | Optional. Default TTL for admin tokens when `exp` is missing (defaults to 180). |
+| Server | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Optional; needed for outbound email. |
 | Server | `COMMENTS_DATABASE_URL` or `DATABASE_URL` | Optional. If omitted, SQLite file storage is used; required on read-only hosts. |
 | Server | `RATE_LIMIT_REDIS_URL` or `REDIS_URL` | Optional. Enables Redis-based rate limiting; defaults to in-memory store. |
+| Security | `ALLOWED_ORIGINS`, `COMMENTS_ALLOWED_ORIGINS`, `COMMENTS_ALLOWED_PREVIEW_URLS` | Optional. Comma-separated list of allowed origins (include staging/preview URLs). |
+
+### 1.1 Staging / Preview configuration
+- Add your preview hostnames (`VERCEL_BRANCH_URL`, `VERCEL_URL`, or manual URLs) to `COMMENTS_ALLOWED_PREVIEW_URLS` so API origin checks accept staging requests. Comma-separate multiple entries.
+- Use dedicated Turnstile keys for non-production: set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in the staging environment to avoid CAPTCHA outages.
+- Configure HMAC admin tokens for moderation with rotation support:
+  ```bash
+  export COMMENTS_ADMIN_TOKEN_SECRET="your-primary-secret"
+  export COMMENTS_ADMIN_TOKEN_SECRETS="your-primary-secret,old-secret"
+  export COMMENTS_ADMIN_TOKEN_TTL_MINUTES=180
+  ```
+  Generate a signed, expiring token locally:
+  ```bash
+  node -e "const crypto=require('node:crypto');const secret=process.env.COMMENTS_ADMIN_TOKEN_SECRET;const now=Math.floor(Date.now()/1000);const header=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url');const payload=Buffer.from(JSON.stringify({sub:'comments-admin',name:'Moderator',iat:now,exp:now+60*60})).toString('base64url');const sig=crypto.createHmac('sha256',secret).update(`${header}.${payload}`).digest('base64url');console.log([header,payload,sig].join('.'));"  # Bearer token value
+  ```
 
 ### 2. Code Quality
 ```bash

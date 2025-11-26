@@ -13,28 +13,34 @@ import type { Locale } from './i18n';
  * Eliminates duplication across PageClient components
  */
 
-export type NavigationLabels = {
+type BaseNavigationLabels = {
   home: string;
   products: string;
-  about?: string;
-  whyUs: string;
-  faq: string;
+  about: string;
   contact: string;
 };
 
-type NavigationRouteMap = Record<string, string | ((key: string, label: string) => string)>;
+export type NavigationLabels = BaseNavigationLabels & {
+  whyUs: string;
+  faq: string;
+};
 
-type NavigationFactoryConfig = {
-  routes: NavigationRouteMap;
+type NavigationRouteMap<L extends Record<string, string>> = Partial<
+  Record<keyof L, string | ((key: string, label: string) => string)>
+> &
+  Record<string, string | ((key: string, label: string) => string)>;
+
+type NavigationFactoryConfig<L extends Record<string, string>> = {
+  routes: NavigationRouteMap<L>;
   overrides?: Record<string, NavigationItemOverride | undefined>;
   defaultHref?: (key: string, label: string) => string;
 };
 
-function createNavigationFactory({
+function createNavigationFactory<L extends Record<string, string>>({
   routes,
   overrides,
   defaultHref
-}: NavigationFactoryConfig) {
+}: NavigationFactoryConfig<L>) {
   const hrefResolver = (key: string, label: string) => {
     const route = routes[key];
 
@@ -44,17 +50,18 @@ function createNavigationFactory({
     return defaultHref ? defaultHref(key, label) : `/${key}`;
   };
 
-  return (labels: NavigationLabels): NavigationItem[] =>
-    createNavigationItems(labels, {
+  return (labels: L): NavigationItem[] =>
+    createNavigationItems(labels as Record<string, string>, {
       hrefResolver,
       overrides
     });
 }
 
-const createHomeNavigationFactory = createNavigationFactory({
+const createHomeNavigationFactory = createNavigationFactory<NavigationLabels>({
   routes: {
     home: '#home',
-    products: '#products',
+    about: '/about',
+    products: '/products',
     whyUs: '#why-us',
     faq: '#faq',
     contact: '#contact'
@@ -65,20 +72,11 @@ const createHomeNavigationFactory = createNavigationFactory({
   defaultHref: (key) => `#${key}`
 });
 
-const createProductsNavigationFactory = createNavigationFactory({
+const staticNavigationFactory = createNavigationFactory<BaseNavigationLabels>({
   routes: {
     home: '/',
     products: '/products',
     about: '/about',
-    contact: '/#contact'
-  }
-});
-
-const createAboutNavigationFactory = createNavigationFactory({
-  routes: {
-    home: '/',
-    about: '/about',
-    products: '/products',
     contact: '/#contact'
   }
 });
@@ -89,6 +87,7 @@ const createAboutNavigationFactory = createNavigationFactory({
 export function createHomeNavigation(labels: NavigationLabels): NavigationItem[] {
   return createHomeNavigationFactory({
     home: labels.home,
+    about: labels.about,
     products: labels.products,
     whyUs: labels.whyUs,
     faq: labels.faq,
@@ -105,7 +104,7 @@ export function createProductsNavigation(labels: {
   about: string;
   contact: string;
 }): NavigationItem[] {
-  return createProductsNavigationFactory(labels);
+  return staticNavigationFactory(labels);
 }
 
 /**
@@ -117,7 +116,7 @@ export function createAboutNavigation(labels: {
   products: string;
   contact: string;
 }): NavigationItem[] {
-  return createAboutNavigationFactory(labels);
+  return staticNavigationFactory(labels);
 }
 
 /**

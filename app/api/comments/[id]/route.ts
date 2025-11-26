@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { assertAdmin } from '../lib/auth';
+import { assertAdmin, logModerationAudit } from '../lib/auth';
 import { deleteStoredComment, updateCommentStatus } from '../lib/store';
 import type { CommentStatus } from '../lib/types';
 
@@ -26,11 +26,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   const moderatedAt = new Date().toISOString();
-  console.info('Comment status updated.', {
+  logModerationAudit('update-status', admin, {
     commentId: params.id,
     status: body.status,
-    adminId: admin.id,
-    adminDisplayName: admin.displayName,
     moderatedAt,
   });
 
@@ -56,10 +54,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   }
 
   const moderatedAt = new Date().toISOString();
-  console.info('Comment deleted.', {
+  logModerationAudit('delete-comment', admin, {
     commentId: params.id,
-    adminId: admin.id,
-    adminDisplayName: admin.displayName,
     moderatedAt,
   });
 
