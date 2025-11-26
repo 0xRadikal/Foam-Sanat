@@ -1,14 +1,38 @@
+import crypto from 'node:crypto';
 import { NextRequest } from 'next/server';
 
 import { ensureServerEnvVars } from '../../../lib/env';
 
-export type AdminIdentity = {
+export type AuthenticatedAdmin = {
+  id: string;
+  displayName: string;
+  tokenId?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  source: 'signed' | 'legacy';
+};
+
+type AdminTokenPayload = {
+  sub?: string;
+  adminId?: string;
+  name?: string;
+  displayName?: string;
+  jti?: string;
+  iat?: number;
+  exp?: number;
+};
+
+type LegacyAdminIdentity = {
   id: string;
   displayName: string;
   token: string;
 };
 
 const DEFAULT_TRUSTED_PROXIES = new Set(['127.0.0.1', '::1']);
+const ADMIN_TOKEN_ALG = 'HS256';
+const ADMIN_TOKEN_TTL_MINUTES = Number(process.env.COMMENTS_ADMIN_TOKEN_TTL_MINUTES ?? '180');
+
+let adminSecretWarned = false;
 
 function getTrustedProxies(): Set<string> {
   const env = process.env.TRUSTED_PROXY_IPS;
@@ -41,11 +65,9 @@ export function getClientIdentifier(request: NextRequest): string {
   return clientIp ?? 'unknown';
 }
 
-function parseAdminIdentities(): AdminIdentity[] {
-  ensureServerEnvVars(['COMMENTS_ADMIN_TOKEN']);
-
+function parseLegacyAdminIdentities(): LegacyAdminIdentity[] {
   const fallbackToken = process.env.COMMENTS_ADMIN_TOKEN;
-  const defaultAdmin: AdminIdentity | null = fallbackToken
+  const defaultAdmin: LegacyAdminIdentity | null = fallbackToken
     ? {
         token: fallbackToken,
         id: process.env.COMMENTS_ADMIN_ID || 'comments-admin',
@@ -82,11 +104,11 @@ function parseAdminIdentities(): AdminIdentity[] {
             token,
             id: id?.trim() || 'comments-admin',
             displayName: displayName?.trim() || 'Comments Admin',
-          } satisfies AdminIdentity;
+          } satisfies LegacyAdminIdentity;
         }
         return null;
       })
-      .filter(Boolean) as AdminIdentity[];
+      .filter(Boolean) as LegacyAdminIdentity[];
 
     if (adminEntries.length === 0) {
       console.warn('COMMENTS_ADMIN_IDENTITIES did not include any valid admin entries.');
@@ -100,19 +122,180 @@ function parseAdminIdentities(): AdminIdentity[] {
   }
 }
 
-export function assertAdmin(request: NextRequest): AdminIdentity | null {
-  const header = request.headers.get('authorization');
-  if (!header) {
+function getAdminTokenSecrets(): string[] {
+  const configuredSecrets =
+    process.env.COMMENTS_ADMIN_TOKEN_SECRETS ?? process.env.COMMENTS_ADMIN_TOKEN_SECRET;
+
+  if (!configuredSecrets) {
+    if (!adminSecretWarned && process.env.NODE_ENV !== 'test') {
+      adminSecretWarned = true;
+      console.error('COMMENTS_ADMIN_TOKEN_SECRET is required to validate admin tokens.');
+    }
+    return [];
+  }
+
+  return configuredSecrets
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function base64UrlDecode(segment: string): string {
+  return Buffer.from(segment, 'base64url').toString('utf8');
+}
+
+function createSignature(content: string, secret: string): string {
+  return crypto.createHmac('sha256', secret).update(content).digest('base64url');
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBuffer = Buffer.from(a);
+  const bBuffer = Buffer.from(b);
+
+  if (aBuffer.length !== bBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(aBuffer, bBuffer);
+}
+
+function verifySignature(segments: string[], signature: string, secrets: string[]): string | null {
+  const signingInput = segments.slice(0, 2).join('.');
+
+  for (const secret of secrets) {
+    const expected = createSignature(signingInput, secret);
+    if (timingSafeEqual(signature, expected)) {
+      return secret;
+    }
+  }
+
+  return null;
+}
+
+function verifySignedAdminToken(token: string): AuthenticatedAdmin | null {
+  const segments = token.split('.');
+  if (segments.length !== 3) return null;
+
+  const [encodedHeader, encodedPayload, signature] = segments;
+  const secrets = getAdminTokenSecrets();
+  if (secrets.length === 0) {
     return null;
   }
+
+  let header: { alg?: string; typ?: string };
+  let payload: AdminTokenPayload;
+
+  try {
+    header = JSON.parse(base64UrlDecode(encodedHeader)) as { alg?: string; typ?: string };
+    payload = JSON.parse(base64UrlDecode(encodedPayload)) as AdminTokenPayload;
+  } catch (error) {
+    console.warn('Failed to decode admin token.', { error });
+    return null;
+  }
+
+  if (header.typ !== 'JWT' || header.alg !== ADMIN_TOKEN_ALG) {
+    return null;
+  }
+
+  const matchedSecret = verifySignature([encodedHeader, encodedPayload], signature, secrets);
+  if (!matchedSecret) {
+    return null;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const issuedAt = payload.iat ?? now;
+  const ttlSeconds = Math.max(ADMIN_TOKEN_TTL_MINUTES, 1) * 60;
+  const expiresAtSeconds = payload.exp ?? issuedAt + ttlSeconds;
+
+  if (expiresAtSeconds < now) {
+    console.warn('Admin token rejected because it is expired.', {
+      tokenId: payload.jti,
+      expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
+    });
+    return null;
+  }
+
+  return {
+    id: payload.sub || payload.adminId || 'comments-admin',
+    displayName: payload.name || payload.displayName || 'Comments Admin',
+    tokenId: payload.jti,
+    issuedAt: issuedAt ? new Date(issuedAt * 1000).toISOString() : undefined,
+    expiresAt: expiresAtSeconds ? new Date(expiresAtSeconds * 1000).toISOString() : undefined,
+    source: 'signed',
+  } satisfies AuthenticatedAdmin;
+}
+
+function verifyLegacyAdminToken(token: string): AuthenticatedAdmin | null {
+  const admin = parseLegacyAdminIdentities().find((entry) => entry.token === token.trim());
+  if (!admin) return null;
+
+  return {
+    id: admin.id,
+    displayName: admin.displayName,
+    source: 'legacy',
+  } satisfies AuthenticatedAdmin;
+}
+
+function extractBearerToken(request: NextRequest): string | null {
+  const header = request.headers.get('authorization');
+  if (!header) return null;
+
   const [scheme, token] = header.split(' ');
   if (scheme?.toLowerCase() !== 'bearer' || !token) {
     return null;
   }
 
-  const admin = parseAdminIdentities().find((entry) => entry.token === token.trim());
-  if (!admin) {
-    console.warn('Invalid admin token received.');
+  return token.trim();
+}
+
+export function assertAdmin(request: NextRequest): AuthenticatedAdmin | null {
+  const token = extractBearerToken(request);
+  if (!token) {
+    return null;
   }
-  return admin ?? null;
+
+  const signedAdmin = verifySignedAdminToken(token);
+  if (signedAdmin) {
+    return signedAdmin;
+  }
+
+  const legacyAdmin = verifyLegacyAdminToken(token);
+  if (legacyAdmin) {
+    console.warn('Legacy admin token used. Please migrate to signed admin tokens with rotation.');
+    return legacyAdmin;
+  }
+
+  console.warn('Invalid admin token received.');
+  return null;
+}
+
+export function logModerationAudit(
+  action: 'update-status' | 'delete-comment' | 'reply-comment',
+  admin: AuthenticatedAdmin,
+  metadata: Record<string, unknown>,
+) {
+  const performedAt = new Date().toISOString();
+
+  console.info('Comments moderation audit', {
+    action,
+    performedAt,
+    adminId: admin.id,
+    adminDisplayName: admin.displayName,
+    tokenId: admin.tokenId,
+    tokenSource: admin.source,
+    expiresAt: admin.expiresAt,
+    issuedAt: admin.issuedAt,
+    metadata,
+  });
+}
+
+export function describeAdminToken(): Record<string, unknown> {
+  ensureServerEnvVars(['COMMENTS_ADMIN_TOKEN_SECRET']);
+
+  const secrets = getAdminTokenSecrets();
+  return {
+    secretsConfigured: secrets.length,
+    ttlMinutes: ADMIN_TOKEN_TTL_MINUTES,
+    rotationEnabled: secrets.length > 1,
+  };
 }

@@ -82,6 +82,7 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
   } = themeClasses;
   const {
     home: homeNavLabel,
+    about: aboutNavLabel,
     products: productsNavLabel,
     whyUs: whyUsNavLabel,
     faq: faqNavLabel,
@@ -91,12 +92,13 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
     () =>
       createHomeNavigation({
         home: homeNavLabel,
+        about: aboutNavLabel,
         products: productsNavLabel,
         whyUs: whyUsNavLabel,
         faq: faqNavLabel,
         contact: contactNavLabel
       }),
-    [contactNavLabel, faqNavLabel, homeNavLabel, productsNavLabel, whyUsNavLabel]
+    [aboutNavLabel, contactNavLabel, faqNavLabel, homeNavLabel, productsNavLabel, whyUsNavLabel]
   );
 
   const structuredData = useMemo(
