@@ -20,6 +20,20 @@ const MAX_SUBMISSIONS = 5;
 
 let rateLimitStore: RateLimitStore | null = null;
 
+class MemoryRateLimitStore implements RateLimitStore {
+  private hits: Map<string, { count: number; expiresAt: number }> = new Map();
+
+  async increment(key: string, windowMs: number): Promise<{ count: number; expiresAt: number }> {
+    const existing = this.hits.get(key);
+    const now = Date.now();
+    const expiresAt = existing?.expiresAt && existing.expiresAt > now ? existing.expiresAt : now + windowMs;
+    const count = existing && existing.expiresAt > now ? existing.count + 1 : 1;
+
+    this.hits.set(key, { count, expiresAt });
+    return { count, expiresAt };
+  }
+}
+
 class RedisRateLimitStore implements RateLimitStore {
   private clientPromise: Promise<RedisClientType<RedisDefaultModules, RedisFunctions, RedisScripts>>;
 
@@ -54,7 +68,18 @@ function getStore(): RateLimitStore {
     return rateLimitStore;
   }
 
-  rateLimitStore = new RedisRateLimitStore();
+  const shouldUseRedis = Boolean(process.env.RATE_LIMIT_REDIS_URL || process.env.REDIS_URL);
+
+  if (shouldUseRedis) {
+    try {
+      rateLimitStore = new RedisRateLimitStore();
+      return rateLimitStore;
+    } catch (error) {
+      console.warn('Falling back to in-memory rate limiter because Redis is unavailable.', error);
+    }
+  }
+
+  rateLimitStore = new MemoryRateLimitStore();
   return rateLimitStore;
 }
 

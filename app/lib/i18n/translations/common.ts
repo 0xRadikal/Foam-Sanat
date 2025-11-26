@@ -1,3 +1,4 @@
+import { getEnvValue } from '../../env';
 import type { Locale, LocaleRecord } from '../locales';
 
 export type CommonNamespaceSchema = {
@@ -20,19 +21,29 @@ export type CommonNamespaceSchema = {
   };
 };
 
-const requireEnv = (key: string): string => {
-  const value = process.env[key];
+const defaultContactPhoneFa = getEnvValue(
+  ['NEXT_PUBLIC_CONTACT_PHONE_FA', 'CONTACT_PHONE_FA'],
+  {
+    visibility: 'public',
+    fallback: '+98 912 000 0000',
+  },
+);
 
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
+const defaultContactPhoneEn = getEnvValue(
+  ['NEXT_PUBLIC_CONTACT_PHONE_EN', 'CONTACT_PHONE_EN'],
+  {
+    visibility: 'public',
+    fallback: '+98 21 000 0000',
+  },
+);
 
-  return value;
-};
-
-const defaultContactPhoneFa = requireEnv('NEXT_PUBLIC_CONTACT_PHONE_FA');
-const defaultContactPhoneEn = requireEnv('NEXT_PUBLIC_CONTACT_PHONE_EN');
-const defaultContactEmail = requireEnv('NEXT_PUBLIC_CONTACT_EMAIL');
+const defaultContactEmail = getEnvValue(
+  ['NEXT_PUBLIC_CONTACT_EMAIL', 'CONTACT_EMAIL'],
+  {
+    visibility: 'public',
+    fallback: 'info@example.com',
+  },
+);
 
 export const commonMessages = {
   fa: {

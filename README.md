@@ -82,11 +82,17 @@ Or simply connect your GitHub repo for **automatic builds and previews**.
 
 ### 💬 Comment API & Moderation
 
-Product reviews are now persisted through REST endpoints under `/api/comments`:
+Product reviews are served through REST endpoints under `/api/comments`:
 
 - `GET /api/comments?productId=...` returns approved comments for a product.
-- `POST /api/comments` submits a comment that enters the moderation queue with basic spam protection.
+- `POST /api/comments` submits a comment that enters the moderation queue with spam/rate-limit protection.
 - Admin-only routes (`DELETE /api/comments/:id`, `PATCH /api/comments/:id`, `POST /api/comments/:id/replies`) require a bearer token.
+
+**Storage + rate limiting**
+
+- By default, comments are stored in a local SQLite database at `app/api/comments/data/comments.db`.
+- On read-only hosts (e.g. serverless without persistent disks) set `COMMENTS_DATABASE_URL` or `DATABASE_URL` to point to a writable SQLite/SQL path; otherwise the API returns `503` to avoid data loss.
+- Rate limiting uses Redis when `RATE_LIMIT_REDIS_URL`/`REDIS_URL` is present; otherwise an in-memory limiter is used for development.
 
 Set the moderation token in your environment before starting the app:
 
@@ -94,7 +100,7 @@ Set the moderation token in your environment before starting the app:
 export COMMENTS_ADMIN_TOKEN="super-secure-token"
 ```
 
-Enter the same token in the product modal's moderation panel to delete comments or send official replies. All comments are stored in `app/api/comments/data/comments.json` for simplicity; swap this layer with a real database in production deployments.
+Use the same token in the product modal's moderation panel to delete comments or send official replies.
 
 ---
 

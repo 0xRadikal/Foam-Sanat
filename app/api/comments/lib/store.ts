@@ -15,16 +15,16 @@ type ReplyRow = StoredCommentReply;
 
 type PreparedStatements = {
   db: ReturnType<typeof getDb>;
-  selectApprovedComments: Database.Statement<CommentRow>;
-  selectCommentById: Database.Statement<CommentRow>;
-  selectApprovedReplies: Database.Statement<ReplyRow>;
-  duplicateCommentCheck: Database.Statement<unknown>;
-  commentExistsStmt: Database.Statement<unknown>;
-  updateCommentStatusStmt: Database.Statement<unknown>;
-  deleteCommentStmt: Database.Statement<unknown>;
-  deleteReplyStmt: Database.Statement<unknown>;
-  insertCommentStmt: Database.Statement<unknown>;
-  insertReplyStmt: Database.Statement<unknown>;
+  selectApprovedComments: Database.Statement;
+  selectCommentById: Database.Statement;
+  selectApprovedReplies: Database.Statement;
+  duplicateCommentCheck: Database.Statement;
+  commentExistsStmt: Database.Statement;
+  updateCommentStatusStmt: Database.Statement;
+  deleteCommentStmt: Database.Statement;
+  deleteReplyStmt: Database.Statement;
+  insertCommentStmt: Database.Statement;
+  insertReplyStmt: Database.Statement;
 };
 
 let preparedStatements: PreparedStatements | null = null;
@@ -83,7 +83,8 @@ function getPreparedStatements(): PreparedStatements {
 export function getApprovedComments(productId: string): PublicComment[] {
   const { selectApprovedComments } = getPreparedStatements();
 
-  return selectApprovedComments.all(productId).map((comment) => toPublicComment(comment));
+  const rows = selectApprovedComments.all(productId) as CommentRow[];
+  return rows.map((comment) => toPublicComment(comment));
 }
 
 export function hasDuplicateComment(productId: string, email: string, text: string): boolean {
@@ -156,7 +157,7 @@ export function updateCommentStatus(id: string, status: CommentStatus): PublicCo
     return null;
   }
 
-  const updated = selectCommentById.get(id);
+  const updated = selectCommentById.get(id) as CommentRow | undefined;
   return updated ? toPublicComment(updated) : null;
 }
 
@@ -177,6 +178,8 @@ export function deleteStoredReply(commentId: string, replyId: string): boolean {
 export function toPublicComment(comment: CommentRow): PublicComment {
   const { selectApprovedReplies } = getPreparedStatements();
 
+  const replies = selectApprovedReplies.all(comment.id) as ReplyRow[];
+
   return {
     id: comment.id,
     productId: comment.productId,
@@ -185,15 +188,13 @@ export function toPublicComment(comment: CommentRow): PublicComment {
     text: comment.text,
     createdAt: comment.createdAt,
     status: comment.status,
-    replies: selectApprovedReplies
-      .all(comment.id)
-      .map<PublicCommentReply>(({ id, author, text, createdAt, isAdmin, status }) => ({
-        id,
-        author,
-        text,
-        createdAt,
-        isAdmin: Boolean(isAdmin),
-        status,
-      })),
+    replies: replies.map<PublicCommentReply>(({ id, author, text, createdAt, isAdmin, status }) => ({
+      id,
+      author,
+      text,
+      createdAt,
+      isAdmin: Boolean(isAdmin),
+      status,
+    })),
   };
 }
