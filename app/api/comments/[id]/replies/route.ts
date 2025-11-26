@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { assertAdmin } from '../../lib/auth';
+import { assertAdmin, logModerationAudit } from '../../lib/auth';
 import { createStoredReply } from '../../lib/store';
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
@@ -33,11 +33,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       status: 'approved',
     });
 
-    console.info('Comment reply added.', {
+    logModerationAudit('reply-comment', admin, {
       commentId: params.id,
       replyId: reply.id,
-      adminId: admin.id,
-      adminDisplayName: admin.displayName,
       repliedAt,
     });
 

@@ -11,6 +11,8 @@ describe('contact POST handler', () => {
     'NEXT_PUBLIC_SITE_URL',
     'RESEND_API_KEY',
     'RESEND_FROM_EMAIL',
+    'TURNSTILE_SECRET_KEY',
+    'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
   ] as const;
 
   before(async () => {
@@ -19,6 +21,8 @@ describe('contact POST handler', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://example.com';
     process.env.RESEND_API_KEY = 'test-resend-key';
     process.env.RESEND_FROM_EMAIL = 'noreply@example.com';
+    process.env.TURNSTILE_SECRET_KEY = 'test-turnstile-secret';
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = 'test-turnstile-site-key';
 
     ({ POST } = await import('./route.js'));
   });

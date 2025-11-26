@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { ArrowRight } from 'lucide-react';
 import type { HomeNamespaceSchema } from '@/app/lib/i18n';
@@ -48,8 +49,8 @@ export default function HeroSection({ hero, slider, isDark, isRTL }: HeroSection
                 {hero.cta1}
                 <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${isRTL ? 'rotate-180' : ''}`} />
               </a>
-              <a
-                href="#products"
+              <Link
+                href="/products"
                 className={`inline-flex items-center justify-center gap-2 border-2 px-8 py-4 rounded-lg font-semibold transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-orange-300 ${
                   isDark
                     ? 'border-white text-white hover:bg-white hover:text-gray-900'
@@ -57,7 +58,18 @@ export default function HeroSection({ hero, slider, isDark, isRTL }: HeroSection
                 }`}
               >
                 {hero.cta2}
-              </a>
+              </Link>
+              <Link
+                href="/about"
+                className={`inline-flex items-center justify-center gap-2 px-8 py-4 rounded-lg font-semibold transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-orange-300 ${
+                  isDark
+                    ? 'text-gray-200 hover:text-white hover:bg-gray-800'
+                    : 'text-blue-900 hover:text-orange-600 hover:bg-orange-50'
+                }`}
+              >
+                {isRTL ? 'درباره ما' : 'About us'}
+                <ArrowRight className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
+              </Link>
             </div>
           </div>
           <div className="relative aspect-video">
