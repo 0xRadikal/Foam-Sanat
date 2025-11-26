@@ -18,13 +18,13 @@
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.8",
-    "better-sqlite3": "^12.4.1",
+    "better-sqlite3": "^12.4.6",
     "docker": "^0.2.14",
     "lucide-react": "^0.552.0",
     "next": "^14.2.33",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "redis": "^4.7.0"
+    "redis": "^4.7.1"
   },
   "devDependencies": {
     "@axe-core/cli": "4.10.0",
