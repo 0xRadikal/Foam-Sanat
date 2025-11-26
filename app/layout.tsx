@@ -6,7 +6,12 @@ import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
 
 // ✅ FIX #8: Import and run environment validation
-import '@/app/lib/env';
+import { validateEnv } from '@/app/lib/env';
+
+// Validate environment variables only during server rendering to fail fast on misconfiguration
+if (typeof window === 'undefined') {
+  validateEnv();
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://foamsanat.com'),
