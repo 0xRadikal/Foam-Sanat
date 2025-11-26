@@ -1,7 +1,9 @@
 // app/layout.tsx - Enhanced with SEO, Security, Manifest, and ENV Validation
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import Script from 'next/script';
-import { defaultLocale } from '@/app/lib/i18n';
+import { isLocale, localeSettings } from '@/app/lib/i18n';
+import { resolveLocale } from '@/app/lib/locale';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
 
@@ -94,21 +96,54 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
 };
 
-const defaultLang = defaultLocale;
-const shouldLoadVazirmatn = defaultLang === 'fa';
-const defaultBodyFont = shouldLoadVazirmatn
-  ? 'Vazirmatn, system-ui, sans-serif'
-  : 'system-ui, sans-serif';
+function resolveLayoutLocale(paramsLang?: string): keyof typeof localeSettings {
+  const requestHeaders = headers();
+
+  const headerUrl =
+    requestHeaders.get('x-url') ??
+    requestHeaders.get('next-url') ??
+    requestHeaders.get('referer') ??
+    undefined;
+
+  let langFromSearch: string | null = null;
+  let langFromPath: string | null = null;
+
+  if (headerUrl) {
+    try {
+      const parsed = new URL(headerUrl, 'https://placeholder.local');
+      langFromSearch = parsed.searchParams.get('lang');
+
+      const [maybeLang] = parsed.pathname.split('/').filter(Boolean);
+      if (maybeLang && isLocale(maybeLang)) {
+        langFromPath = maybeLang;
+      }
+    } catch {
+      langFromSearch = null;
+      langFromPath = null;
+    }
+  }
+
+  return resolveLocale(paramsLang ?? langFromSearch ?? langFromPath);
+}
 
 export default function RootLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params?: { lang?: string };
 }) {
+  const runtimeLocale = resolveLayoutLocale(params?.lang);
+  const { dir, langTag } = localeSettings[runtimeLocale];
+  const shouldLoadVazirmatn = runtimeLocale === 'fa';
+  const defaultBodyFont = shouldLoadVazirmatn
+    ? 'Vazirmatn, system-ui, sans-serif'
+    : 'system-ui, sans-serif';
+
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
   return (
-    <html suppressHydrationWarning>
+    <html lang={langTag} dir={dir} suppressHydrationWarning>
       <head>
         {/* Preconnect to external resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -119,7 +154,7 @@ export default function RootLayout({
         {/* DNS Prefetch */}
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
         <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-        
+
         {/* Vazirmatn Font - Persian */}
         {shouldLoadVazirmatn && (
           <link
@@ -169,9 +204,12 @@ export default function RootLayout({
       <body
         className="antialiased"
         suppressHydrationWarning
-        style={{ fontFamily: `var(--site-font-family, ${defaultBodyFont})` }}
+        style={{
+          fontFamily: `var(--site-font-family, ${defaultBodyFont})`,
+          ['--site-font-family' as '--site-font-family']: defaultBodyFont,
+        }}
       >
-        <SiteChromeProvider>{children}</SiteChromeProvider>
+        <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
         <Script
           id="hydration-fix"
           suppressHydrationWarning
