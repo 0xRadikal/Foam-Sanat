@@ -1,7 +1,11 @@
 // app/lib/navigation-config.ts
 // ✅ REFACTOR #5: Centralized navigation configuration
 
-import { createNavigationItems, type NavigationItem } from './navigation';
+import {
+  createNavigationItems,
+  type NavigationItem,
+  type NavigationItemOverride
+} from './navigation';
 import type { Locale } from './i18n';
 
 /**
@@ -18,40 +22,78 @@ export type NavigationLabels = {
   contact: string;
 };
 
+type NavigationRouteMap = Record<string, string | ((key: string, label: string) => string)>;
+
+type NavigationFactoryConfig = {
+  routes: NavigationRouteMap;
+  overrides?: Record<string, NavigationItemOverride | undefined>;
+  defaultHref?: (key: string, label: string) => string;
+};
+
+function createNavigationFactory({
+  routes,
+  overrides,
+  defaultHref
+}: NavigationFactoryConfig) {
+  const hrefResolver = (key: string, label: string) => {
+    const route = routes[key];
+
+    if (typeof route === 'function') return route(key, label);
+    if (typeof route === 'string') return route;
+
+    return defaultHref ? defaultHref(key, label) : `/${key}`;
+  };
+
+  return (labels: NavigationLabels): NavigationItem[] =>
+    createNavigationItems(labels, {
+      hrefResolver,
+      overrides
+    });
+}
+
+const createHomeNavigationFactory = createNavigationFactory({
+  routes: {
+    home: '#home',
+    products: '#products',
+    whyUs: '#why-us',
+    faq: '#faq',
+    contact: '#contact'
+  },
+  overrides: {
+    contact: { variant: 'button' }
+  },
+  defaultHref: (key) => `#${key}`
+});
+
+const createProductsNavigationFactory = createNavigationFactory({
+  routes: {
+    home: '/',
+    products: '/products',
+    about: '/about',
+    contact: '/#contact'
+  }
+});
+
+const createAboutNavigationFactory = createNavigationFactory({
+  routes: {
+    home: '/',
+    about: '/about',
+    products: '/products',
+    contact: '/#contact'
+  }
+});
+
 /**
  * Create navigation items for home page
  */
 export function createHomeNavigation(labels: NavigationLabels): NavigationItem[] {
-  return createNavigationItems(
-    {
-      home: labels.home,
-      products: labels.products,
-      whyUs: labels.whyUs,
-      faq: labels.faq,
-      contact: labels.contact
-    },
-    {
-      hrefResolver: (key) => {
-        switch (key) {
-          case 'home':
-            return '#home';
-          case 'products':
-            return '#products';
-          case 'whyUs':
-            return '#why-us';
-          case 'faq':
-            return '#faq';
-          case 'contact':
-            return '#contact';
-          default:
-            return `#${key}`;
-        }
-      },
-      overrides: {
-        contact: { variant: 'button' }
-      }
-    }
-  );
+  return createHomeNavigationFactory({
+    home: labels.home,
+    products: labels.products,
+    whyUs: labels.whyUs,
+    faq: labels.faq,
+    contact: labels.contact
+  });
 }
 
 /**
@@ -63,25 +105,7 @@ export function createProductsNavigation(labels: {
   about: string;
   contact: string;
 }): NavigationItem[] {
-  return createNavigationItems(
-    labels,
-    {
-      hrefResolver: (key) => {
-        switch (key) {
-          case 'home':
-            return '/';
-          case 'products':
-            return '/products';
-          case 'about':
-            return '/about';
-          case 'contact':
-            return '/#contact';
-          default:
-            return `/${key}`;
-        }
-      }
-    }
-  );
+  return createProductsNavigationFactory(labels);
 }
 
 /**
@@ -93,25 +117,7 @@ export function createAboutNavigation(labels: {
   products: string;
   contact: string;
 }): NavigationItem[] {
-  return createNavigationItems(
-    labels,
-    {
-      hrefResolver: (key) => {
-        switch (key) {
-          case 'home':
-            return '/';
-          case 'about':
-            return '/about';
-          case 'products':
-            return '/products';
-          case 'contact':
-            return '/#contact';
-          default:
-            return `/${key}`;
-        }
-      }
-    }
-  );
+  return createAboutNavigationFactory(labels);
 }
 
 /**
