@@ -40,7 +40,7 @@ class RedisRateLimitStore implements RateLimitStore {
   constructor() {
     const url = process.env.RATE_LIMIT_REDIS_URL ?? process.env.REDIS_URL ?? 'redis://localhost:6379';
     this.clientPromise = createClient({ url })
-      .on('error', (error) => console.error('Redis client error', error))
+      .on('error', (error: unknown) => console.error('Redis client error', error))
       .connect();
   }
 
@@ -89,7 +89,19 @@ export function configureRateLimitStore(store: RateLimitStore | null) {
 
 export async function checkRateLimit(identifier: string): Promise<RateLimitResult> {
   const store = getStore();
-  const { count, expiresAt } = await store.increment(identifier, WINDOW_MS);
+
+  const { count, expiresAt } = await (async () => {
+    try {
+      return await store.increment(identifier, WINDOW_MS);
+    } catch (error) {
+      console.warn('Rate limit store unavailable, falling back to in-memory store.', error);
+      if (!(store instanceof MemoryRateLimitStore)) {
+        rateLimitStore = new MemoryRateLimitStore();
+        return rateLimitStore.increment(identifier, WINDOW_MS);
+      }
+      throw error;
+    }
+  })();
   const limited = count > MAX_SUBMISSIONS;
 
   if (!limited) {

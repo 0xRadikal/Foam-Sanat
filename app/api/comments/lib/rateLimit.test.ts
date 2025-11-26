@@ -80,6 +80,22 @@ describe('comment rate limiting', () => {
     assert.equal(typeof limited?.retryAfterSeconds, 'number');
   });
 
+  it('falls back to in-memory rate limiting when primary store fails', async () => {
+    class FailingStore implements RateLimitStore {
+      async increment(): Promise<{ count: number; expiresAt: number }> {
+        throw new Error('Simulated store failure');
+      }
+    }
+
+    configureRateLimitStore(new FailingStore());
+
+    const request = createRequest('203.0.113.11');
+    const comment = 'This is another sufficiently long comment to pass validation rules.';
+
+    const result = await checkRateLimitOrSpam(request as never, comment);
+    assert.equal(result, null);
+  });
+
   it('ignores spoofed forwarded-for headers from untrusted sources', () => {
     const request = createRequest('198.51.100.25', {
       'x-forwarded-for': '203.0.113.9',
