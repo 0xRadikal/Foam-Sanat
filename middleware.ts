@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import '@/app/lib/server-bootstrap';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 function generateNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
@@ -17,6 +19,11 @@ function buildContentSecurityPolicy(nonce: string): string {
     'https://www.google-analytics.com',
     'https://challenges.cloudflare.com',
   ];
+
+  if (isDev) {
+    // Allow React Fast Refresh / webpack dev runtime to use eval locally.
+    scriptSrc.push("'unsafe-eval'");
+  }
 
   const connectSrc = [
     "'self'",
