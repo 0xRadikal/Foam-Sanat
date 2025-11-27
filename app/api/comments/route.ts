@@ -10,7 +10,11 @@ import { getCommentsStorageError, getCommentsStorageStatus } from './lib/db';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
-function buildAvailabilityHeaders(status: 'ready' | 'offline', errorCode?: string | null): HeadersInit {
+function buildAvailabilityHeaders(
+  status: 'ready' | 'offline',
+  errorCode?: string | null,
+  retryAfterSeconds?: number,
+): HeadersInit {
   const headers: Record<string, string> = {
     'X-Comments-Status': status,
   };
@@ -19,8 +23,14 @@ function buildAvailabilityHeaders(status: 'ready' | 'offline', errorCode?: strin
     headers['X-Comments-Error-Code'] = errorCode;
   }
 
+  if (retryAfterSeconds) {
+    headers['Retry-After'] = retryAfterSeconds.toString();
+  }
+
   return headers;
 }
+
+const COMMENTS_RETRY_AFTER_SECONDS = 300;
 
 function ensureCommentsAvailable(): NextResponse | null {
   const status = getCommentsStorageStatus();
@@ -40,7 +50,10 @@ function ensureCommentsAvailable(): NextResponse | null {
       error: 'Comments are currently unavailable. Please try again later.',
       code: status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE',
     },
-    { status: 503, headers: buildAvailabilityHeaders('offline', status.errorCode) },
+    {
+      status: 503,
+      headers: buildAvailabilityHeaders('offline', status.errorCode, COMMENTS_RETRY_AFTER_SECONDS),
+    },
   );
 }
 
@@ -88,7 +101,10 @@ export async function POST(request: NextRequest) {
   );
 
   if (captchaError) {
-    return NextResponse.json({ error: captchaError.message }, { status: captchaError.status });
+    const headers: HeadersInit | undefined = captchaError.retryAfterSeconds
+      ? { 'Retry-After': captchaError.retryAfterSeconds.toString() }
+      : undefined;
+    return NextResponse.json({ error: captchaError.message }, { status: captchaError.status, headers });
   }
 
   const guardResult = await checkRateLimitOrSpam(request, sanitized.text);

@@ -93,6 +93,7 @@ Product reviews are served through REST endpoints under `/api/comments`:
 - By default, comments are stored in a local SQLite database at `app/api/comments/data/comments.db`.
 - On read-only hosts (e.g. serverless without persistent disks) set `COMMENTS_DATABASE_URL` or `DATABASE_URL` to point to a writable SQLite/SQL path; otherwise the API returns `503` to avoid data loss.
 - Rate limiting uses Redis when `RATE_LIMIT_REDIS_URL`/`REDIS_URL` is present; otherwise an in-memory limiter is used for development.
+- Clients should respect `Retry-After` headers on `503`/`429` responses and implement exponential backoff to avoid repeated expensive verification or storage attempts.
 
 Set the moderation token in your environment before starting the app:
 

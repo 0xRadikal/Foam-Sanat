@@ -1,5 +1,6 @@
 // app/layout.tsx - Enhanced with SEO, Security, Manifest, and ENV Validation
 import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
 import { headers } from 'next/headers';
 import Script from 'next/script';
 import { isLocale, localeSettings } from '@/app/lib/i18n';
@@ -124,7 +125,7 @@ function resolveLayoutLocale(paramsLang?: string): keyof typeof localeSettings {
     }
   }
 
-  return resolveLocale(paramsLang ?? langFromSearch ?? langFromPath);
+  return resolveLocale(paramsLang ?? langFromSearch ?? langFromPath ?? undefined);
 }
 
 export default function RootLayout({
@@ -143,6 +144,11 @@ export default function RootLayout({
 
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
+  const bodyStyle: CSSProperties & Record<'--site-font-family', string> = {
+    fontFamily: `var(--site-font-family, ${defaultBodyFont})`,
+    '--site-font-family': defaultBodyFont,
+  };
+
   return (
     <html lang={langTag} dir={dir} suppressHydrationWarning>
       <head>
@@ -158,10 +164,7 @@ export default function RootLayout({
       <body
         className="antialiased"
         suppressHydrationWarning
-        style={{
-          fontFamily: `var(--site-font-family, ${defaultBodyFont})`,
-          ['--site-font-family' as const]: defaultBodyFont,
-        }}
+        style={bodyStyle}
       >
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
         <Script
