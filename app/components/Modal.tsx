@@ -42,6 +42,7 @@ export default function Modal({
   overlayClassName = ''
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedElement = useRef<HTMLElement | null>(null);
 
   // Size mappings
   const sizeClasses = {
@@ -60,12 +61,53 @@ export default function Modal({
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    // Focus modal
-    setTimeout(() => modalRef.current?.focus(), 100);
-
     // Cleanup
     return () => {
       document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previouslyFocusedElement.current = document.activeElement as HTMLElement | null;
+
+    const modalElement = modalRef.current;
+    if (!modalElement) return;
+
+    const focusable = modalElement.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstFocusable = focusable[0] ?? modalElement;
+    const lastFocusable = focusable[focusable.length - 1] ?? firstFocusable;
+
+    firstFocusable.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      if (focusable.length === 0) {
+        event.preventDefault();
+        modalElement.focus();
+        return;
+      }
+
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (active === firstFocusable || active === modalElement) {
+          event.preventDefault();
+          lastFocusable.focus();
+        }
+      } else if (active === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
+      }
+    };
+
+    modalElement.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      modalElement.removeEventListener('keydown', handleKeyDown);
+      previouslyFocusedElement.current?.focus();
     };
   }, [isOpen]);
 
@@ -139,68 +181,5 @@ export default function Modal({
         <div className="p-6">{children}</div>
       </div>
     </div>
-  );
-}
-
-/**
- * Confirmation Modal Variant
- * 
- * Usage:
- * <ConfirmModal
- *   isOpen={showConfirm}
- *   onClose={() => setShowConfirm(false)}
- *   onConfirm={handleDelete}
- *   title="Delete Item"
- *   message="Are you sure you want to delete this?"
- *   confirmText="Delete"
- *   cancelText="Cancel"
- * />
- */
-export function ConfirmModal({
-  isOpen,
-  onClose,
-  onConfirm,
-  title,
-  message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  variant = 'danger'
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  title: string;
-  message: string;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'danger' | 'warning' | 'info';
-}) {
-  const variantClasses = {
-    danger: 'bg-red-500 hover:bg-red-600',
-    warning: 'bg-yellow-500 hover:bg-yellow-600',
-    info: 'bg-blue-500 hover:bg-blue-600'
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm" title={title}>
-      <p className="mb-6 text-gray-700 dark:text-gray-300">{message}</p>
-      <div className="flex gap-3">
-        <button
-          onClick={() => {
-            onConfirm();
-            onClose();
-          }}
-          className={`flex-1 rounded-lg px-4 py-2 font-semibold text-white transition-colors ${variantClasses[variant]}`}
-        >
-          {confirmText}
-        </button>
-        <button
-          onClick={onClose}
-          className="flex-1 rounded-lg border-2 border-gray-300 px-4 py-2 font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-        >
-          {cancelText}
-        </button>
-      </div>
-    </Modal>
   );
 }
