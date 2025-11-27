@@ -11,13 +11,7 @@ import { renderResourceHints } from '@/app/lib/headResources';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
 
-// ✅ FIX #8: Import and run environment validation
-import { validateEnv } from '@/app/lib/env';
-
-// Validate environment variables only during server rendering to fail fast on misconfiguration
-if (typeof window === 'undefined') {
-  validateEnv();
-}
+import '@/app/lib/server-bootstrap';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://foamsanat.com'),

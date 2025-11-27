@@ -12,7 +12,7 @@ import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
 import ContactInfo from '@/app/components/ContactInfo';
 import Modal from '@/app/components/Modal';
-import { createProductsNavigation } from '@/app/lib/navigation-config';
+import { createNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
@@ -541,7 +541,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   } = t.nav;
   const headerNavItems = useMemo(
     () =>
-      createProductsNavigation({
+      createNavigation('products', {
         home: homeNavLabel,
         products: productsNavLabel,
         about: aboutNavLabel,
