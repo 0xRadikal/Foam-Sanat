@@ -20,9 +20,10 @@ const PREVIEW_URL_CANDIDATES = [
 function resolveTargetUrl() {
   const candidate = PREVIEW_URL_CANDIDATES.find((value) => Boolean(value && value.trim()));
   if (!candidate) {
-    throw new Error(
-      'PREVIEW_URL (or VERCEL_BRANCH_URL/DEPLOYMENT_URL) must be set to run Lighthouse/Axe against the preview deployment.',
+    console.warn(
+      'Skipping preview audits: set PREVIEW_URL (or VERCEL_BRANCH_URL/DEPLOYMENT_URL) so Lighthouse/Axe can target the preview deployment.',
     );
+    return null;
   }
 
   if (candidate.startsWith('http://') || candidate.startsWith('https://')) {
@@ -95,6 +96,9 @@ async function enforceThresholds(reportPath) {
 
 async function main() {
   const targetUrl = resolveTargetUrl();
+  if (!targetUrl) {
+    return;
+  }
   const reportsDir = path.join(process.cwd(), 'reports');
   const axeReportPath = path.join(reportsDir, 'axe', 'axe-report.json');
   const lighthouseBase = path.join(reportsDir, 'lighthouse', 'preview');
