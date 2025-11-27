@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { sanitizeStringField, redactPayload } from '../lib/payload';
 import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
+import { withRequestLogging } from '../lib/logging';
 import {
   validateEmail,
   validatePhone,
@@ -68,10 +69,11 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-export async function POST(request: Request) {
+export const POST = withRequestLogging(async (request: Request, _context, { logger }) => {
   try {
     const originError = validateRequestOrigin(request);
     if (originError) {
+      logger.warn('contact.invalid-origin');
       return NextResponse.json(
         {
           success: false,
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
     );
 
     if (captchaError) {
+      logger.warn('contact.captcha-error', { status: captchaError.status });
       return NextResponse.json(
         {
           success: false,
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.info('Contact form submission received', {
+    logger.info('contact.received', {
       meta: {
         contactEmail: CONTACT_EMAIL,
         contactPhone: CONTACT_PHONE,
@@ -115,7 +118,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (isInvalidPayloadError(error)) {
-      console.warn('Rejected invalid contact form submission', {
+      logger.warn('contact.invalid-payload', {
         reason: getErrorMessage(error),
       });
 
@@ -129,7 +132,7 @@ export async function POST(request: Request) {
     }
 
     if (isEmailProviderError(error)) {
-      console.error('Failed to forward contact form submission to provider', {
+      logger.error('contact.forwarding-failed', {
         reason: error.message,
       });
 
@@ -142,7 +145,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error('Failed to process contact form submission:', error);
+    logger.error('contact.unhandled-error', { error: getErrorMessage(error) });
 
     return NextResponse.json(
       {
@@ -152,7 +155,7 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
 
 function parseContactPayload(payload: unknown): ContactPayload {
   if (!payload || typeof payload !== 'object') {

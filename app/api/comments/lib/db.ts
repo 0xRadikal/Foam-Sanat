@@ -1,6 +1,7 @@
 import Database, { type Database as DatabaseInstance } from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { emitMetric } from '../../lib/logging';
 
 type Logger = Pick<typeof console, 'error' | 'info' | 'warn'>;
 
@@ -84,6 +85,9 @@ export function initializeDatabase(
       'Comment database is disabled because the environment is read-only. Provide COMMENTS_DATABASE_URL or DATABASE_URL to enable it.',
     );
     initializationErrorCode = 'COMMENTS_DB_READ_ONLY_ENVIRONMENT';
+    emitMetric('comments.db.init.failure', {
+      tags: { code: initializationErrorCode },
+    });
     logger.warn(initializationError.message);
     logger.warn('Comment database initialization skipped', {
       status: 'skipped',
@@ -121,6 +125,9 @@ export function initializeDatabase(
     initializationError = error as Error;
     initializationErrorCode = (error as NodeJS.ErrnoException)?.code ?? 'COMMENTS_DB_INIT_FAILED';
     initializationMetrics.failures += 1;
+    emitMetric('comments.db.init.failure', {
+      tags: { code: initializationErrorCode },
+    });
     logger.error('Failed to initialize the comments database.', {
       status: 'failed',
       code: initializationErrorCode,

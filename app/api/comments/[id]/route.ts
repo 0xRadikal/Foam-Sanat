@@ -1,70 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withRequestLogging } from '../../lib/logging';
 import { assertAdmin, logModerationAudit } from '../lib/auth';
 import { deleteStoredComment, updateCommentStatus } from '../lib/store';
 import type { CommentStatus } from '../lib/types';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  const admin = assertAdmin(request);
-  if (!admin) {
-    return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
-  }
+export const PATCH = withRequestLogging(
+  async (
+    request: NextRequest,
+    context: { params: { id: string } } | undefined,
+    { logger },
+  ) => {
+    const commentId = context?.params?.id;
+    if (!commentId) {
+      return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
+    }
 
-  let body: { status?: CommentStatus };
-  try {
-    body = (await request.json()) as { status?: CommentStatus };
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
-  }
+    const admin = assertAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
+    }
 
-  if (!body.status || !['pending', 'approved', 'rejected'].includes(body.status)) {
-    return NextResponse.json({ error: 'A valid status must be provided.' }, { status: 400 });
-  }
+    let body: { status?: CommentStatus };
+    try {
+      body = (await request.json()) as { status?: CommentStatus };
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+    }
 
-  const updated = updateCommentStatus(params.id, body.status);
-  if (!updated) {
-    return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
-  }
+    if (!body.status || !['pending', 'approved', 'rejected'].includes(body.status)) {
+      return NextResponse.json({ error: 'A valid status must be provided.' }, { status: 400 });
+    }
 
-  const moderatedAt = new Date().toISOString();
-  logModerationAudit('update-status', admin, {
-    commentId: params.id,
-    status: body.status,
-    moderatedAt,
-  });
+    const updated = updateCommentStatus(commentId, body.status);
+    if (!updated) {
+      logger.warn('comments.moderation.not-found', { commentId });
+      return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
+    }
 
-  return NextResponse.json({
-    comment: updated,
-    moderation: {
-      adminId: admin.id,
-      adminDisplayName: admin.displayName,
+    const moderatedAt = new Date().toISOString();
+    logModerationAudit('update-status', admin, {
+      commentId,
+      status: body.status,
       moderatedAt,
-    },
-  });
-}
+    });
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const admin = assertAdmin(request);
-  if (!admin) {
-    return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
-  }
+    return NextResponse.json({
+      comment: updated,
+      moderation: {
+        adminId: admin.id,
+        adminDisplayName: admin.displayName,
+        moderatedAt,
+      },
+    });
+  },
+);
 
-  const deleted = deleteStoredComment(params.id);
-  if (!deleted) {
-    return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
-  }
+export const DELETE = withRequestLogging(
+  async (
+    request: NextRequest,
+    context: { params: { id: string } } | undefined,
+    { logger },
+  ) => {
+    const commentId = context?.params?.id;
+    if (!commentId) {
+      return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
+    }
 
-  const moderatedAt = new Date().toISOString();
-  logModerationAudit('delete-comment', admin, {
-    commentId: params.id,
-    moderatedAt,
-  });
+    const admin = assertAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
+    }
 
-  return NextResponse.json({
-    success: true,
-    moderation: {
-      adminId: admin.id,
-      adminDisplayName: admin.displayName,
+    const deleted = deleteStoredComment(commentId);
+    if (!deleted) {
+      logger.warn('comments.moderation.not-found', { commentId });
+      return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
+    }
+
+    const moderatedAt = new Date().toISOString();
+    logModerationAudit('delete-comment', admin, {
+      commentId,
       moderatedAt,
-    },
-  });
-}
+    });
+
+    return NextResponse.json({
+      success: true,
+      moderation: {
+        adminId: admin.id,
+        adminDisplayName: admin.displayName,
+        moderatedAt,
+      },
+    });
+  },
+);

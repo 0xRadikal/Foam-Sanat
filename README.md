@@ -78,6 +78,12 @@ vercel deploy
 ```
 Or simply connect your GitHub repo for **automatic builds and previews**.
 
+#### Preview accessibility & performance gates
+- Pull requests are gated by automated **Axe** (a11y) and **Lighthouse** (performance/SEO/best-practices) checks.
+- Set `PREVIEW_URL` (or `VERCEL_BRANCH_URL`/`DEPLOYMENT_URL`) in CI so audits run against the active preview build.
+- Thresholds: performance ≥ **0.90**, accessibility ≥ **0.98**, SEO ≥ **0.92**, best-practices ≥ **0.92**.
+- Reports are saved to `reports/axe/axe-report.json` and `reports/lighthouse/preview.report.{json,html}` for download from CI artifacts.
+
 ---
 
 ### 💬 Comment API & Moderation

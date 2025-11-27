@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withRequestLogging, emitMetric } from '../lib/logging';
 import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
 import {
   createStoredComment,
@@ -40,7 +41,7 @@ function getStorageRetryAfterSeconds(status: StorageStatus): number {
   return 300; // Default 5-minute backoff for transient initialization errors
 }
 
-function ensureCommentsAvailable(): NextResponse | null {
+function ensureCommentsAvailable(loggerId?: string): NextResponse | null {
   const status = getCommentsStorageStatus();
 
   if (status.ready) {
@@ -48,6 +49,10 @@ function ensureCommentsAvailable(): NextResponse | null {
   }
 
   const reason = status.error?.message ?? getCommentsStorageError()?.message;
+  emitMetric('comments.storage.unavailable', {
+    requestId: loggerId,
+    tags: { code: status.errorCode ?? 'unknown' },
+  });
   console.warn('Comments API is disabled because storage is unavailable.', {
     error: reason,
     code: status.errorCode,
@@ -67,30 +72,33 @@ function ensureCommentsAvailable(): NextResponse | null {
   );
 }
 
-export async function GET(request: NextRequest) {
-  const availabilityResponse = ensureCommentsAvailable();
+export const GET = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
+  const availabilityResponse = ensureCommentsAvailable(requestId);
   if (availabilityResponse) {
     return availabilityResponse;
   }
 
   const productId = request.nextUrl.searchParams.get('productId');
   if (!productId) {
+    logger.warn('comments.fetch.missing-product-id');
     return NextResponse.json({ error: 'productId query parameter is required.' }, { status: 400 });
   }
 
   const comments = getApprovedComments(productId);
+  logger.info('comments.fetch.success', { productId, count: comments.length });
 
   return NextResponse.json({ comments }, { headers: buildAvailabilityHeaders('ready') });
-}
+});
 
-export async function POST(request: NextRequest) {
-  const availabilityResponse = ensureCommentsAvailable();
+export const POST = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
+  const availabilityResponse = ensureCommentsAvailable(requestId);
   if (availabilityResponse) {
     return availabilityResponse;
   }
 
   const originError = validateRequestOrigin(request);
   if (originError) {
+    logger.warn('comments.post.invalid-origin');
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
@@ -98,11 +106,13 @@ export async function POST(request: NextRequest) {
   try {
     payload = (await request.json()) as CommentPayload;
   } catch {
+    logger.warn('comments.post.invalid-json');
     return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
   }
 
   const { sanitized, error: validationError } = validateCommentPayload(payload);
   if (validationError || !sanitized) {
+    logger.warn('comments.post.validation-error', { validationError });
     return NextResponse.json({ error: validationError ?? 'Invalid payload.' }, { status: 400 });
   }
 
@@ -114,18 +124,21 @@ export async function POST(request: NextRequest) {
     const headers = captchaError.retryAfterSeconds
       ? { 'Retry-After': captchaError.retryAfterSeconds.toString() }
       : undefined;
+    logger.warn('comments.post.captcha-error', { status: captchaError.status });
     return NextResponse.json({ error: captchaError.message }, { status: captchaError.status, headers });
   }
 
-  const guardResult = await checkRateLimitOrSpam(request, sanitized.text);
+  const guardResult = await checkRateLimitOrSpam(request, sanitized.text, { requestId });
   if (guardResult) {
     const headers: HeadersInit | undefined = guardResult.retryAfterSeconds
       ? { 'Retry-After': guardResult.retryAfterSeconds.toString() }
       : undefined;
+    logger.warn('comments.post.blocked', { reason: guardResult.error });
     return NextResponse.json({ error: guardResult.error }, { status: 429, headers });
   }
 
   if (hasDuplicateComment(sanitized.productId, sanitized.email, sanitized.text.trim())) {
+    logger.warn('comments.post.duplicate', { productId: sanitized.productId });
     return NextResponse.json(
       { error: 'This comment has already been submitted and is awaiting moderation.' },
       { status: 409 },
@@ -145,8 +158,13 @@ export async function POST(request: NextRequest) {
   void _unusedReplies;
   const publicComment = toPublicComment(commentRow);
 
-  return NextResponse.json({ comment: publicComment }, {
-    status: 201,
-    headers: buildAvailabilityHeaders('ready'),
-  });
-}
+  logger.info('comments.post.created', { productId: sanitized.productId });
+
+  return NextResponse.json(
+    { comment: publicComment },
+    {
+      status: 201,
+      headers: buildAvailabilityHeaders('ready'),
+    },
+  );
+});
