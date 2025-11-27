@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Pool } from 'pg';
 import { applyPostgresMigrations } from './migrations';
-import type { CommentStorage } from './types';
+import type { CommentStorage, StorageHealth } from './types';
 import type { CommentStatus, PublicComment, PublicCommentReply, StoredComment, StoredCommentReply } from '../types';
 import { emitMetric } from '../../lib/logging';
 

@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import Database from 'better-sqlite3';
 import type { Pool } from 'pg';
 import type { StorageBackend } from './types';
 
@@ -118,7 +118,7 @@ function getMigrations(backend: StorageBackend): Migration[] {
   return backend === 'postgres' ? postgresMigrations : sqliteMigrations;
 }
 
-export function applySqliteMigrations(db: Database): void {
+export function applySqliteMigrations(db: Database.Database): void {
   db.exec(
     `CREATE TABLE IF NOT EXISTS comment_migrations (id TEXT PRIMARY KEY, appliedAt TEXT NOT NULL)`,
   );
