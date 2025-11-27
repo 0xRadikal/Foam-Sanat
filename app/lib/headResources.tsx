@@ -23,7 +23,7 @@ export const renderAnalyticsScripts = (
             function gtag(){dataLayer.push(arguments);}
 
             gtag('consent', 'default', {
-              'analytics_storage': 'granted',
+              'analytics_storage': 'denied',
               'ad_storage': 'denied'
             });
 

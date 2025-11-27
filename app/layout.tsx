@@ -4,6 +4,7 @@ import type React from 'react';
 import { headers } from 'next/headers';
 import Script from 'next/script';
 import { AnalyticsManager } from '@/app/components/AnalyticsManager';
+import { FontConsentController, FALLBACK_FONT_STACK } from '@/app/components/FontConsentController';
 import { localeFontMap } from '@/app/lib/fonts';
 import { isLocale, localeSettings } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
@@ -94,9 +95,10 @@ export const metadata: Metadata = {
   manifest: '/site.webmanifest',
 };
 
-function resolveLayoutLocale(paramsLang?: string): keyof typeof localeSettings {
-  const requestHeaders = headers();
-
+function resolveLayoutLocale(
+  paramsLang: string | undefined,
+  requestHeaders: Headers,
+): keyof typeof localeSettings {
   const headerUrl =
     requestHeaders.get('x-url') ??
     requestHeaders.get('next-url') ??
@@ -131,30 +133,48 @@ export default function RootLayout({
   children: React.ReactNode;
   params?: { lang?: string };
 }) {
-  const runtimeLocale = resolveLayoutLocale(params?.lang);
+  const requestHeaders = headers();
+
+  const runtimeLocale = resolveLayoutLocale(params?.lang, requestHeaders);
   const { dir, langTag } = localeSettings[runtimeLocale];
   const activeFont = localeFontMap[runtimeLocale];
-  const bodyClassName = [activeFont.className, 'antialiased'].join(' ');
+  const bodyClassName = [activeFont.variable, 'antialiased'].filter(Boolean).join(' ');
 
   const bodyStyle: React.CSSProperties & Record<string, string> = {
-    fontFamily: `var(--site-font-family, ${activeFont.style.fontFamily})`,
-    '--site-font-family': activeFont.style.fontFamily,
+    fontFamily: `var(--site-font-family, ${FALLBACK_FONT_STACK})`,
+    '--site-font-family': FALLBACK_FONT_STACK,
   };
 
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
-  const cspNonce = headers().get('x-csp-nonce') ?? undefined;
+  const cspNonce = requestHeaders.get('x-csp-nonce') ?? undefined;
+  const cspHeader = requestHeaders.get('content-security-policy') ?? undefined;
+  const permissionsPolicy =
+    'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()';
   const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;
 
   return (
-    <html lang={langTag} dir={dir} suppressHydrationWarning>
+    <html
+      lang={langTag}
+      dir={dir}
+      suppressHydrationWarning
+      data-locale={runtimeLocale}
+      data-lang-tag={langTag}
+    >
       <head>
         {renderResourceHints()}
 
         {/* Theme Color */}
         <meta name="theme-color" content="#FF6700" />
         <meta name="msapplication-TileColor" content="#FF6700" />
+        <meta name="referrer" content="strict-origin-when-cross-origin" />
+        <meta httpEquiv="Permissions-Policy" content={permissionsPolicy} />
+        {cspHeader ? <meta httpEquiv="Content-Security-Policy" content={cspHeader} /> : null}
       </head>
       <body className={bodyClassName} suppressHydrationWarning style={bodyStyle}>
+        <FontConsentController
+          fontClassName={activeFont.className}
+          fontFamily={activeFont.style.fontFamily}
+        />
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
         <AnalyticsManager
           gaTrackingId={analyticsIdForLocale}
