@@ -65,43 +65,48 @@ function createNavigationFactory<L extends Record<string, string>>({
     });
 }
 
-const createHomeNavigationFactory = createNavigationFactory<NavigationLabels>({
-  routes: {
-    home: '#home',
-    about: '/about',
-    products: '/products',
-    whyUs: '#why-us',
-    faq: '#faq',
-    contact: '#contact'
+const navigationResolverConfigs: {
+  [K in NavigationPage]: NavigationFactoryConfig<NavigationLabelSets[K]>;
+} = {
+  home: {
+    routes: {
+      home: '#home',
+      about: '/about',
+      products: '/products',
+      whyUs: '#why-us',
+      faq: '#faq',
+      contact: '#contact'
+    },
+    overrides: {
+      contact: { variant: 'button' }
+    },
+    defaultHref: (key) => `#${key}`
   },
-  overrides: {
-    contact: { variant: 'button' }
+  products: {
+    routes: {
+      home: '/',
+      products: '/products',
+      about: '/about',
+      contact: '/#contact'
+    }
   },
-  defaultHref: (key) => `#${key}`
-});
-
-const staticNavigationFactory = createNavigationFactory<BaseNavigationLabels>({
-  routes: {
-    home: '/',
-    products: '/products',
-    about: '/about',
-    contact: '/#contact'
+  about: {
+    routes: {
+      home: '/',
+      products: '/products',
+      about: '/about',
+      contact: '/#contact'
+    }
   }
-});
-
-const navigationResolvers: { [K in NavigationPage]: (labels: NavigationLabelSets[K]) => NavigationItem[] } = {
-  home: (labels) =>
-    createHomeNavigationFactory({
-      home: labels.home,
-      about: labels.about,
-      products: labels.products,
-      whyUs: labels.whyUs,
-      faq: labels.faq,
-      contact: labels.contact,
-    }),
-  products: (labels) => staticNavigationFactory(labels),
-  about: (labels) => staticNavigationFactory(labels),
 };
+
+const navigationResolvers = Object.entries(navigationResolverConfigs).reduce(
+  (resolvers, [page, config]) => ({
+    ...resolvers,
+    [page]: createNavigationFactory(config as NavigationFactoryConfig<NavigationLabelSets[NavigationPage]>)
+  }),
+  {} as { [K in NavigationPage]: (labels: NavigationLabelSets[K]) => NavigationItem[] }
+);
 
 export function createNavigation<K extends NavigationPage>(
   page: K,
