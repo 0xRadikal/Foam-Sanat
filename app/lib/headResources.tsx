@@ -1,35 +1,14 @@
 import Script from 'next/script';
-import { localeSettings } from '@/app/lib/i18n';
+import type { Locale } from '@/app/lib/i18n';
 
-export type SupportedLocale = keyof typeof localeSettings;
+export type SupportedLocale = Locale;
 
-export const renderResourceHints = (locale: SupportedLocale) => {
-  const shouldLoadVazirmatn = locale === 'fa';
+export const renderResourceHints = () => null;
 
-  return (
-    <>
-      {/* Preconnect to external resources */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link rel="preconnect" href="https://www.google-analytics.com" />
-      <link rel="preconnect" href="https://www.googletagmanager.com" />
-
-      {/* DNS Prefetch */}
-      <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-      <link rel="dns-prefetch" href="https://cdn.jsdelivr.net" />
-
-      {/* Vazirmatn Font - Persian */}
-      {shouldLoadVazirmatn && (
-        <link
-          href="https://cdn.jsdelivr.net/npm/vazirmatn@33.0.3/Vazirmatn-font-face.css"
-          rel="stylesheet"
-        />
-      )}
-    </>
-  );
-};
-
-export const renderAnalyticsScripts = (gaTrackingId?: string) => {
+export const renderAnalyticsScripts = (
+  gaTrackingId?: string,
+  nonce?: string,
+) => {
   if (!gaTrackingId) return null;
 
   return (
@@ -37,16 +16,15 @@ export const renderAnalyticsScripts = (gaTrackingId?: string) => {
       <Script
         id="gtag-base"
         strategy="afterInteractive"
+        nonce={nonce}
         dangerouslySetInnerHTML={{
           __html: `
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
 
-            // Default consent to denied
             gtag('consent', 'default', {
-              'analytics_storage': 'denied',
-              'ad_storage': 'denied',
-              'wait_for_update': 500
+              'analytics_storage': 'granted',
+              'ad_storage': 'denied'
             });
 
             gtag('js', new Date());
@@ -60,6 +38,7 @@ export const renderAnalyticsScripts = (gaTrackingId?: string) => {
       />
       <Script
         strategy="afterInteractive"
+        nonce={nonce}
         src={`https://www.googletagmanager.com/gtag/js?id=${gaTrackingId}`}
       />
     </>
