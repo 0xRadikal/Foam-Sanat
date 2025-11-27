@@ -31,13 +31,17 @@ export const PATCH = withRequestLogging(
       return NextResponse.json({ error: 'A valid status must be provided.' }, { status: 400 });
     }
 
-    const updated = updateCommentStatus(commentId, body.status);
+    const moderatedAt = new Date().toISOString();
+    const updated = updateCommentStatus(commentId, body.status, {
+      adminId: admin.id,
+      adminDisplayName: admin.displayName,
+      moderatedAt,
+    });
     if (!updated) {
       logger.warn('comments.moderation.not-found', { commentId });
       return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
     }
 
-    const moderatedAt = new Date().toISOString();
     logModerationAudit('update-status', admin, {
       commentId,
       status: body.status,

@@ -57,6 +57,51 @@ function ensureReplyColumns(db: DatabaseInstance): void {
   }
 }
 
+function ensureCommentModerationColumns(db: DatabaseInstance): void {
+  const columns = db.prepare("PRAGMA table_info(comments);").all() as { name: string }[];
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  const migrations: { name: string; sql: string }[] = [
+    { name: 'moderatedAt', sql: "ALTER TABLE comments ADD COLUMN moderatedAt TEXT" },
+    { name: 'moderatedById', sql: "ALTER TABLE comments ADD COLUMN moderatedById TEXT" },
+    {
+      name: 'moderatedByDisplayName',
+      sql: "ALTER TABLE comments ADD COLUMN moderatedByDisplayName TEXT",
+    },
+  ];
+
+  for (const migration of migrations) {
+    if (!columnNames.has(migration.name)) {
+      db.exec(migration.sql);
+    }
+  }
+}
+
+function ensureAuditLogTable(db: DatabaseInstance): void {
+  const existing = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='comment_audit_logs'")
+    .get() as { name?: string } | undefined;
+
+  if (!existing?.name) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS comment_audit_logs (
+        id TEXT PRIMARY KEY,
+        action TEXT NOT NULL,
+        commentId TEXT,
+        replyId TEXT,
+        adminId TEXT,
+        adminDisplayName TEXT,
+        tokenId TEXT,
+        tokenSource TEXT,
+        metadata TEXT,
+        createdAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON comment_audit_logs (createdAt);
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_comment ON comment_audit_logs (commentId);
+    `);
+  }
+}
+
 function isReadOnlyEnvironment(): boolean {
   return Boolean(process.env.VERCEL) && !process.env.COMMENTS_DATABASE_URL && !process.env.DATABASE_URL;
 }
@@ -110,6 +155,8 @@ export function initializeDatabase(
     const schema = fs.readFileSync(schemaPath, 'utf8');
     instance.exec(schema);
     ensureReplyColumns(instance);
+    ensureCommentModerationColumns(instance);
+    ensureAuditLogTable(instance);
 
     db = instance;
     initializationError = null;
