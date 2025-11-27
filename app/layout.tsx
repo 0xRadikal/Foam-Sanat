@@ -147,7 +147,6 @@ export default function RootLayout({
 
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
   const cspNonce = requestHeaders.get('x-csp-nonce') ?? undefined;
-  const cspHeader = requestHeaders.get('content-security-policy') ?? undefined;
   const permissionsPolicy =
     'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()';
   const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;
@@ -168,7 +167,6 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#FF6700" />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
         <meta httpEquiv="Permissions-Policy" content={permissionsPolicy} />
-        {cspHeader ? <meta httpEquiv="Content-Security-Policy" content={cspHeader} /> : null}
       </head>
       <body className={bodyClassName} suppressHydrationWarning style={bodyStyle}>
         <FontConsentController
