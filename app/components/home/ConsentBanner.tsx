@@ -34,6 +34,11 @@ export default function ConsentBanner({ consent, isRTL }: ConsentBannerProps) {
   const handleDecline = () => {
     persistConsent('declined');
     setShowConsent(false);
+    if (window.gtag) {
+      window.gtag('consent', 'update', {
+        analytics_storage: 'denied'
+      });
+    }
   };
 
   if (!showConsent) return null;

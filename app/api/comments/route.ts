@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withRequestLogging, emitMetric } from '../lib/logging';
+import { withRequestLogging } from '../lib/logging';
 import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
 import {
   createStoredComment,
@@ -7,73 +7,15 @@ import {
   hasDuplicateComment,
   toPublicComment,
 } from './lib/store';
-import { getCommentsStorageError, getCommentsStorageStatus } from './lib/db';
+import {
+  buildAvailabilityHeaders,
+  ensureCommentsAvailable,
+} from './lib/status';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
-type StorageStatus = ReturnType<typeof getCommentsStorageStatus>;
-
-function buildAvailabilityHeaders(
-  status: 'ready' | 'offline',
-  errorCode?: string | null,
-  retryAfterSeconds?: number,
-): HeadersInit {
-  const headers: Record<string, string> = {
-    'X-Comments-Status': status,
-  };
-
-  if (errorCode) {
-    headers['X-Comments-Error-Code'] = errorCode;
-  }
-
-  if (retryAfterSeconds) {
-    headers['Retry-After'] = retryAfterSeconds.toString();
-  }
-
-  return headers;
-}
-
-function getStorageRetryAfterSeconds(status: StorageStatus): number {
-  if (status.errorCode === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT') {
-    return 3600; // 1 hour; requires deployment changes before becoming available
-  }
-
-  return 300; // Default 5-minute backoff for transient initialization errors
-}
-
-function ensureCommentsAvailable(loggerId?: string): NextResponse | null {
-  const status = getCommentsStorageStatus();
-
-  if (status.ready) {
-    return null;
-  }
-
-  const reason = status.error?.message ?? getCommentsStorageError()?.message;
-  emitMetric('comments.storage.unavailable', {
-    requestId: loggerId,
-    tags: { code: status.errorCode ?? 'unknown' },
-  });
-  console.warn('Comments API is disabled because storage is unavailable.', {
-    error: reason,
-    code: status.errorCode,
-  });
-
-  const retryAfterSeconds = getStorageRetryAfterSeconds(status);
-
-  return NextResponse.json(
-    {
-      error: 'Comments are currently unavailable. Please try again later.',
-      code: status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE',
-    },
-    {
-      status: 503,
-      headers: buildAvailabilityHeaders('offline', status.errorCode, retryAfterSeconds),
-    },
-  );
-}
-
 export const GET = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
-  const availabilityResponse = ensureCommentsAvailable(requestId);
+  const availabilityResponse = ensureCommentsAvailable(requestId, logger);
   if (availabilityResponse) {
     return availabilityResponse;
   }
@@ -91,7 +33,7 @@ export const GET = withRequestLogging(async (request: NextRequest, _context, { l
 });
 
 export const POST = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
-  const availabilityResponse = ensureCommentsAvailable(requestId);
+  const availabilityResponse = ensureCommentsAvailable(requestId, logger);
   if (availabilityResponse) {
     return availabilityResponse;
   }
