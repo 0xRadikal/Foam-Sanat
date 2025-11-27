@@ -14,7 +14,8 @@
     "sitemap": "next-sitemap",
     "axe": "axe http://localhost:3000 --chromium --timeout 60000 --exit 0",
     "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html --only-categories=performance,accessibility,seo,best-practices --throttling-method=devtools",
-    "postbuild": "npm run sitemap"
+    "postbuild": "npm run sitemap",
+    "preview:audits": "node ./scripts/run-preview-audits.mjs"
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.8",

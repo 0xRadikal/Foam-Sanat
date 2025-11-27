@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withRequestLogging } from '../../lib/logging';
 import { assertAdmin, logModerationAudit } from '../lib/auth';
 import { deleteStoredComment, updateCommentStatus } from '../lib/store';
 import type { CommentStatus } from '../lib/types';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withRequestLogging(async (request: NextRequest, { params }: { params: { id: string } }, { logger }) => {
   const admin = assertAdmin(request);
   if (!admin) {
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
@@ -22,6 +23,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   const updated = updateCommentStatus(params.id, body.status);
   if (!updated) {
+    logger.warn('comments.moderation.not-found', { commentId: params.id });
     return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
   }
 
@@ -40,31 +42,34 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       moderatedAt,
     },
   });
-}
+});
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const admin = assertAdmin(request);
-  if (!admin) {
-    return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
-  }
+export const DELETE = withRequestLogging(
+  async (request: NextRequest, { params }: { params: { id: string } }, { logger }) => {
+    const admin = assertAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
+    }
 
-  const deleted = deleteStoredComment(params.id);
-  if (!deleted) {
-    return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
-  }
+    const deleted = deleteStoredComment(params.id);
+    if (!deleted) {
+      logger.warn('comments.moderation.not-found', { commentId: params.id });
+      return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
+    }
 
-  const moderatedAt = new Date().toISOString();
-  logModerationAudit('delete-comment', admin, {
-    commentId: params.id,
-    moderatedAt,
-  });
-
-  return NextResponse.json({
-    success: true,
-    moderation: {
-      adminId: admin.id,
-      adminDisplayName: admin.displayName,
+    const moderatedAt = new Date().toISOString();
+    logModerationAudit('delete-comment', admin, {
+      commentId: params.id,
       moderatedAt,
-    },
-  });
-}
+    });
+
+    return NextResponse.json({
+      success: true,
+      moderation: {
+        adminId: admin.id,
+        adminDisplayName: admin.displayName,
+        moderatedAt,
+      },
+    });
+  },
+);

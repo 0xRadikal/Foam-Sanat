@@ -41,6 +41,13 @@
   node -e "const crypto=require('node:crypto');const secret=process.env.COMMENTS_ADMIN_TOKEN_SECRET;const now=Math.floor(Date.now()/1000);const header=Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url');const payload=Buffer.from(JSON.stringify({sub:'comments-admin',name:'Moderator',iat:now,exp:now+60*60})).toString('base64url');const sig=crypto.createHmac('sha256',secret).update(`${header}.${payload}`).digest('base64url');console.log([header,payload,sig].join('.'));"  # Bearer token value
   ```
 
+### 1.2 Preview audit gates (CI)
+- Set `PREVIEW_URL` (or `DEPLOYMENT_URL`/`VERCEL_BRANCH_URL`) in GitHub environment/variables so CI can hit the active preview deployment.
+- CI runs `npm run preview:audits`, which executes:
+  - **Axe** against the preview URL (stores JSON at `reports/axe/axe-report.json`).
+  - **Lighthouse** with thresholds: performance ≥ 0.90, accessibility ≥ 0.98, SEO ≥ 0.92, best-practices ≥ 0.92 (reports in `reports/lighthouse/preview.report.{json,html}`).
+- Failing thresholds block merges on pull requests (job: `preview-audits`). Attach the `reports/` directory as an artifact for triage when runs fail.
+
 ### 2. Code Quality
 ```bash
 # Run all checks before deployment

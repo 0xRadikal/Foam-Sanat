@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { withRequestLogging } from '../../lib/logging';
 import { getCommentsStorageStatus } from '../lib/db';
 
 function buildStatusHeaders(status: 'ready' | 'offline', errorCode?: string | null): HeadersInit {
@@ -13,7 +14,7 @@ function buildStatusHeaders(status: 'ready' | 'offline', errorCode?: string | nu
   return headers;
 }
 
-export async function GET() {
+export const GET = withRequestLogging(async () => {
   const status = getCommentsStorageStatus();
   const headers = buildStatusHeaders(status.ready ? 'ready' : 'offline', status.errorCode);
 
@@ -32,4 +33,4 @@ export async function GET() {
     status: status.ready ? 200 : 503,
     headers,
   });
-}
+});
