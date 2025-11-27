@@ -2,9 +2,11 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Script from 'next/script';
+import { AnalyticsManager } from '@/app/components/AnalyticsManager';
+import { localeFontMap } from '@/app/lib/fonts';
 import { isLocale, localeSettings } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
-import { renderAnalyticsScripts, renderResourceHints } from '@/app/lib/headResources';
+import { renderResourceHints } from '@/app/lib/headResources';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
 import './globals.css';
 
@@ -136,37 +138,40 @@ export default function RootLayout({
 }) {
   const runtimeLocale = resolveLayoutLocale(params?.lang);
   const { dir, langTag } = localeSettings[runtimeLocale];
-  const shouldLoadVazirmatn = runtimeLocale === 'fa';
-  const defaultBodyFont = shouldLoadVazirmatn
-    ? 'Vazirmatn, system-ui, sans-serif'
-    : 'system-ui, sans-serif';
+  const activeFont = localeFontMap[runtimeLocale];
+  const bodyClassName = [activeFont.className, 'antialiased'].join(' ');
 
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+  const cspNonce = headers().get('x-csp-nonce') ?? undefined;
+  const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;
 
   return (
     <html lang={langTag} dir={dir} suppressHydrationWarning>
       <head>
-        {renderResourceHints(runtimeLocale)}
+        {renderResourceHints()}
 
         {/* Theme Color */}
         <meta name="theme-color" content="#FF6700" />
         <meta name="msapplication-TileColor" content="#FF6700" />
-
-        {/* Google Analytics with Consent Mode */}
-        {renderAnalyticsScripts(GA_ID)}
       </head>
       <body
-        className="antialiased"
+        className={bodyClassName}
         suppressHydrationWarning
         style={{
-          fontFamily: `var(--site-font-family, ${defaultBodyFont})`,
-          ['--site-font-family' as const]: defaultBodyFont,
+          fontFamily: `var(--site-font-family, ${activeFont.style.fontFamily})`,
+          ['--site-font-family' as const]: activeFont.style.fontFamily,
         }}
       >
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
+        <AnalyticsManager
+          gaTrackingId={analyticsIdForLocale}
+          locale={runtimeLocale}
+          nonce={cspNonce}
+        />
         <Script
           id="hydration-fix"
           suppressHydrationWarning
+          nonce={cspNonce}
           dangerouslySetInnerHTML={{
             __html: `document.documentElement.classList.add('js');`,
           }}

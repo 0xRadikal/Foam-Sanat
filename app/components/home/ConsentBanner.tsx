@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { HomeMessages } from '@/app/lib/i18n';
+import { getStoredConsent, persistConsent } from '@/app/lib/consent';
 
 type HomeConsentMessages = HomeMessages['consent'];
 
@@ -14,15 +15,14 @@ export default function ConsentBanner({ consent, isRTL }: ConsentBannerProps) {
   const [showConsent, setShowConsent] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('foam-sanat-analytics-consent');
+    const stored = getStoredConsent();
     if (!stored) {
       setShowConsent(true);
     }
   }, []);
 
   const handleAccept = () => {
-    localStorage.setItem('foam-sanat-analytics-consent', 'accepted');
+    persistConsent('accepted');
     setShowConsent(false);
     if (window.gtag) {
       window.gtag('consent', 'update', {
@@ -32,7 +32,7 @@ export default function ConsentBanner({ consent, isRTL }: ConsentBannerProps) {
   };
 
   const handleDecline = () => {
-    localStorage.setItem('foam-sanat-analytics-consent', 'declined');
+    persistConsent('declined');
     setShowConsent(false);
   };
 
