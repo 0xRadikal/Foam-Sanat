@@ -140,7 +140,10 @@ export function validateRequestOrigin(request: Request): string | null {
 type CaptchaVerificationError = {
   message: string;
   status: number;
+  retryAfterSeconds?: number;
 };
+
+const CAPTCHA_RETRY_AFTER_SECONDS = 120;
 
 export async function verifyTurnstileToken(
   token?: string | null,
@@ -155,6 +158,7 @@ export async function verifyTurnstileToken(
     return {
       message: 'CAPTCHA verification is unavailable due to server configuration.',
       status: 500,
+      retryAfterSeconds: CAPTCHA_RETRY_AFTER_SECONDS,
     };
   }
 
@@ -180,6 +184,7 @@ export async function verifyTurnstileToken(
     return {
       message: 'Unable to verify CAPTCHA at this time. Please try again later.',
       status: 503,
+      retryAfterSeconds: CAPTCHA_RETRY_AFTER_SECONDS,
     };
   }
 
@@ -190,6 +195,7 @@ export async function verifyTurnstileToken(
     return {
       message: 'Unable to verify CAPTCHA at this time. Please try again later.',
       status: 503,
+      retryAfterSeconds: CAPTCHA_RETRY_AFTER_SECONDS,
     };
   }
 
@@ -201,6 +207,7 @@ export async function verifyTurnstileToken(
     return {
       message: 'Unable to verify CAPTCHA at this time. Please try again later.',
       status: 503,
+      retryAfterSeconds: CAPTCHA_RETRY_AFTER_SECONDS,
     };
   }
   if (!verification?.success) {

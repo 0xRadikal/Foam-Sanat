@@ -10,7 +10,13 @@ import { getCommentsStorageError, getCommentsStorageStatus } from './lib/db';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
-function buildAvailabilityHeaders(status: 'ready' | 'offline', errorCode?: string | null): HeadersInit {
+type StorageStatus = ReturnType<typeof getCommentsStorageStatus>;
+
+function buildAvailabilityHeaders(
+  status: 'ready' | 'offline',
+  errorCode?: string | null,
+  retryAfterSeconds?: number,
+): HeadersInit {
   const headers: Record<string, string> = {
     'X-Comments-Status': status,
   };
@@ -19,7 +25,19 @@ function buildAvailabilityHeaders(status: 'ready' | 'offline', errorCode?: strin
     headers['X-Comments-Error-Code'] = errorCode;
   }
 
+  if (retryAfterSeconds) {
+    headers['Retry-After'] = retryAfterSeconds.toString();
+  }
+
   return headers;
+}
+
+function getStorageRetryAfterSeconds(status: StorageStatus): number {
+  if (status.errorCode === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT') {
+    return 3600; // 1 hour; requires deployment changes before becoming available
+  }
+
+  return 300; // Default 5-minute backoff for transient initialization errors
 }
 
 function ensureCommentsAvailable(): NextResponse | null {
@@ -35,12 +53,17 @@ function ensureCommentsAvailable(): NextResponse | null {
     code: status.errorCode,
   });
 
+  const retryAfterSeconds = getStorageRetryAfterSeconds(status);
+
   return NextResponse.json(
     {
       error: 'Comments are currently unavailable. Please try again later.',
       code: status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE',
     },
-    { status: 503, headers: buildAvailabilityHeaders('offline', status.errorCode) },
+    {
+      status: 503,
+      headers: buildAvailabilityHeaders('offline', status.errorCode, retryAfterSeconds),
+    },
   );
 }
 
@@ -88,7 +111,10 @@ export async function POST(request: NextRequest) {
   );
 
   if (captchaError) {
-    return NextResponse.json({ error: captchaError.message }, { status: captchaError.status });
+    const headers = captchaError.retryAfterSeconds
+      ? { 'Retry-After': captchaError.retryAfterSeconds.toString() }
+      : undefined;
+    return NextResponse.json({ error: captchaError.message }, { status: captchaError.status, headers });
   }
 
   const guardResult = await checkRateLimitOrSpam(request, sanitized.text);
