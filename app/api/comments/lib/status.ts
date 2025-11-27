@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { emitMetric, type RequestLogger } from '../../lib/logging';
 import { getCommentsStorageError, getCommentsStorageStatus } from './db';
 
-export type StorageStatus = ReturnType<typeof getCommentsStorageStatus>;
+export type StorageStatus = Awaited<ReturnType<typeof getCommentsStorageStatus>>;
 
 type AvailabilityState = 'ready' | 'offline';
 
@@ -40,15 +40,16 @@ export function getStorageRetryAfterSeconds(status: StorageStatus): number {
   return 300; // Default 5-minute backoff for transient initialization errors
 }
 
-export function buildUnavailableResponse({
+export async function buildUnavailableResponse({
   logger,
   requestId,
   status,
-}: UnavailableResponseOptions): NextResponse {
-  const resolvedStatus = status ?? getCommentsStorageStatus();
+}: UnavailableResponseOptions): Promise<NextResponse> {
+  const resolvedStatus = status ?? (await getCommentsStorageStatus());
   const retryAfterSeconds = getStorageRetryAfterSeconds(resolvedStatus);
   const errorCode = resolvedStatus.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE';
-  const errorDetails = resolvedStatus.error?.message ?? getCommentsStorageError()?.message ?? null;
+  const errorDetails =
+    resolvedStatus.error?.message ?? (await getCommentsStorageError())?.message ?? null;
 
   emitMetric('comments.storage.unavailable', {
     requestId,
@@ -78,11 +79,11 @@ export function buildUnavailableResponse({
   );
 }
 
-export function ensureCommentsAvailable(
+export async function ensureCommentsAvailable(
   requestId?: string,
   logger?: RequestLogger,
-): NextResponse | null {
-  const status = getCommentsStorageStatus();
+): Promise<NextResponse | null> {
+  const status = await getCommentsStorageStatus();
 
   if (status.ready) {
     return null;
