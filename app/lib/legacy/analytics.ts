@@ -1,4 +1,4 @@
-// app/lib/analytics.ts
+// Legacy analytics helpers kept for potential future GA wiring.
 type GtagConfig = Record<string, unknown>;
 
 type GtagCommand =

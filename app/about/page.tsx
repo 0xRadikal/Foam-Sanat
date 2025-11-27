@@ -7,7 +7,7 @@ interface AboutPageProps {
 }
 
 export default function AboutPage({ searchParams }: AboutPageProps) {
-  const locale = resolveLocale(searchParams?.lang);
+  const locale = resolveLocale(searchParams?.lang, { warn: true });
   const messages: MessagesByLocale<typeof locale> = getAllMessages(locale);
 
   return <AboutPageClient initialLocale={locale} initialMessages={messages} />;

@@ -25,9 +25,9 @@ export default function ServicesSection({ services, isDark, isRTL, cardBg }: Ser
           <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{services.subtitle}</p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
-          {serviceCards.map((item, index) => (
+          {serviceCards.map((item) => (
             <article
-              key={index}
+              key={item.service.title}
               className={`rounded-2xl overflow-hidden shadow-xl transition-all hover:scale-105 hover:shadow-2xl ${cardBg}`}
             >
               <div className={`h-48 bg-gradient-to-br ${item.gradient} flex items-center justify-center`}>
