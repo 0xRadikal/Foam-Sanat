@@ -24,6 +24,7 @@ export type StorageHealth = {
 export interface CommentStorage {
   backend: StorageBackend;
   initialize(): Promise<void>;
+  initializeSync?(): void;
   isReady(): boolean;
   getHealth(): StorageHealth;
   getApprovedComments(productId: string): Promise<PublicComment[]>;
