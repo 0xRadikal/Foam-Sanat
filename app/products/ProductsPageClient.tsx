@@ -20,6 +20,8 @@ import { validateEmail, VALIDATION_RULES } from '@/app/lib/validation';
 
 type Product = ProductsNamespaceSchema['products'][number];
 
+const COMMENTS_ENABLED = false;
+
 const MIN_COMMENT_LENGTH = VALIDATION_RULES.comment.minLength;
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
@@ -194,8 +196,10 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   );
 
   const t = useMemo(() => messages.products, [messages]);
+  const hasAdminToken = Boolean(adminToken);
 
   const handleSaveAdminToken = useCallback(() => {
+    if (!COMMENTS_ENABLED) return;
     if (typeof window === 'undefined') return;
     const trimmed = adminTokenInput.trim();
     if (trimmed) {
@@ -209,6 +213,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   }, [adminTokenInput]);
 
   const handleClearAdminToken = useCallback(() => {
+    if (!COMMENTS_ENABLED) return;
     if (typeof window === 'undefined') return;
     localStorage.removeItem('comments-admin-token');
     setAdminToken('');
@@ -218,6 +223,10 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
 
   const handleAddComment = useCallback(
     async (productId: string) => {
+      if (!COMMENTS_ENABLED) {
+        setCommentError('Comments are currently disabled.');
+        return;
+      }
       const trimmedAuthor = newComment.author.trim();
       const trimmedEmail = newComment.email.trim();
       const trimmedText = newComment.text.trim();
@@ -321,8 +330,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
 
   const handleDeleteComment = useCallback(
     async (productId: string, commentId: string) => {
-      if (!adminToken) {
-        setCommentError(t.comments.adminTokenRequired);
+      if (!COMMENTS_ENABLED || !hasAdminToken) {
         return;
       }
 
@@ -358,19 +366,17 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
         setCommentError(error instanceof Error ? error.message : t.comments.deleteFailed);
       }
     },
-    [adminToken, t.comments.adminTokenRequired, t.comments.deleteFailed]
+    [adminToken, hasAdminToken, t.comments.deleteFailed]
   );
 
   const handleReply = useCallback(
     async (productId: string, commentId: string, replyTxt: string) => {
+      if (!COMMENTS_ENABLED || !hasAdminToken) {
+        return;
+      }
       const trimmedReply = replyTxt.trim();
       if (!trimmedReply) {
         setCommentError(t.comments.emptyReply);
-        return;
-      }
-
-      if (!adminToken) {
-        setCommentError(t.comments.adminTokenRequired);
         return;
       }
 
@@ -458,10 +464,17 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
         setReplyLoading(null);
       }
     },
-    [adminToken, t.comments.admin, t.comments.adminTokenRequired, t.comments.emptyReply, t.comments.replyFailed]
+    [adminToken, hasAdminToken, t.comments.admin, t.comments.emptyReply, t.comments.replyFailed]
   );
 
   useEffect(() => {
+    if (!COMMENTS_ENABLED) {
+      setComments({});
+      setCommentsLoading(false);
+      setCommentsError(null);
+      return;
+    }
+
     if (!selectedProduct) {
       return;
     }
@@ -652,16 +665,19 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                     <ChevronRight className="w-6 h-6" />
                   </button>
                   <div className="flex justify-center gap-2 mt-4">
-                    {product.images.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setCurrentSlide(i)}
-                        className={`w-3 h-3 rounded-full transition-all ${
-                          i === currentSlide ? 'bg-orange-500 w-8' : 'bg-gray-400'
-                        }`}
-                        aria-label={`Image ${i + 1}`}
-                      />
-                    ))}
+                    {product.images.map((image, i) => {
+                      const slideKey = typeof image === 'string' ? `${product.id}-${image}` : `${product.id}-slide-${i}`;
+                      return (
+                        <button
+                          key={slideKey}
+                          onClick={() => setCurrentSlide(i)}
+                          className={`w-3 h-3 rounded-full transition-all ${
+                            i === currentSlide ? 'bg-orange-500 w-8' : 'bg-gray-400'
+                          }`}
+                          aria-label={`Image ${i + 1}`}
+                        />
+                      );
+                    })}
                   </div>
                 </>
               )}
@@ -732,8 +748,11 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                 {t.ui.applications}
               </h3>
                 <div className="flex flex-wrap gap-3">
-                  {product.applications.map((app, i) => (
-                    <span key={i} className="px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-full font-bold text-sm">
+                  {product.applications.map((app) => (
+                    <span
+                      key={`${product.id}-${app}`}
+                      className="px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-full font-bold text-sm"
+                    >
                       ✓ {app}
                     </span>
                   ))}
@@ -761,14 +780,16 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
 
           {/* Comments Section */}
           <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-8`}>
-            <h3 className="text-xl md:text-2xl font-black mb-6 flex items-center gap-2" style={{ fontFamily: isRTL ? 'Vazirmatn, sans-serif' : 'system-ui' }}>
-              <MessageCircle className="w-6 h-6" />
-              {t.ui.reviews} ({productComments.length})
-            </h3>
+            {COMMENTS_ENABLED ? (
+              <>
+                <h3 className="text-xl md:text-2xl font-black mb-6 flex items-center gap-2" style={{ fontFamily: isRTL ? 'Vazirmatn, sans-serif' : 'system-ui' }}>
+                  <MessageCircle className="w-6 h-6" />
+                  {t.ui.reviews} ({productComments.length})
+                </h3>
 
-            <p className={`mb-6 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              {t.comments.moderationNotice}
-            </p>
+                <p className={`mb-6 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {t.comments.moderationNotice}
+                </p>
 
             <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-2xl mb-8`}>
               <p className="text-sm font-bold mb-3">{t.comments.adminControls}</p>
@@ -908,14 +929,16 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                         </div>
                         <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteComment(product.id, comment.id)}
-                        className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        {t.comments.delete}
-                      </button>
+                      {hasAdminToken && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteComment(product.id, comment.id)}
+                          className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {t.comments.delete}
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex gap-0.5 mb-3">
@@ -965,51 +988,59 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                     )}
 
                     {/* Reply Form */}
-                    {replyingTo !== comment.id ? (
-                      <button
-                        type="button"
-                        onClick={() => setReplyingTo(comment.id)}
-                        className="text-sm text-orange-500 font-bold hover:underline mt-3 flex items-center gap-1"
-                      >
-                        <Reply className="w-4 h-4" />
-                        {t.comments.reply}
-                      </button>
-                    ) : (
-                      <div className="mt-4 space-y-2">
-                        <textarea
-                          placeholder={t.comments.replyPlaceholder}
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          rows={3}
-                          className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleReply(product.id, comment.id, replyText)}
-                            disabled={replyLoading === comment.id}
-                            className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
-                              replyLoading === comment.id ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-600'
-                            }`}
-                          >
-                            {replyLoading === comment.id ? t.comments.sendingReply : t.comments.send}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyingTo(null);
-                              setReplyText('');
-                            }}
-                            className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-800'}`}
-                          >
-                            {t.comments.cancel}
-                          </button>
+                    {hasAdminToken && (
+                      replyingTo !== comment.id ? (
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo(comment.id)}
+                          className="text-sm text-orange-500 font-bold hover:underline mt-3 flex items-center gap-1"
+                        >
+                          <Reply className="w-4 h-4" />
+                          {t.comments.reply}
+                        </button>
+                      ) : (
+                        <div className="mt-4 space-y-2">
+                          <textarea
+                            placeholder={t.comments.replyPlaceholder}
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            rows={3}
+                            className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleReply(product.id, comment.id, replyText)}
+                              disabled={replyLoading === comment.id}
+                              className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
+                                replyLoading === comment.id ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-600'
+                              }`}
+                            >
+                              {replyLoading === comment.id ? t.comments.sendingReply : t.comments.send}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingTo(null);
+                                setReplyText('');
+                              }}
+                              className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-800'}`}
+                            >
+                              {t.comments.cancel}
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )
                     )}
                   </div>
                 ))}
               </div>
+            )}
+              </>
+            ) : (
+              <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                Comments are currently disabled.
+              </p>
             )}
           </div>
         </div>
@@ -1068,9 +1099,9 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
           <div className="container mx-auto">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {t.features.items.map((feature, i) => {
-                const Icon = featureIcons[i];
+                const Icon = featureIcons[i % featureIcons.length] ?? Shield;
                 return (
-                  <div key={i} className="text-center">
+                  <div key={feature.title} className="text-center">
                     <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-3 group hover:scale-110 transition-transform flex-shrink-0">
                       <Icon className="w-8 h-8 text-orange-600" />
                     </div>
@@ -1152,8 +1183,8 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
 
                     {/* Features */}
                     <div className="mb-4 space-y-1 text-xs">
-                      {product.features.slice(0, 2).map((feature: string, i: number) => (
-                        <div key={i} className="flex items-start gap-2">
+                      {product.features.slice(0, 2).map((feature: string) => (
+                        <div key={`${product.id}-${feature}`} className="flex items-start gap-2">
                           <Check className="w-3 h-3 text-orange-500 mt-0.5 flex-shrink-0" />
                           <span className="line-clamp-1">{feature}</span>
                         </div>
@@ -1213,9 +1244,9 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {t.whyUs.items.map((item, i) => {
-                const Icon = whyUsIcons[i];
+                const Icon = whyUsIcons[i % whyUsIcons.length] ?? Target;
                 return (
-                  <div key={i} className={`${cardBg} rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 border border-orange-500/20`}>
+                  <div key={item.title} className={`${cardBg} rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 border border-orange-500/20`}>
                     <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg flex-shrink-0">
                       <Icon className="w-7 h-7 text-white" />
                     </div>

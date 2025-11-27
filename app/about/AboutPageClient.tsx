@@ -19,16 +19,38 @@ import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 
 type BlobStyle = CSSProperties;
 
-function generateBlobs(count: number): BlobStyle[] {
-  return Array.from({ length: count }, () => ({
-    width: `${Math.random() * 300 + 50}px`,
-    height: `${Math.random() * 300 + 50}px`,
-    top: `${Math.random() * 100}%`,
-    left: `${Math.random() * 100}%`,
-    animation: `float ${Math.random() * 20 + 10}s ease-in-out infinite`,
-    animationDelay: `${Math.random() * 5}s`,
-    filter: 'blur(60px)'
-  }));
+const TIMELINE_ICON_POOL = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
+
+function hashStringToSeed(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) + 1;
+}
+
+function createSeededRandom(seed: number) {
+  let current = seed;
+  return () => {
+    current = (current * 1664525 + 1013904223) % 4294967296;
+    return current / 4294967296;
+  };
+}
+
+function generateBlobs(count: number, randomizer: () => number): BlobStyle[] {
+  return Array.from({ length: count }, () => {
+    const randomSize = 50 + randomizer() * 300;
+    return {
+      width: `${randomSize}px`,
+      height: `${randomSize}px`,
+      top: `${randomizer() * 100}%`,
+      left: `${randomizer() * 100}%`,
+      animation: `float ${10 + randomizer() * 20}s ease-in-out infinite`,
+      animationDelay: `${randomizer() * 5}s`,
+      filter: 'blur(60px)'
+    };
+  });
 }
 
 // Animated Counter
@@ -38,26 +60,39 @@ function Counter({ end, duration = 2000 }: { end: number; duration?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (started) return;
-    
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting) {
-        setStarted(true);
-        const increment = end / (duration / 16);
-        let current = 0;
-        const timer = setInterval(() => {
-          current += increment;
-          if (current >= end) {
-            setCount(end);
-            clearInterval(timer);
-          } else {
-            setCount(Math.floor(current));
-          }
-        }, 16);
-      }
-    }, { threshold: 0.5 });
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setStarted(true);
+      const fallbackTimer = setTimeout(() => setCount(end), duration);
+      return () => clearTimeout(fallbackTimer);
+    }
+
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setStarted(true);
+          const increment = end / (duration / 16);
+          let current = 0;
+          timer = setInterval(() => {
+            current += increment;
+            if (current >= end) {
+              setCount(end);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(current));
+            }
+          }, 16);
+        }
+      },
+      { threshold: 0.5 }
+    );
 
     if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (timer) clearInterval(timer);
+    };
   }, [end, duration, started]);
 
   return <div ref={ref}>{count}</div>;
@@ -88,8 +123,9 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const hasSyncedInitialLocale = useRef(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
-  const [blobStyles] = useState(() => generateBlobs(30));
+  const [blobStyles, setBlobStyles] = useState<BlobStyle[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const blobSeedRef = useRef<number>(0);
 
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
@@ -108,8 +144,13 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   }, [lang, activeLocale]);
 
   useEffect(() => {
+    if (blobSeedRef.current === 0) {
+      blobSeedRef.current = hashStringToSeed(initialLocale);
+    }
+    const seededRandom = createSeededRandom(blobSeedRef.current);
+    setBlobStyles(generateBlobs(30, seededRandom));
     setIsMounted(true);
-  }, []);
+  }, [initialLocale]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -117,12 +158,6 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveTimeline(prev => (prev + 1) % 6);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
   useEffect(() => {
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', 'page_view', {
@@ -143,7 +178,15 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const mapUrl = contactConfig.mapUrl;
 
   const t = useMemo(() => messages.about, [messages]);
-  const timelineIcons = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
+  const timelineItems = t.timeline.items;
+  const timelineLength = Math.max(0, timelineItems.length);
+  const timelineIcons = useMemo(
+    () =>
+      timelineLength === 0
+        ? []
+        : timelineItems.map((_, index) => TIMELINE_ICON_POOL[index % TIMELINE_ICON_POOL.length] ?? Globe),
+    [timelineItems, timelineLength]
+  );
   const statsIcons = [Clock, Trophy, Users, Award];
   const missionIcons = [CheckCircle, Zap, Heart, Shield];
   const valuesIcons = [Shield, Lightbulb, Heart, Leaf];
@@ -165,6 +208,22 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
       }),
     [aboutNavLabel, contactNavLabel, homeNavLabel, productsNavLabel]
   );
+
+  useEffect(() => {
+    if (timelineLength === 0) return undefined;
+
+    const interval = setInterval(() => {
+      setActiveTimeline((prev) => (prev + 1) % timelineLength);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [timelineLength]);
+
+  useEffect(() => {
+    if (timelineLength === 0) return;
+    if (activeTimeline >= timelineLength) {
+      setActiveTimeline(0);
+    }
+  }, [activeTimeline, timelineLength]);
   return (
     <div
       className={`min-h-screen ${pageBackground} ${pageText} transition-all duration-300`}
@@ -291,9 +350,9 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
             <div className={`absolute ${isRTL ? 'right-1/2' : 'left-1/2'} top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 via-orange-500 to-purple-500 hidden md:block`} />
 
             {t.timeline.items.map((item, i) => {
-              const Icon = timelineIcons[i];
+              const Icon = timelineIcons[i] ?? TIMELINE_ICON_POOL[i % TIMELINE_ICON_POOL.length] ?? Globe;
               const isActive = activeTimeline === i;
-              
+
               return (
                 <div
                   key={i}
