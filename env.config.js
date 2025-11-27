@@ -34,6 +34,8 @@ const envConfig = {
       'ALLOWED_ORIGINS',
       'COMMENTS_ALLOWED_PREVIEW_URLS',
       'ALLOWED_PREVIEW_ORIGINS',
+      'PREVIEW_URL',
+      'NEXT_PUBLIC_PREVIEW_URL',
     ],
   },
 };

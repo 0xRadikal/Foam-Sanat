@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import Header from '@/app/components/Header';
 import CallToAction from '@/app/components/CallToAction';
-import { createAboutNavigation } from '@/app/lib/navigation-config';
+import { createNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
@@ -157,7 +157,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   } = t.nav;
   const headerNavItems = useMemo(
     () =>
-      createAboutNavigation({
+      createNavigation('about', {
         home: homeNavLabel,
         about: aboutNavLabel,
         products: productsNavLabel,

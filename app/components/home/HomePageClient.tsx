@@ -11,7 +11,7 @@ import WhyUsSection from '@/app/components/home/WhyUsSection';
 import FaqSection from '@/app/components/home/FaqSection';
 import ContactSection from '@/app/components/home/ContactSection';
 import { contactConfig, getContactAddress } from '@/app/config/contact';
-import { createHomeNavigation } from '@/app/lib/navigation-config';
+import { createNavigation } from '@/app/lib/navigation-config';
 import { defaultLocale, getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 
@@ -90,7 +90,7 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
   } = messages.common.nav;
   const headerNavItems = useMemo(
     () =>
-      createHomeNavigation({
+      createNavigation('home', {
         home: homeNavLabel,
         about: aboutNavLabel,
         products: productsNavLabel,
