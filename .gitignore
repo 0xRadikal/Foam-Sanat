@@ -32,6 +32,9 @@ yarn-error.log*
 pnpm-debug.log*
 lighthouse-report.html
 reports/
+playwright-report/
+test-results/
+blob-report/
 # =========================================
 # 💻 System / IDE files
 # =========================================

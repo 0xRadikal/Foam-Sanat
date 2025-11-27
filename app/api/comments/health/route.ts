@@ -4,7 +4,7 @@ import { getCommentsStorageStatus } from '../lib/db';
 import { buildAvailabilityHeaders, getStorageRetryAfterSeconds } from '../lib/status';
 
 export const GET = withRequestLogging(async () => {
-  const status = getCommentsStorageStatus();
+  const status = await getCommentsStorageStatus();
   const retryAfterSeconds = status.ready ? undefined : getStorageRetryAfterSeconds(status);
   const headers = buildAvailabilityHeaders(
     status.ready ? 'ready' : 'offline',
@@ -14,6 +14,7 @@ export const GET = withRequestLogging(async () => {
 
   const body = {
     ready: status.ready,
+    backend: status.backend,
     code: status.errorCode ?? null,
     attempts: status.metrics.attempts,
     successes: status.metrics.successes,
@@ -21,6 +22,7 @@ export const GET = withRequestLogging(async () => {
     lastAttemptAt: status.metrics.lastAttemptAt?.toISOString() ?? null,
     lastSuccessAt: status.metrics.lastSuccessAt?.toISOString() ?? null,
     error: status.error?.message ?? null,
+    connection: status.health?.connection ?? null,
   };
 
   return NextResponse.json(

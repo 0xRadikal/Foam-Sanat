@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const repliedAt = new Date().toISOString();
 
   try {
-    const reply = createStoredReply({
+    const reply = await createStoredReply({
       commentId: params.id,
       author: admin.displayName,
       text: body.text.trim(),

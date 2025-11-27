@@ -7,15 +7,12 @@ import {
   hasDuplicateComment,
   toPublicComment,
 } from './lib/store';
-import {
-  buildAvailabilityHeaders,
-  ensureCommentsAvailable,
-} from './lib/status';
+import { buildAvailabilityHeaders, ensureCommentsAvailable } from './lib/status';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 
 export const GET = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
-  const availabilityResponse = ensureCommentsAvailable(requestId, logger);
+  const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
   if (availabilityResponse) {
     return availabilityResponse;
   }
@@ -26,14 +23,14 @@ export const GET = withRequestLogging(async (request: NextRequest, _context, { l
     return NextResponse.json({ error: 'productId query parameter is required.' }, { status: 400 });
   }
 
-  const comments = getApprovedComments(productId);
+  const comments = await getApprovedComments(productId);
   logger.info('comments.fetch.success', { productId, count: comments.length });
 
   return NextResponse.json({ comments }, { headers: buildAvailabilityHeaders('ready') });
 });
 
 export const POST = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
-  const availabilityResponse = ensureCommentsAvailable(requestId, logger);
+  const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
   if (availabilityResponse) {
     return availabilityResponse;
   }
@@ -79,7 +76,7 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
     return NextResponse.json({ error: guardResult.error }, { status: 429, headers });
   }
 
-  if (hasDuplicateComment(sanitized.productId, sanitized.email, sanitized.text.trim())) {
+  if (await hasDuplicateComment(sanitized.productId, sanitized.email, sanitized.text.trim())) {
     logger.warn('comments.post.duplicate', { productId: sanitized.productId });
     return NextResponse.json(
       { error: 'This comment has already been submitted and is awaiting moderation.' },
@@ -87,7 +84,7 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
     );
   }
 
-  const newComment = createStoredComment({
+  const newComment = await createStoredComment({
     productId: sanitized.productId,
     rating: sanitized.rating,
     author: sanitized.author,
@@ -96,9 +93,7 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
     status: 'pending',
   });
 
-  const { replies: _unusedReplies, ...commentRow } = newComment;
-  void _unusedReplies;
-  const publicComment = toPublicComment(commentRow);
+  const publicComment = await toPublicComment(newComment);
 
   logger.info('comments.post.created', { productId: sanitized.productId });
 

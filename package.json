@@ -15,7 +15,8 @@
     "axe": "axe http://localhost:3000 --chromium --timeout 60000 --exit 0",
     "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html --only-categories=performance,accessibility,seo,best-practices --throttling-method=devtools",
     "postbuild": "npm run sitemap",
-    "preview:audits": "node ./scripts/run-preview-audits.mjs"
+    "preview:audits": "node ./scripts/run-preview-audits.mjs",
+    "preview:e2e": "playwright test --config=playwright.config.ts --reporter=line"
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.8",
@@ -23,11 +24,13 @@
     "docker": "^0.2.14",
     "lucide-react": "^0.552.0",
     "next": "^14.2.33",
+    "pg": "^8.16.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "redis": "^4.7.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "@axe-core/cli": "4.10.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.14.10",
