@@ -1,22 +1,16 @@
 import { NextResponse } from 'next/server';
 import { withRequestLogging } from '../../lib/logging';
 import { getCommentsStorageStatus } from '../lib/db';
-
-function buildStatusHeaders(status: 'ready' | 'offline', errorCode?: string | null): HeadersInit {
-  const headers: Record<string, string> = {
-    'X-Comments-Status': status,
-  };
-
-  if (errorCode) {
-    headers['X-Comments-Error-Code'] = errorCode;
-  }
-
-  return headers;
-}
+import { buildAvailabilityHeaders, getStorageRetryAfterSeconds } from '../lib/status';
 
 export const GET = withRequestLogging(async () => {
   const status = getCommentsStorageStatus();
-  const headers = buildStatusHeaders(status.ready ? 'ready' : 'offline', status.errorCode);
+  const retryAfterSeconds = status.ready ? undefined : getStorageRetryAfterSeconds(status);
+  const headers = buildAvailabilityHeaders(
+    status.ready ? 'ready' : 'offline',
+    status.errorCode,
+    retryAfterSeconds,
+  );
 
   const body = {
     ready: status.ready,
@@ -29,8 +23,16 @@ export const GET = withRequestLogging(async () => {
     error: status.error?.message ?? null,
   };
 
-  return NextResponse.json(body, {
-    status: status.ready ? 200 : 503,
-    headers,
-  });
+  return NextResponse.json(
+    status.ready
+      ? body
+      : {
+          ...body,
+          retryAfterSeconds,
+        },
+    {
+      status: status.ready ? 200 : 503,
+      headers,
+    },
+  );
 });
