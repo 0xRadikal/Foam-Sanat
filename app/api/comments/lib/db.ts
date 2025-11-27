@@ -1,4 +1,5 @@
 import path from 'path';
+import Database from 'better-sqlite3';
 import { emitMetric } from '../../lib/logging';
 import { PostgresCommentStorage } from './storage/postgres';
 import { SqliteCommentStorage } from './storage/sqlite';
@@ -145,4 +146,35 @@ export async function getCommentsStorageStatus(): Promise<{
     metrics: { ...initializationMetrics },
     health,
   };
+}
+
+export function initializeDatabase(
+  logger: Logger = defaultLogger,
+  options: { connectionString?: string } = {},
+): CommentStorage | null {
+  const hasExplicit = Boolean(options.connectionString || process.env.COMMENTS_DATABASE_URL || process.env.DATABASE_URL);
+
+  if (process.env.VERCEL === '1' && !hasExplicit) {
+    logger.warn('comments.db.read_only_environment');
+    return null;
+  }
+
+  void initializeStorage(logger, options);
+  return null;
+}
+
+export function getDb(logger: Logger = defaultLogger): Database.Database {
+  if (!storage) {
+    throw initializationError ?? new Error('Database not initialized');
+  }
+
+  if (storage.backend === 'sqlite' && 'getRawDb' in storage) {
+    const rawDb = (storage as unknown as { getRawDb: () => Database.Database | null }).getRawDb();
+    if (rawDb) {
+      return rawDb;
+    }
+  }
+
+  logger.error('comments.db.raw_unavailable', { backend: storage.backend });
+  throw initializationError ?? new Error('Underlying sqlite Database is not available.');
 }

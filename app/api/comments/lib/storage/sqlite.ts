@@ -106,6 +106,10 @@ export class SqliteCommentStorage implements CommentStorage {
     return this.initialized && Boolean(this.db);
   }
 
+  public getRawDb(): Database.Database | null {
+    return this.db;
+  }
+
   getHealth(): StorageHealth {
     return {
       backend: 'sqlite',

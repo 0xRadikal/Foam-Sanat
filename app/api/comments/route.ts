@@ -93,9 +93,7 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
     status: 'pending',
   });
 
-  const { replies: _unusedReplies, ...commentRow } = newComment;
-  void _unusedReplies;
-  const publicComment = await toPublicComment(commentRow);
+  const publicComment = await toPublicComment(newComment);
 
   logger.info('comments.post.created', { productId: sanitized.productId });
 
