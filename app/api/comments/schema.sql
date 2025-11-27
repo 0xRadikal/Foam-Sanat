@@ -6,7 +6,10 @@ CREATE TABLE IF NOT EXISTS comments (
   email TEXT NOT NULL,
   text TEXT NOT NULL,
   status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'rejected')),
-  createdAt TEXT NOT NULL
+  createdAt TEXT NOT NULL,
+  moderatedAt TEXT,
+  moderatedById TEXT,
+  moderatedByDisplayName TEXT
 );
 
 CREATE TABLE IF NOT EXISTS comment_replies (
@@ -25,3 +28,18 @@ CREATE TABLE IF NOT EXISTS comment_replies (
 
 CREATE INDEX IF NOT EXISTS idx_product_status ON comments (productId, status);
 CREATE INDEX IF NOT EXISTS idx_replies_comment ON comment_replies (commentId);
+CREATE INDEX IF NOT EXISTS idx_comments_moderated_at ON comments (moderatedAt);
+CREATE TABLE IF NOT EXISTS comment_audit_logs (
+  id TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  commentId TEXT,
+  replyId TEXT,
+  adminId TEXT,
+  adminDisplayName TEXT,
+  tokenId TEXT,
+  tokenSource TEXT,
+  metadata TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON comment_audit_logs (createdAt);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_comment ON comment_audit_logs (commentId);

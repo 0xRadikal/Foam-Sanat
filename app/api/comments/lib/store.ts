@@ -39,13 +39,13 @@ function getPreparedStatements(): PreparedStatements {
   preparedStatements = {
     db,
     selectApprovedComments: db.prepare<CommentRow>(
-      `SELECT id, productId, rating, author, email, text, status, createdAt
+      `SELECT id, productId, rating, author, email, text, status, createdAt, moderatedAt, moderatedById, moderatedByDisplayName
        FROM comments
        WHERE productId = ? AND status = 'approved'
        ORDER BY datetime(createdAt) DESC`,
     ),
     selectCommentById: db.prepare<CommentRow>(
-      `SELECT id, productId, rating, author, email, text, status, createdAt
+      `SELECT id, productId, rating, author, email, text, status, createdAt, moderatedAt, moderatedById, moderatedByDisplayName
        FROM comments
        WHERE id = ?
        LIMIT 1`,
@@ -62,14 +62,21 @@ function getPreparedStatements(): PreparedStatements {
        LIMIT 1`,
     ),
     commentExistsStmt: db.prepare(`SELECT 1 FROM comments WHERE id = ? LIMIT 1`),
-    updateCommentStatusStmt: db.prepare(`UPDATE comments SET status = @status WHERE id = @id`),
+    updateCommentStatusStmt: db.prepare(
+      `UPDATE comments
+       SET status = @status,
+           moderatedAt = @moderatedAt,
+           moderatedById = @moderatedById,
+           moderatedByDisplayName = @moderatedByDisplayName
+       WHERE id = @id`,
+    ),
     deleteCommentStmt: db.prepare(`DELETE FROM comments WHERE id = ?`),
     deleteReplyStmt: db.prepare(
       `DELETE FROM comment_replies WHERE id = @replyId AND commentId = @commentId`,
     ),
     insertCommentStmt: db.prepare(
-      `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt)
-       VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt)`,
+      `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt, moderatedAt, moderatedById, moderatedByDisplayName)
+       VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt, @moderatedAt, @moderatedById, @moderatedByDisplayName)`,
     ),
     insertReplyStmt: db.prepare(
       `INSERT INTO comment_replies (id, commentId, author, text, isAdmin, adminId, adminDisplayName, respondedAt, status, createdAt)
@@ -115,6 +122,9 @@ export function createStoredComment(
     text: newComment.text,
     status: newComment.status,
     createdAt: newComment.createdAt,
+    moderatedAt: newComment.moderatedAt ?? null,
+    moderatedById: newComment.moderatedById ?? null,
+    moderatedByDisplayName: newComment.moderatedByDisplayName ?? null,
   });
 
   return newComment;
@@ -155,10 +165,22 @@ export function createStoredReply(
   return reply;
 }
 
-export function updateCommentStatus(id: string, status: CommentStatus): PublicComment | null {
+export function updateCommentStatus(
+  id: string,
+  status: CommentStatus,
+  options?: { adminId?: string; adminDisplayName?: string; moderatedAt?: string },
+): PublicComment | null {
   const { updateCommentStatusStmt, selectCommentById } = getPreparedStatements();
 
-  const result = updateCommentStatusStmt.run({ id, status });
+  const moderatedAt = options?.moderatedAt ?? new Date().toISOString();
+
+  const result = updateCommentStatusStmt.run({
+    id,
+    status,
+    moderatedAt,
+    moderatedById: options?.adminId ?? null,
+    moderatedByDisplayName: options?.adminDisplayName ?? null,
+  });
   if (result.changes === 0) {
     return null;
   }
@@ -194,6 +216,9 @@ export function toPublicComment(comment: CommentRow): PublicComment {
     text: comment.text,
     createdAt: comment.createdAt,
     status: comment.status,
+    moderatedAt: comment.moderatedAt ?? undefined,
+    moderatedById: comment.moderatedById ?? undefined,
+    moderatedByDisplayName: comment.moderatedByDisplayName ?? undefined,
     replies: replies.map<PublicCommentReply>(
       ({ id, author, text, createdAt, isAdmin, status, adminId, adminDisplayName, respondedAt }) => ({
         id,

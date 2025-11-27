@@ -22,6 +22,9 @@ export type StoredComment = {
   text: string;
   createdAt: string;
   status: CommentStatus;
+  moderatedAt?: string;
+  moderatedById?: string;
+  moderatedByDisplayName?: string;
   replies: StoredCommentReply[];
 };
 
