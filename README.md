@@ -84,6 +84,11 @@ Or simply connect your GitHub repo for **automatic builds and previews**.
 - Thresholds: performance ≥ **0.90**, accessibility ≥ **0.98**, SEO ≥ **0.92**, best-practices ≥ **0.92**.
 - Reports are saved to `reports/axe/axe-report.json` and `reports/lighthouse/preview.report.{json,html}` for download from CI artifacts.
 
+#### Preview UI smoke tests
+- Run `npm run preview:e2e` with `PREVIEW_URL` (or `DEPLOYMENT_URL`/`VERCEL_BRANCH_URL`) pointing at a live preview.
+- Playwright scripts cover FA/EN locale toggling, navigation, and end-to-end comment submission in the product modal.
+- CI workflow **Preview E2E** (manual/scheduled) provisions Chromium via Playwright and fails early when no preview URL is configured.
+
 ---
 
 ### 💬 Comment API & Moderation
