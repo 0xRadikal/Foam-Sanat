@@ -32,7 +32,7 @@ export const PATCH = withRequestLogging(
     }
 
     const moderatedAt = new Date().toISOString();
-    const updated = updateCommentStatus(commentId, body.status, {
+    const updated = await updateCommentStatus(commentId, body.status, {
       adminId: admin.id,
       adminDisplayName: admin.displayName,
       moderatedAt,
@@ -75,7 +75,7 @@ export const DELETE = withRequestLogging(
       return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
     }
 
-    const deleted = deleteStoredComment(commentId);
+    const deleted = await deleteStoredComment(commentId);
     if (!deleted) {
       logger.warn('comments.moderation.not-found', { commentId });
       return NextResponse.json({ error: 'Comment not found.' }, { status: 404 });
