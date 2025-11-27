@@ -47,6 +47,7 @@
   - **Axe** against the preview URL (stores JSON at `reports/axe/axe-report.json`).
   - **Lighthouse** with thresholds: performance ≥ 0.90, accessibility ≥ 0.98, SEO ≥ 0.92, best-practices ≥ 0.92 (reports in `reports/lighthouse/preview.report.{json,html}`).
 - Failing thresholds block merges on pull requests (job: `preview-audits`). Attach the `reports/` directory as an artifact for triage when runs fail.
+- If no preview URL is configured in CI, the audits are skipped with a warning to avoid false-negative failures; set `PREVIEW_URL` (or `VERCEL_BRANCH_URL`/`DEPLOYMENT_URL`) to enforce gating.
 
 ### 2. Code Quality
 ```bash
