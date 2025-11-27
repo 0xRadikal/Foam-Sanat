@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { NextRequest } from 'next/server';
 
 import { ensureServerEnvVars } from '../../../lib/env';
+import { recordModerationAudit } from './audit';
 
 export type AuthenticatedAdmin = {
   id: string;
@@ -20,7 +21,7 @@ type AdminTokenPayload = {
   jti?: string;
   iat?: number;
   exp?: number;
-};
+}; 
 
 type LegacyAdminIdentity = {
   id: string;
@@ -144,6 +145,10 @@ function base64UrlDecode(segment: string): string {
   return Buffer.from(segment, 'base64url').toString('utf8');
 }
 
+function base64UrlEncode(segment: string): string {
+  return Buffer.from(segment, 'utf8').toString('base64url');
+}
+
 function createSignature(content: string, secret: string): string {
   return crypto.createHmac('sha256', secret).update(content).digest('base64url');
 }
@@ -170,6 +175,11 @@ function verifySignature(segments: string[], signature: string, secrets: string[
   }
 
   return null;
+}
+
+function getPrimaryAdminSecret(): string | null {
+  const secrets = getAdminTokenSecrets();
+  return secrets.length > 0 ? secrets[0] : null;
 }
 
 function verifySignedAdminToken(token: string): AuthenticatedAdmin | null {
@@ -225,6 +235,44 @@ function verifySignedAdminToken(token: string): AuthenticatedAdmin | null {
   } satisfies AuthenticatedAdmin;
 }
 
+export function createSignedAdminSession(
+  admin: { id?: string | null; displayName?: string | null },
+  options: { ttlMinutes?: number } = {},
+): { token: string; tokenId: string; issuedAt: string; expiresAt: string } | null {
+  const secret = getPrimaryAdminSecret();
+  if (!secret) {
+    console.error('Unable to create admin session: COMMENTS_ADMIN_TOKEN_SECRET is not configured.');
+    return null;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const tokenId = crypto.randomUUID();
+  const ttlMinutes = Math.max(options.ttlMinutes ?? ADMIN_TOKEN_TTL_MINUTES, 1);
+  const expiresSeconds = nowSeconds + ttlMinutes * 60;
+
+  const header = { alg: ADMIN_TOKEN_ALG, typ: 'JWT' } satisfies Record<string, string>;
+  const payload: AdminTokenPayload = {
+    sub: admin.id?.trim() || 'comments-admin',
+    adminId: admin.id?.trim() || 'comments-admin',
+    name: admin.displayName?.trim() || 'Comments Admin',
+    displayName: admin.displayName?.trim() || 'Comments Admin',
+    iat: nowSeconds,
+    exp: expiresSeconds,
+    jti: tokenId,
+  };
+
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signature = createSignature(`${encodedHeader}.${encodedPayload}`, secret);
+
+  return {
+    token: `${encodedHeader}.${encodedPayload}.${signature}`,
+    tokenId,
+    issuedAt: new Date(nowSeconds * 1000).toISOString(),
+    expiresAt: new Date(expiresSeconds * 1000).toISOString(),
+  };
+}
+
 function verifyLegacyAdminToken(token: string): AuthenticatedAdmin | null {
   const admin = parseLegacyAdminIdentities().find((entry) => entry.token === token.trim());
   if (!admin) return null;
@@ -276,6 +324,7 @@ export function logModerationAudit(
 ) {
   const performedAt = new Date().toISOString();
 
+  recordModerationAudit(action, admin, { ...metadata, performedAt });
   console.info('Comments moderation audit', {
     action,
     performedAt,
