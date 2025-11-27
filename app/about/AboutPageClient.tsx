@@ -19,6 +19,8 @@ import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 
 type BlobStyle = CSSProperties;
 
+const TIMELINE_ICON_POOL = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
+
 function hashStringToSeed(value: string): number {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -177,13 +179,12 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
   const t = useMemo(() => messages.about, [messages]);
   const timelineItems = t.timeline.items;
-  const timelineLength = timelineItems.length;
-  const timelineIconPool = [Rocket, Award, TrendingUp, Globe, Users, Trophy];
+  const timelineLength = Math.max(0, timelineItems.length);
   const timelineIcons = useMemo(
     () =>
       timelineLength === 0
         ? []
-        : timelineItems.map((_, index) => timelineIconPool[index % timelineIconPool.length] ?? Globe),
+        : timelineItems.map((_, index) => TIMELINE_ICON_POOL[index % TIMELINE_ICON_POOL.length] ?? Globe),
     [timelineItems, timelineLength]
   );
   const statsIcons = [Clock, Trophy, Users, Award];
@@ -349,7 +350,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
             <div className={`absolute ${isRTL ? 'right-1/2' : 'left-1/2'} top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 via-orange-500 to-purple-500 hidden md:block`} />
 
             {t.timeline.items.map((item, i) => {
-              const Icon = timelineIcons[i] ?? timelineIconPool[i % timelineIconPool.length] ?? Globe;
+              const Icon = timelineIcons[i] ?? TIMELINE_ICON_POOL[i % TIMELINE_ICON_POOL.length] ?? Globe;
               const isActive = activeTimeline === i;
 
               return (
