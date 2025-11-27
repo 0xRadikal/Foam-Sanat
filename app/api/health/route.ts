@@ -19,15 +19,17 @@ export const GET = withRequestLogging(async (request: NextRequest, _context, { l
   let status = 200;
 
   if (includeStorage) {
-    const storageStatus = getCommentsStorageStatus();
+    const storageStatus = await getCommentsStorageStatus();
     body.comments = {
       ready: storageStatus.ready,
+      backend: storageStatus.backend,
       errorCode: storageStatus.errorCode ?? null,
       attempts: storageStatus.metrics.attempts,
       successes: storageStatus.metrics.successes,
       failures: storageStatus.metrics.failures,
       lastAttemptAt: storageStatus.metrics.lastAttemptAt?.toISOString() ?? null,
       lastSuccessAt: storageStatus.metrics.lastSuccessAt?.toISOString() ?? null,
+      connection: storageStatus.health?.connection ?? null,
     };
 
     if (!storageStatus.ready) {
