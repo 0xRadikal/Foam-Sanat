@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://foamsanat.com
+Host: https://www.radikals.fun
 
 # Sitemaps
-Sitemap: https://foamsanat.com/sitemap.xml
+Sitemap: https://www.radikals.fun/sitemap.xml
