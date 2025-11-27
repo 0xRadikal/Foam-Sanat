@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { emitMetric } from '../../lib/logging';
@@ -16,6 +17,7 @@ let initializationAttempted = false;
 let initializationError: Error | null = null;
 let initializationErrorCode: string | null = null;
 let backendUsed: StorageBackend = 'sqlite';
+let lastConnectionString: string | null = null;
 
 const defaultLogger: Logger = console;
 
@@ -55,10 +57,12 @@ async function initializeStorage(logger: Logger = defaultLogger, options: { conn
 
   backendUsed = resolveBackend();
   const connectionString = resolveConnectionString(backendUsed, options.connectionString);
+  const allowDirCreation = backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db');
+  lastConnectionString = connectionString;
   const adapter =
     backendUsed === 'postgres'
       ? new PostgresCommentStorage(connectionString)
-      : new SqliteCommentStorage(connectionString);
+      : new SqliteCommentStorage(connectionString, { allowDirCreation });
 
   initializationPromise = adapter
     .initialize()
@@ -94,6 +98,53 @@ async function initializeStorage(logger: Logger = defaultLogger, options: { conn
   return initializationPromise;
 }
 
+function initializeStorageSync(logger: Logger = defaultLogger, options: { connectionString?: string } = {}): CommentStorage | null {
+  if (storage) return storage;
+  if (initializationPromise) return null;
+
+  initializationAttempted = true;
+  initializationMetrics.attempts += 1;
+  initializationMetrics.lastAttemptAt = new Date();
+
+  backendUsed = resolveBackend();
+  const connectionString = resolveConnectionString(backendUsed, options.connectionString);
+  const allowDirCreation = backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db');
+  lastConnectionString = connectionString;
+
+  if (backendUsed !== 'sqlite') {
+    void initializeStorage(logger, options);
+    return null;
+  }
+
+  const adapter = new SqliteCommentStorage(connectionString, { allowDirCreation });
+
+  try {
+    adapter.initializeSync();
+    storage = adapter;
+    initializationError = null;
+    initializationErrorCode = null;
+    initializationMetrics.successes += 1;
+    initializationMetrics.lastSuccessAt = new Date();
+    logger.info('Comment storage initialized.', { backend: backendUsed });
+    return storage;
+  } catch (error) {
+    initializationError = error as Error;
+    initializationErrorCode = (error as NodeJS.ErrnoException).code ?? 'COMMENTS_DB_INIT_FAILED';
+    initializationMetrics.failures += 1;
+    emitMetric('comments.db.init.failure', {
+      tags: { code: initializationErrorCode, backend: backendUsed },
+    });
+    logger.error('Failed to initialize the comments storage.', {
+      backend: backendUsed,
+      code: initializationErrorCode,
+      attempts: initializationMetrics.attempts,
+      failures: initializationMetrics.failures,
+      error,
+    });
+    return null;
+  }
+}
+
 export async function getCommentStorage(logger: Logger = defaultLogger): Promise<CommentStorage> {
   const instance = storage ?? (await initializeStorage(logger));
   if (!instance) {
@@ -103,6 +154,14 @@ export async function getCommentStorage(logger: Logger = defaultLogger): Promise
 }
 
 export async function resetDbForTesting(): Promise<void> {
+  if (lastConnectionString && !lastConnectionString.startsWith(dataDir)) {
+    try {
+      fs.rmSync(path.dirname(lastConnectionString), { recursive: true, force: true });
+    } catch (error) {
+      defaultLogger.warn('comments.db.test_cleanup_failed', { error });
+    }
+  }
+  lastConnectionString = null;
   storage = null;
   initializationAttempted = false;
   initializationError = null;
@@ -157,6 +216,11 @@ export function initializeDatabase(
   if (process.env.VERCEL === '1' && !hasExplicit) {
     logger.warn('comments.db.read_only_environment');
     return null;
+  }
+
+  const syncInstance = initializeStorageSync(logger, options);
+  if (syncInstance) {
+    return syncInstance;
   }
 
   void initializeStorage(logger, options);

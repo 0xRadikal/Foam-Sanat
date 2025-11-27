@@ -25,15 +25,27 @@ export class SqliteCommentStorage implements CommentStorage {
   private initialized = false;
   private lastError: Error | null = null;
 
-  constructor(private readonly connectionString: string) {}
+  constructor(private readonly connectionString: string, private readonly options: { allowDirCreation?: boolean } = {}) {}
 
   async initialize(): Promise<void> {
+    this.performInitialization();
+  }
+
+  initializeSync(): void {
+    this.performInitialization();
+  }
+
+  private performInitialization(): void {
     if (this.initialized && this.db) return;
 
     const dataDir = path.dirname(this.connectionString);
     const isFileSystemPath = !this.connectionString.includes('://');
     if (isFileSystemPath && !fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+      if (this.options.allowDirCreation !== false) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      } else {
+        throw new Error(`comments.sqlite.dir_missing:${dataDir}`);
+      }
     }
 
     try {
