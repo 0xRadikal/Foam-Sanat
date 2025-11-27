@@ -1,5 +1,6 @@
 // app/layout.tsx - Enhanced with SEO, Security, Manifest, and ENV Validation
 import type { Metadata } from 'next';
+import type React from 'react';
 import { headers } from 'next/headers';
 import Script from 'next/script';
 import { AnalyticsManager } from '@/app/components/AnalyticsManager';
@@ -126,7 +127,7 @@ function resolveLayoutLocale(paramsLang?: string): keyof typeof localeSettings {
     }
   }
 
-  return resolveLocale(paramsLang ?? langFromSearch ?? langFromPath);
+  return resolveLocale(paramsLang ?? langFromSearch ?? langFromPath ?? undefined);
 }
 
 export default function RootLayout({
@@ -141,6 +142,11 @@ export default function RootLayout({
   const activeFont = localeFontMap[runtimeLocale];
   const bodyClassName = [activeFont.className, 'antialiased'].join(' ');
 
+  const bodyStyle: React.CSSProperties & Record<string, string> = {
+    fontFamily: `var(--site-font-family, ${activeFont.style.fontFamily})`,
+    '--site-font-family': activeFont.style.fontFamily,
+  };
+
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
   const cspNonce = headers().get('x-csp-nonce') ?? undefined;
   const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;
@@ -154,14 +160,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#FF6700" />
         <meta name="msapplication-TileColor" content="#FF6700" />
       </head>
-      <body
-        className={bodyClassName}
-        suppressHydrationWarning
-        style={{
-          fontFamily: `var(--site-font-family, ${activeFont.style.fontFamily})`,
-          ['--site-font-family' as const]: activeFont.style.fontFamily,
-        }}
-      >
+      <body className={bodyClassName} suppressHydrationWarning style={bodyStyle}>
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
         <AnalyticsManager
           gaTrackingId={analyticsIdForLocale}

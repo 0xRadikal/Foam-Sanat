@@ -4,7 +4,9 @@ import { describe, it } from 'node:test';
 import {
   createAboutNavigation,
   createHomeNavigation,
-  createProductsNavigation
+  createProductsNavigation,
+  getAllRoutes,
+  getBreadcrumbs
 } from './navigation-config';
 
 describe('navigation-config', () => {
@@ -56,5 +58,24 @@ describe('navigation-config', () => {
     assert.equal(hrefByKey.about, '/about');
     assert.equal(hrefByKey.products, '/products');
     assert.equal(hrefByKey.contact, '/#contact');
+  });
+
+  it('generates localized route lists for sitemaps', () => {
+    assert.deepEqual(getAllRoutes('en'), ['/', '/products', '/about']);
+    assert.deepEqual(getAllRoutes('fa'), ['/fa/', '/fa/products', '/fa/about']);
+  });
+
+  it('builds breadcrumbs that accumulate paths', () => {
+    const breadcrumbs = getBreadcrumbs('/products/widgets', {
+      home: 'Home',
+      products: 'Products',
+      widgets: 'Widgets'
+    });
+
+    assert.deepEqual(breadcrumbs, [
+      { label: 'Home', href: '/' },
+      { label: 'Products', href: '/products' },
+      { label: 'Widgets', href: '/products/widgets' }
+    ]);
   });
 });
