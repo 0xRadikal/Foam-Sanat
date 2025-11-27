@@ -1,17 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  createAboutNavigation,
-  createHomeNavigation,
-  createProductsNavigation,
-  getAllRoutes,
-  getBreadcrumbs
-} from './navigation-config';
+import { createNavigation, getAllRoutes, getBreadcrumbs } from './navigation-config';
 
 describe('navigation-config', () => {
   it('creates home navigation with section anchors and contact button variant', () => {
-    const navItems = createHomeNavigation({
+    const navItems = createNavigation('home', {
       home: 'Home',
       about: 'About',
       products: 'Products',
@@ -31,7 +25,7 @@ describe('navigation-config', () => {
   });
 
   it('creates products navigation with top-level routes', () => {
-    const navItems = createProductsNavigation({
+    const navItems = createNavigation('products', {
       home: 'Home',
       products: 'Products',
       about: 'About',
@@ -46,7 +40,7 @@ describe('navigation-config', () => {
   });
 
   it('creates about navigation with shared route map', () => {
-    const navItems = createAboutNavigation({
+    const navItems = createNavigation('about', {
       home: 'Home',
       about: 'About',
       products: 'Products',
