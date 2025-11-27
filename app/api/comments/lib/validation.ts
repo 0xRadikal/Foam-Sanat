@@ -3,6 +3,7 @@ import { sanitizeStringField } from '../../lib/payload';
 import { checkRateLimit } from './rateLimit';
 import { getClientIdentifier } from './auth';
 import { validateEmail, VALIDATION_RULES } from '../../../lib/validation';
+import { emitMetric, hashIdentifier } from '../../lib/logging';
 
 const linkPattern = /(https?:\/\/\S+)/gi;
 const MAX_COMMENT_LENGTH = VALIDATION_RULES.comment.maxLength;
@@ -106,10 +107,19 @@ export type ValidationGuardResult = { error: string; retryAfterSeconds?: number 
 export async function checkRateLimitOrSpam(
   request: NextRequest,
   text: string,
+  telemetry?: { requestId?: string },
 ): Promise<ValidationGuardResult> {
   const identifier = getClientIdentifier(request);
   const rateLimit = await checkRateLimit(identifier);
   if (rateLimit.limited) {
+    emitMetric('comments.rate_limit.hit', {
+      requestId: telemetry?.requestId,
+      tags: {
+        client: hashIdentifier(identifier),
+        reason: 'rate_limit',
+      },
+    });
+
     return {
       error: 'Too many comments submitted. Please try again later.',
       retryAfterSeconds: rateLimit.retryAfterSeconds,

@@ -27,6 +27,18 @@ describe('contact POST handler', () => {
     ({ POST } = await import('./route.js'));
   });
 
+  function getEvents(
+    calls: { arguments: unknown[] }[],
+    event: string,
+  ): Record<string, unknown>[] {
+    return calls
+      .map(({ arguments: args }) => args[0])
+      .filter(
+        (payload): payload is Record<string, unknown> =>
+          Boolean(payload && typeof payload === 'object' && (payload as { event?: string }).event === event),
+      );
+  }
+
   after(() => {
     for (const key of envKeys) {
       const originalValue = originalEnv[key];
@@ -98,23 +110,25 @@ describe('contact POST handler', () => {
     try {
       await POST(request);
 
-      const calls = infoMock.mock.calls;
+      const events = getEvents(infoMock.mock.calls, 'contact.received');
 
-      assert.equal(calls.length, 1);
-      const [, logPayload] = calls[0].arguments;
+      assert.equal(events.length, 1);
+      const logPayload = events[0] as {
+        payload?: Record<string, string>;
+        meta?: Record<string, string>;
+      };
 
-      assert.deepEqual(logPayload, {
-        meta: {
-          contactEmail: 'contact@example.com',
-          contactPhone: '+1 (555) 010-0000',
-          siteUrl: 'https://example.com',
-        },
-        payload: {
-          name: '[REDACTED]',
-          email: '[REDACTED]',
-          phone: '[REDACTED]',
-          message: '[REDACTED]',
-        },
+      assert.deepEqual(logPayload.payload, {
+        name: '[REDACTED]',
+        email: '[REDACTED]',
+        phone: '[REDACTED]',
+        message: '[REDACTED]',
+      });
+
+      assert.deepEqual(logPayload.meta, {
+        contactEmail: 'contact@example.com',
+        contactPhone: '+1 (555) 010-0000',
+        siteUrl: 'https://example.com',
       });
     } finally {
       infoMock.mock.restore();
@@ -161,17 +175,19 @@ describe('contact POST handler', () => {
       message: 'Invalid request payload.',
     });
 
-    assert.equal(warnMock.mock.calls.length, 1);
-    const [, logPayload] = warnMock.mock.calls[0].arguments;
-    assert.deepEqual(logPayload, {
-      reason: 'name is too short.',
-    });
+    const warnEvents = getEvents(warnMock.mock.calls, 'contact.invalid-payload');
+    assert.equal(warnEvents.length, 1);
+    assert.deepEqual((warnEvents[0] as { reason?: string }).reason, 'name is too short.');
+
     assert.equal(errorMock.mock.calls.length, 0);
     assert.equal(fetchMock.mock.calls.length, 0);
   });
 
   it('returns a 500 response when request processing fails unexpectedly', async () => {
     const request = {
+      method: 'POST',
+      url: 'http://localhost/api/contact',
+      headers: new Headers(),
       async json() {
         throw new Error('boom');
       },
@@ -195,7 +211,8 @@ describe('contact POST handler', () => {
       message: 'Unable to process contact request at this time.',
     });
 
-    assert.equal(errorMock.mock.calls.length, 1);
+    const errorEvents = getEvents(errorMock.mock.calls, 'contact.unhandled-error');
+    assert.equal(errorEvents.length, 1);
   });
 
   it('returns a 502 response when the email provider rejects the request', async () => {
@@ -236,9 +253,9 @@ describe('contact POST handler', () => {
       message: 'Unable to deliver contact request. Please try again later.',
     });
 
-    assert.equal(errorMock.mock.calls.length, 1);
-    const [, errorMetadata] = errorMock.mock.calls[0].arguments;
-    assert.deepEqual(errorMetadata, { reason: 'provider error' });
+    const errorEvents = getEvents(errorMock.mock.calls, 'contact.forwarding-failed');
+    assert.equal(errorEvents.length, 1);
+    assert.deepEqual(errorEvents[0].reason, 'provider error');
     assert.equal(fetchMock.mock.calls.length, 1);
   });
 });
