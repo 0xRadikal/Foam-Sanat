@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export type RequestLogger = {
   requestId: string;
@@ -106,10 +106,14 @@ export function createRequestLogger(request: Request): RequestLoggingContext {
   return { logger, requestId };
 }
 
-export function withRequestLogging<TContext = unknown>(
-  handler: (request: Request, context: TContext | undefined, logging: RequestLoggingContext) => Promise<NextResponse>,
-): (request: Request, context?: TContext) => Promise<NextResponse> {
-  return async (request: Request, context?: TContext) => {
+export function withRequestLogging<TContext = unknown, TRequest extends Request = NextRequest>(
+  handler: (
+    request: TRequest,
+    context: TContext | undefined,
+    logging: RequestLoggingContext,
+  ) => Promise<NextResponse>,
+): (request: TRequest, context?: TContext) => Promise<NextResponse> {
+  return async (request: TRequest, context?: TContext) => {
     const { logger, requestId } = createRequestLogger(request);
     const startedAt = performance.now();
     logger.info('request.received');
