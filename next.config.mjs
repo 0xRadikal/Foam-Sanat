@@ -1,4 +1,4 @@
-const envConfig = require('./env.config');
+import envConfig from './env.config.js';
 
 function generatePlaceholder(key) {
   return `auto-${key.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -55,4 +55,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
