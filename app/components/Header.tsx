@@ -5,6 +5,54 @@ import { Menu, X, Globe, Sun, Moon } from 'lucide-react';
 import type { Locale } from '@/app/lib/i18n';
 import type { NavigationItem } from '@/app/lib/navigation';
 
+function NavLink({
+  item,
+  isMobile,
+  isActive,
+  hoverClass,
+  onClick
+}: {
+  item: NavigationItem;
+  isMobile: boolean;
+  isActive: boolean;
+  hoverClass: string;
+  onClick?: () => void;
+}) {
+  const isHashLink = item.href.startsWith('#');
+  const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverClass}`;
+  const desktopClasses = `hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1${
+    isActive ? ' text-orange-500 font-semibold' : ''
+  }`;
+
+  const className = isMobile ? mobileClasses : desktopClasses;
+
+  if (isHashLink) {
+    return (
+      <a
+        key={item.key}
+        href={item.href}
+        className={className}
+        onClick={onClick}
+        role={isMobile ? 'menuitem' : undefined}
+      >
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      key={item.key}
+      href={item.href}
+      className={className}
+      onClick={onClick}
+      role={isMobile ? 'menuitem' : undefined}
+    >
+      {item.label}
+    </Link>
+  );
+}
+
 interface HeaderProps {
   lang: Locale;
   isDark: boolean;
@@ -44,46 +92,6 @@ export default function Header({
   const ctaItem = navItems.find((item) => item.variant === 'button');
   const logoLink = logoHref ?? '#home';
 
-  const renderLink = (
-    item: NavigationItem,
-    { isMobile }: { isMobile: boolean }
-  ) => {
-    const isHashLink = item.href.startsWith('#');
-    const isActive = activeNavKey === item.key;
-    const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverClass}`;
-    const desktopClasses = `hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1${
-      isActive ? ' text-orange-500 font-semibold' : ''
-    }`;
-
-    const className = isMobile ? mobileClasses : desktopClasses;
-
-    if (isHashLink) {
-      return (
-        <a
-          key={item.key}
-          href={item.href}
-          className={className}
-          onClick={isMobile ? onMobileMenuToggle : undefined}
-          role={isMobile ? 'menuitem' : undefined}
-        >
-          {item.label}
-        </a>
-      );
-    }
-
-    return (
-      <Link
-        key={item.key}
-        href={item.href}
-        className={className}
-        onClick={isMobile ? onMobileMenuToggle : undefined}
-        role={isMobile ? 'menuitem' : undefined}
-      >
-        {item.label}
-      </Link>
-    );
-  };
-
   return (
     <header
       className={`fixed top-0 w-full z-40 transition-all duration-300 ${
@@ -111,7 +119,16 @@ export default function Header({
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-6 items-center">
-            {regularNavItems.map((item) => renderLink(item, { isMobile: false }))}
+            {regularNavItems.map((item) => (
+              <NavLink
+                key={item.key}
+                item={item}
+                isMobile={false}
+                isActive={activeNavKey === item.key}
+                hoverClass={hoverClass}
+                onClick={undefined}
+              />
+            ))}
             {ctaItem
               ? ctaItem.href.startsWith('#')
                 ? (
@@ -177,9 +194,16 @@ export default function Header({
               className={`md:hidden mt-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
               role="menu"
             >
-              {[...regularNavItems, ...(ctaItem ? [ctaItem] : [])].map((item) =>
-                renderLink(item, { isMobile: true })
-              )}
+              {[...regularNavItems, ...(ctaItem ? [ctaItem] : [])].map((item) => (
+                <NavLink
+                  key={item.key}
+                  item={item}
+                  isMobile
+                  isActive={activeNavKey === item.key}
+                  hoverClass={hoverClass}
+                  onClick={onMobileMenuToggle}
+                />
+              ))}
             </div>
           )}
         </nav>

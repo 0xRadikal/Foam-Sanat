@@ -7,7 +7,7 @@ interface ProductsPageProps {
 }
 
 export default function ProductsPage({ searchParams }: ProductsPageProps) {
-  const locale = resolveLocale(searchParams?.lang);
+  const locale = resolveLocale(searchParams?.lang, { warn: true });
   const messages: MessagesByLocale<typeof locale> = getAllMessages(locale);
 
   return <ProductsPageClient initialLocale={locale} initialMessages={messages} />;
