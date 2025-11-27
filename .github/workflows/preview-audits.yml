@@ -1,0 +1,37 @@
+name: Preview Audits
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+jobs:
+  run-audits:
+    name: Scheduled accessibility/performance audits
+    runs-on: ubuntu-latest
+    env:
+      PREVIEW_URL: ${{ vars.PREVIEW_URL || secrets.PREVIEW_URL || vars.DEPLOYMENT_URL || secrets.DEPLOYMENT_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Ensure preview URL is configured
+        run: |
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "PREVIEW_URL (or DEPLOYMENT_URL) must be configured as a variable or secret to run preview audits."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run preview accessibility/performance audits
+        env:
+          PREVIEW_URL: ${{ env.PREVIEW_URL }}
+        run: npm run preview:audits
