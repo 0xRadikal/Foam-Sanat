@@ -1,3 +1,5 @@
+import { bootstrapServer } from '../../lib/server-bootstrap';
+
 const DEFAULT_SITE_URL = 'https://foamsanat.com';
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const PREVIEW_URL_ENV_KEYS = [
@@ -7,7 +9,11 @@ const PREVIEW_URL_ENV_KEYS = [
   'NEXT_PUBLIC_VERCEL_URL',
   'DEPLOYMENT_URL',
   'NEXT_PUBLIC_DEPLOYMENT_URL',
+  'PREVIEW_URL',
+  'NEXT_PUBLIC_PREVIEW_URL',
 ];
+
+bootstrapServer();
 
 type CandidateOrigin = string | null | undefined;
 
@@ -40,8 +46,16 @@ function addOriginCandidate(allowed: Set<string>, candidate?: CandidateOrigin): 
 function addHostnameVariants(allowed: Set<string>, hostname?: CandidateOrigin): void {
   if (!hostname) return;
 
-  addOriginCandidate(allowed, ensureUrl(hostname));
-  addOriginCandidate(allowed, `http://${hostname}`);
+  const normalized = ensureUrl(hostname);
+
+  addOriginCandidate(allowed, normalized);
+
+  try {
+    const parsed = new URL(normalized);
+    addOriginCandidate(allowed, `http://${parsed.host}`);
+  } catch {
+    // Ignore invalid hostnames
+  }
 }
 
 function addOriginList(allowed: Set<string>, list?: string | null): void {

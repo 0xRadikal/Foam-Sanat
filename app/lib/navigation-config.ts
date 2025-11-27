@@ -25,6 +25,14 @@ export type NavigationLabels = BaseNavigationLabels & {
   faq: string;
 };
 
+type NavigationLabelSets = {
+  home: NavigationLabels;
+  products: BaseNavigationLabels;
+  about: BaseNavigationLabels;
+};
+
+export type NavigationPage = keyof NavigationLabelSets;
+
 type NavigationRouteMap<L extends Record<string, string>> = Partial<
   Record<keyof L, string | ((key: string, label: string) => string)>
 > &
@@ -81,42 +89,25 @@ const staticNavigationFactory = createNavigationFactory<BaseNavigationLabels>({
   }
 });
 
-/**
- * Create navigation items for home page
- */
-export function createHomeNavigation(labels: NavigationLabels): NavigationItem[] {
-  return createHomeNavigationFactory({
-    home: labels.home,
-    about: labels.about,
-    products: labels.products,
-    whyUs: labels.whyUs,
-    faq: labels.faq,
-    contact: labels.contact
-  });
-}
+const navigationResolvers: { [K in NavigationPage]: (labels: NavigationLabelSets[K]) => NavigationItem[] } = {
+  home: (labels) =>
+    createHomeNavigationFactory({
+      home: labels.home,
+      about: labels.about,
+      products: labels.products,
+      whyUs: labels.whyUs,
+      faq: labels.faq,
+      contact: labels.contact,
+    }),
+  products: (labels) => staticNavigationFactory(labels),
+  about: (labels) => staticNavigationFactory(labels),
+};
 
-/**
- * Create navigation items for products page
- */
-export function createProductsNavigation(labels: {
-  home: string;
-  products: string;
-  about: string;
-  contact: string;
-}): NavigationItem[] {
-  return staticNavigationFactory(labels);
-}
-
-/**
- * Create navigation items for about page
- */
-export function createAboutNavigation(labels: {
-  home: string;
-  about: string;
-  products: string;
-  contact: string;
-}): NavigationItem[] {
-  return staticNavigationFactory(labels);
+export function createNavigation<K extends NavigationPage>(
+  page: K,
+  labels: NavigationLabelSets[K],
+): NavigationItem[] {
+  return navigationResolvers[page](labels);
 }
 
 /**
