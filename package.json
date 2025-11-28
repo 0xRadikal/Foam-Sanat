@@ -13,7 +13,7 @@
     "analyze": "ANALYZE=true next build",
     "sitemap": "next-sitemap",
     "axe": "node ./scripts/run-axe.mjs http://localhost:3000",
-    "lighthouse": "CHROME_PATH=${CHROME_PATH:-/usr/bin/chromium-browser} lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html --only-categories=performance,accessibility,seo,best-practices --throttling-method=devtools --chrome-flags=\"--headless=new --no-sandbox --disable-dev-shm-usage\"",
+    "lighthouse": "node ./scripts/run-lighthouse.mjs http://localhost:3000",
     "postbuild": "npm run sitemap",
     "preview:audits": "node ./scripts/run-preview-audits.mjs",
     "preview:e2e": "playwright test --config=playwright.config.ts --reporter=line"
