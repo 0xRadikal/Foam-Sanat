@@ -123,7 +123,12 @@ export function TurnstileWidget({ siteKey, locale, refreshKey = 0, onToken, onEr
 
   const ariaLabel = useMemo(() => (locale === 'fa' ? 'اعتبارسنجی امنیتی' : 'Security verification'), [locale]);
 
-  return <div ref={containerRef} className="cf-turnstile" aria-label={ariaLabel} />;
+  return (
+    <>
+      <span className="sr-only">{ariaLabel}</span>
+      <div ref={containerRef} className="cf-turnstile" />
+    </>
+  );
 }
 
 export default TurnstileWidget;

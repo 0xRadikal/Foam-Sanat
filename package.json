@@ -10,10 +10,10 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS='-r dotenv/config' NODE_ENV=test tsc --project tsconfig.test.json && DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS='-r dotenv/config' NODE_ENV=test node --test $(find .tests-dist -name \"*.test.js\")",
-    "analyze": "source-map-explorer .next/static/chunks/*.js --html analyzer-report.html",
+    "analyze": "ANALYZE=true next build",
     "sitemap": "next-sitemap",
     "axe": "node ./scripts/run-axe.mjs http://localhost:3000",
-    "lighthouse": "CHROME_PATH=${CHROME_PATH:-/usr/bin/chromium-browser} lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html --only-categories=performance,accessibility,seo,best-practices --throttling-method=devtools --chrome-flags=\"--headless=new --no-sandbox --disable-dev-shm-usage\"",
+    "lighthouse": "node ./scripts/run-lighthouse.mjs http://localhost:3000",
     "postbuild": "npm run sitemap",
     "preview:audits": "node ./scripts/run-preview-audits.mjs",
     "preview:e2e": "playwright test --config=playwright.config.ts --reporter=line"
@@ -33,6 +33,7 @@
   "devDependencies": {
     "@axe-core/cli": "4.10.0",
     "@axe-core/playwright": "^4.11.0",
+    "@next/bundle-analyzer": "^14.2.33",
     "@playwright/test": "^1.49.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.14.10",
