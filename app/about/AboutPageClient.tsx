@@ -4,12 +4,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
-  Globe, ArrowRight, Phone, Mail, MapPin,
+  Globe, ArrowRight, Phone,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
   Shield, Lightbulb, Heart, Leaf, Target, Eye, CheckCircle,
   Sparkles, Zap, Gauge, Clock, ChevronDown
 } from 'lucide-react';
 import Header from '@/app/components/Header';
+import Footer from '@/app/components/Footer';
 import CallToAction from '@/app/components/CallToAction';
 import { createNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
@@ -123,9 +124,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const hasSyncedInitialLocale = useRef(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
-  const [blobStyles, setBlobStyles] = useState<BlobStyle[]>([]);
   const [isMounted, setIsMounted] = useState(false);
-  const blobSeedRef = useRef<number>(0);
+  const blobStyles = useMemo(() => {
+    const seededRandom = createSeededRandom(hashStringToSeed(initialLocale));
+    return generateBlobs(30, seededRandom);
+  }, [initialLocale]);
 
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
@@ -144,13 +147,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   }, [lang, activeLocale]);
 
   useEffect(() => {
-    if (blobSeedRef.current === 0) {
-      blobSeedRef.current = hashStringToSeed(initialLocale);
-    }
-    const seededRandom = createSeededRandom(blobSeedRef.current);
-    setBlobStyles(generateBlobs(30, seededRandom));
     setIsMounted(true);
-  }, [initialLocale]);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -180,13 +178,10 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const t = useMemo(() => messages.about, [messages]);
   const timelineItems = t.timeline.items;
   const timelineLength = Math.max(0, timelineItems.length);
-  const timelineIcons = useMemo(
-    () =>
-      timelineLength === 0
-        ? []
-        : timelineItems.map((_, index) => TIMELINE_ICON_POOL[index % TIMELINE_ICON_POOL.length] ?? Globe),
-    [timelineItems, timelineLength]
-  );
+  const timelineIcons = useMemo(() => {
+    if (timelineLength === 0 || TIMELINE_ICON_POOL.length === 0) return [];
+    return timelineItems.map((_, index) => TIMELINE_ICON_POOL[index % TIMELINE_ICON_POOL.length] ?? Globe);
+  }, [timelineItems, timelineLength]);
   const statsIcons = [Clock, Trophy, Users, Award];
   const missionIcons = [CheckCircle, Zap, Heart, Shield];
   const valuesIcons = [Shield, Lightbulb, Heart, Leaf];
@@ -212,18 +207,14 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   useEffect(() => {
     if (timelineLength === 0) return undefined;
 
+    setActiveTimeline((prev) => (prev < timelineLength ? prev : 0));
+
     const interval = setInterval(() => {
       setActiveTimeline((prev) => (prev + 1) % timelineLength);
     }, 4000);
+
     return () => clearInterval(interval);
   }, [timelineLength]);
-
-  useEffect(() => {
-    if (timelineLength === 0) return;
-    if (activeTimeline >= timelineLength) {
-      setActiveTimeline(0);
-    }
-  }, [activeTimeline, timelineLength]);
   return (
     <div
       className={`min-h-screen ${pageBackground} ${pageText} transition-all duration-300`}
@@ -350,7 +341,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
             <div className={`absolute ${isRTL ? 'right-1/2' : 'left-1/2'} top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 via-orange-500 to-purple-500 hidden md:block`} />
 
             {t.timeline.items.map((item, i) => {
-              const Icon = timelineIcons[i] ?? TIMELINE_ICON_POOL[i % TIMELINE_ICON_POOL.length] ?? Globe;
+              const Icon =
+                timelineIcons[i] ??
+                (TIMELINE_ICON_POOL.length > 0
+                  ? TIMELINE_ICON_POOL[i % TIMELINE_ICON_POOL.length]
+                  : Globe) ?? Globe;
               const isActive = activeTimeline === i;
 
               return (
@@ -636,35 +631,13 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
         titleClassName="text-4xl md:text-5xl mb-4"
       />
 
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-900 to-black text-gray-400 py-16 px-4">
-        <div className="container mx-auto text-center">
-          <div className="flex justify-center gap-6 mb-8">
-            <a
-              href={`tel:${primaryPhone}`}
-              className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
-            >
-              <Phone className="w-6 h-6" />
-            </a>
-            <a
-              href={`mailto:${primaryEmail}`}
-              className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
-            >
-              <Mail className="w-6 h-6" />
-            </a>
-            <a
-              href={mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-14 h-14 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
-            >
-              <MapPin className="w-6 h-6" />
-            </a>
-          </div>
-          <p className="text-lg font-bold text-white mb-2">{t.companyName}</p>
-          <p className="text-sm">© 2024 {t.footer.rights}</p>
-        </div>
-      </footer>
+      <Footer
+        companyName={t.companyName}
+        rights={t.footer.rights}
+        phone={primaryPhone}
+        email={primaryEmail}
+        mapUrl={mapUrl}
+      />
 
       {/* Video Modal */}
       {showVideo && (

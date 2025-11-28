@@ -1,4 +1,4 @@
-// Legacy structured data definitions kept for potential future sitemap/SEO use.
+// Legacy structured data definitions kept for potential future sitemap/SEO use. Currently unused; safe to remove after manual review.
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",

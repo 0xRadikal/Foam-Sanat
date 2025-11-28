@@ -1,4 +1,4 @@
-// Legacy analytics helpers kept for potential future GA wiring.
+// Legacy analytics helpers kept for potential future GA wiring. Currently unused; safe to remove after manual review.
 type GtagConfig = Record<string, unknown>;
 
 type GtagCommand =
