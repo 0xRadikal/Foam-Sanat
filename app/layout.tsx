@@ -10,6 +10,7 @@ import { isLocale, localeSettings } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
 import { renderResourceHints } from '@/app/lib/headResources';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
+import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 import './globals.css';
 
 import '@/app/lib/server-bootstrap';
@@ -184,7 +185,7 @@ export default function RootLayout({
           suppressHydrationWarning
           nonce={cspNonce}
           dangerouslySetInnerHTML={{
-            __html: `document.documentElement.classList.add('js');`,
+            __html: sanitizeForInnerHTML("document.documentElement.classList.add('js');"),
           }}
         />
       </body>
