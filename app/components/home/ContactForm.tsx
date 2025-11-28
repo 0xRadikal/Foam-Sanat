@@ -1,10 +1,11 @@
 // app/components/home/ContactForm.tsx - FIXED: Lines 27-49
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { HomeMessages } from '@/app/lib/i18n';
 import { validateEmail, validatePhone, VALIDATION_RULES } from '@/app/lib/validation';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
+import { TurnstileWidget } from '@/app/components/TurnstileWidget';
 
 type HomeContactMessages = HomeMessages['contact'];
 
@@ -25,8 +26,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   });
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>(''); // ✅ NEW: Specific error messages
+  const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
+  const [captchaRefresh, setCaptchaRefresh] = useState(0);
   const labelAlignment = isRTL ? 'text-right' : 'text-left';
   const hasError = status === 'error';
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const captchaEnabled = useMemo(() => Boolean(turnstileSiteKey), [turnstileSiteKey]);
 
   // ✅ FIX #10: Improved error handling with specific messages
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,6 +80,13 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       return;
     }
 
+    if (captchaEnabled && !captchaToken) {
+      setStatus('error');
+      setErrorMessage(contact.form.captchaRequired);
+      setCaptchaError(contact.form.captchaRequired);
+      return;
+    }
+
     try {
       const response = await fetch('/api/contact', {
         method: 'POST',
@@ -82,7 +95,8 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           name: trimmedName,
           email: trimmedEmail,
           phone: trimmedPhone,
-          message: trimmedMessage
+          message: trimmedMessage,
+          turnstileToken: captchaToken || undefined
         })
       });
 
@@ -99,10 +113,12 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       }
 
       await response.json();
-      
+
       setStatus('success');
       setFormState({ name: '', email: '', phone: '', message: '' });
-      
+      setCaptchaToken('');
+      setCaptchaRefresh((current) => current + 1);
+
       // Auto-clear success message after 5 seconds
       setTimeout(() => setStatus('idle'), 5000);
       
@@ -110,17 +126,20 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       // ✅ FIXED: Better error logging and user feedback
       console.error('Contact form submission error:', error);
       
-      const message = error instanceof Error 
-        ? error.message 
+      const message = error instanceof Error
+        ? error.message
         : 'Failed to submit form. Please try again.';
-      
+
       setErrorMessage(message);
+      setCaptchaError(message);
       setStatus('error');
-      
+      setCaptchaRefresh((current) => current + 1);
+
       // Auto-clear error after 10 seconds
       setTimeout(() => {
         setStatus('idle');
         setErrorMessage('');
+        setCaptchaError(null);
       }, 10000);
     }
   };
@@ -229,6 +248,38 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
           aria-invalid={hasError}
           disabled={status === 'sending'}
         />
+      </div>
+
+      <div className="space-y-2">
+        <p className={`font-semibold ${labelAlignment}`}>{contact.form.captcha}</p>
+        {captchaEnabled ? (
+          <TurnstileWidget
+            siteKey={turnstileSiteKey!}
+            locale={isRTL ? 'fa' : 'en'}
+            refreshKey={captchaRefresh}
+            onToken={(token) => {
+              setCaptchaToken(token);
+              setCaptchaError(null);
+            }}
+            onExpire={() => {
+              setCaptchaToken('');
+              setCaptchaError(contact.form.captchaExpired);
+            }}
+            onError={(message) => {
+              setCaptchaToken('');
+              setCaptchaError(message || contact.form.captchaError);
+            }}
+          />
+        ) : (
+          <p className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-900/40 dark:text-amber-100 rounded-lg px-3 py-2">
+            {contact.form.captchaUnavailable}
+          </p>
+        )}
+        {captchaError && (
+          <p className="text-sm text-red-600 dark:text-red-300" role="alert">
+            {captchaError}
+          </p>
+        )}
       </div>
 
       <button
