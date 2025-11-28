@@ -1,5 +1,6 @@
 import Script from 'next/script';
 import type { Locale } from '@/app/lib/i18n';
+import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 
 export type SupportedLocale = Locale;
 
@@ -18,7 +19,7 @@ export const renderAnalyticsScripts = (
         strategy="afterInteractive"
         nonce={nonce}
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: sanitizeForInnerHTML(`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
 
@@ -33,7 +34,7 @@ export const renderAnalyticsScripts = (
               anonymize_ip: true,
               cookie_flags: 'SameSite=None;Secure'
             });
-          `,
+          `),
         }}
       />
       <Script
