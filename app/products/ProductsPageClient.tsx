@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Phone, Mail, MapPin,
+  Phone, Mail,
   Factory, Zap, Gauge, Wrench, Shield, Award,
   Search, Check,
   Sparkles, Users, Target, ChevronLeft, ChevronRight,
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
 import Header from '@/app/components/Header';
+import Footer from '@/app/components/Footer';
 import CallToAction from '@/app/components/CallToAction';
 import ContactInfo from '@/app/components/ContactInfo';
 import Modal from '@/app/components/Modal';
@@ -82,6 +83,9 @@ type ApiComment = {
   status: CommentStatus;
   replies: ApiCommentReply[];
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 interface ProductsPageClientProps {
   initialLocale: Locale;
@@ -169,26 +173,91 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
     setReplyText('');
   }, [selectedProduct]);
 
-  const mapApiComment = useCallback((comment: ApiComment): ProductComment => ({
-    id: comment.id,
-    productId: comment.productId,
-    rating: comment.rating,
-    author: comment.author,
-    text: comment.text,
-    createdAt: comment.createdAt,
-    status: comment.status ?? 'approved',
-    replies: (comment.replies ?? []).map((reply) => ({
-      id: reply.id,
-      author: reply.author,
-      text: reply.text,
-      createdAt: reply.createdAt,
-      respondedAt: reply.respondedAt,
-      adminId: reply.adminId,
-      adminDisplayName: reply.adminDisplayName,
-      isAdmin: reply.isAdmin,
-      status: reply.status ?? 'approved'
-    }))
-  }), []);
+  const handleCloseProductModal = useCallback(() => {
+    setSelectedProduct(null);
+    setCurrentSlide(0);
+    setReplyingTo(null);
+    setReplyText('');
+    setCommentError(null);
+    setCommentsError(null);
+  }, []);
+
+  const handleClosePriceModal = useCallback(() => {
+    setShowPriceModal(false);
+    setPriceProduct(null);
+    setReplyingTo(null);
+    setReplyText('');
+  }, []);
+
+  const mapApiComment = useCallback((comment: unknown): ProductComment | null => {
+    if (!isRecord(comment)) {
+      console.warn('Skipping comment: invalid shape', comment);
+      return null;
+    }
+
+    const { id, productId, rating, author, text, createdAt, status } = comment;
+    if (
+      typeof id !== 'string' ||
+      typeof productId !== 'string' ||
+      typeof rating !== 'number' ||
+      typeof author !== 'string' ||
+      typeof text !== 'string' ||
+      typeof createdAt !== 'string'
+    ) {
+      console.warn('Skipping comment: missing required fields', comment);
+      return null;
+    }
+
+    const normalizedStatus: CommentStatus =
+      status === 'pending' || status === 'rejected' ? status : 'approved';
+
+    const replies = Array.isArray(comment.replies)
+      ? comment.replies.flatMap((reply) => {
+          if (!isRecord(reply)) {
+            console.warn('Skipping reply: invalid shape', reply);
+            return [] as ProductCommentReply[];
+          }
+
+          if (
+            typeof reply.id !== 'string' ||
+            typeof reply.author !== 'string' ||
+            typeof reply.text !== 'string' ||
+            typeof reply.createdAt !== 'string'
+          ) {
+            console.warn('Skipping reply: missing required fields', reply);
+            return [] as ProductCommentReply[];
+          }
+
+          const replyStatus: CommentStatus =
+            reply.status === 'pending' || reply.status === 'rejected' ? reply.status : 'approved';
+
+          return [
+            {
+              id: reply.id,
+              author: reply.author,
+              text: reply.text,
+              createdAt: reply.createdAt,
+              respondedAt: typeof reply.respondedAt === 'string' ? reply.respondedAt : undefined,
+              adminId: typeof reply.adminId === 'string' ? reply.adminId : undefined,
+              adminDisplayName: typeof reply.adminDisplayName === 'string' ? reply.adminDisplayName : undefined,
+              isAdmin: typeof reply.isAdmin === 'boolean' ? reply.isAdmin : undefined,
+              status: replyStatus
+            }
+          ];
+        })
+      : [];
+
+    return {
+      id,
+      productId,
+      rating,
+      author,
+      text,
+      createdAt,
+      status: normalizedStatus,
+      replies
+    };
+  }, []);
   
   const formatDate = useCallback(
     (isoDate: string) => new Date(isoDate).toLocaleDateString(activeLocale === 'fa' ? 'fa-IR' : 'en-US'),
@@ -289,19 +358,23 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
           throw new Error(data.error ?? t.comments.submitError);
         }
 
-        const serverComment = mapApiComment(data.comment as ApiComment);
+        const serverComment = mapApiComment(data.comment);
 
-        setComments((prev) => {
-          const productComments = prev[productId] ?? [];
-          return {
-            ...prev,
-            [productId]: productComments.map((comment) =>
-              comment.id === optimisticComment.id ? serverComment : comment
-            )
-          };
-        });
+        if (serverComment) {
+          setComments((prev) => {
+            const productComments = prev[productId] ?? [];
+            return {
+              ...prev,
+              [productId]: productComments.map((comment) =>
+                comment.id === optimisticComment.id ? serverComment : comment
+              )
+            };
+          });
 
-        setNewComment({ rating: 5, text: '', author: '', email: '' });
+          setNewComment({ rating: 5, text: '', author: '', email: '' });
+        } else {
+          throw new Error(t.comments.submitError);
+        }
       } catch (error) {
         setComments((prev) => {
           const productComments = prev[productId] ?? [];
@@ -501,9 +574,13 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
           ? ((data as { comments: ApiComment[] }).comments)
           : [];
 
+        const mapped = apiComments
+          .map(mapApiComment)
+          .filter((comment): comment is ProductComment => Boolean(comment));
+
         setComments((prev) => ({
           ...prev,
-          [productId]: apiComments.map(mapApiComment)
+          [productId]: mapped
         }));
       } catch (error) {
         if (controller.signal.aborted) {
@@ -580,6 +657,73 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
           product.applications.some((app) => app.toLowerCase().includes(searchTerm.toLowerCase()))
         );
   }, [filteredProducts, searchTerm]);
+
+  const resultsCountLabel = useMemo(
+    () => `${searchedProducts.length} ${t.ui.resultsSuffix}`,
+    [searchedProducts.length, t.ui.resultsSuffix]
+  );
+
+  const productCards = useMemo(
+    () =>
+      searchedProducts.map((product) => (
+        <div
+          key={product.id}
+          className={`${cardBg} rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group border border-orange-500/20 cursor-pointer flex flex-col`}
+        >
+          <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
+            <div className="absolute inset-0 flex items-center justify-center">
+              {product.images[0]}
+            </div>
+          </div>
+
+          {product.badge && (
+            <div className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-4 py-1 rounded-full text-xs font-black shadow-lg z-10">
+              {product.badge}
+            </div>
+          )}
+
+          <div className="p-5 flex-1 flex flex-col">
+            <h3 className="text-lg md:text-xl font-black mb-1 line-clamp-2">{product.name}</h3>
+            <p className="text-xs text-orange-500 font-bold mb-2">{product.shortDesc}</p>
+
+            <p className="text-xs mb-3 leading-relaxed line-clamp-2 flex-1">{product.description}</p>
+
+            <div className="mb-4 space-y-1 text-xs">
+              {product.features.slice(0, 2).map((feature: string) => (
+                <div key={`${product.id}-${feature}`} className="flex items-start gap-2">
+                  <Check className="w-3 h-3 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <span className="line-clamp-1">{feature}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center mb-4 p-3 rounded-lg border-2 border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-purple-600/5">
+              <p className="text-xs font-bold text-orange-600 mb-0.5">{t.ui.price}</p>
+              <p className="text-sm md:text-base font-black text-orange-600 line-clamp-1">{product.price}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setSelectedProduct(product);
+                  setCurrentSlide(0);
+                }}
+                className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm"
+              >
+                {t.ui.details}
+              </button>
+              <a
+                href={`tel:${primaryPhone}`}
+                className="w-full text-center border-2 border-orange-500 text-orange-500 px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm bg-transparent"
+              >
+                {t.ui.call}
+              </a>
+            </div>
+          </div>
+        </div>
+      )),
+    [cardBg, primaryPhone, searchedProducts, t.ui]
+  );
 
   // Modal Components
   const PriceModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
@@ -723,7 +867,9 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                   {t.ui.description}
                 </h3>
               <div className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-50'} whitespace-pre-wrap leading-relaxed text-sm md:text-base`}>
-                {product.fullDescription}
+                {typeof product.fullDescription === 'string'
+                  ? product.fullDescription
+                  : String(product.fullDescription ?? '')}
               </div>
             </div>
 
@@ -1150,75 +1296,10 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
               </div>
             </div>
 
-            <div className="mb-6 text-sm font-bold">
-              {`${searchedProducts.length} ${t.ui.resultsSuffix}`}
-            </div>
+            <div className="mb-6 text-sm font-bold">{resultsCountLabel}</div>
 
             {/* Grid */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {searchedProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className={`${cardBg} rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group border border-orange-500/20 cursor-pointer flex flex-col`}
-                >
-                  <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {product.images[0]}
-                    </div>
-                  </div>
-
-                  {product.badge && (
-                    <div className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-4 py-1 rounded-full text-xs font-black shadow-lg z-10">
-                      {product.badge}
-                    </div>
-                  )}
-
-                  <div className="p-5 flex-1 flex flex-col">
-                    <h3 className="text-lg md:text-xl font-black mb-1 line-clamp-2">{product.name}</h3>
-                    <p className="text-xs text-orange-500 font-bold mb-2">{product.shortDesc}</p>
-                    
-                    <p className="text-xs mb-3 leading-relaxed line-clamp-2 flex-1">
-                      {product.description}
-                    </p>
-
-                    {/* Features */}
-                    <div className="mb-4 space-y-1 text-xs">
-                      {product.features.slice(0, 2).map((feature: string) => (
-                        <div key={`${product.id}-${feature}`} className="flex items-start gap-2">
-                          <Check className="w-3 h-3 text-orange-500 mt-0.5 flex-shrink-0" />
-                          <span className="line-clamp-1">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Price */}
-                    <div className="text-center mb-4 p-3 rounded-lg border-2 border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-purple-600/5">
-                      <p className="text-xs font-bold text-orange-600 mb-0.5">{t.ui.price}</p>
-                      <p className="text-sm md:text-base font-black text-orange-600 line-clamp-1">{product.price}</p>
-                    </div>
-
-                    {/* Buttons */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setCurrentSlide(0);
-                        }}
-                        className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm"
-                      >
-                        {t.ui.details}
-                      </button>
-                      <a
-                        href={`tel:${primaryPhone}`}
-                        className="w-full text-center border-2 border-orange-500 text-orange-500 px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm bg-transparent"
-                      >
-                        {t.ui.call}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">{productCards}</div>
 
             {searchedProducts.length === 0 && (
               <div className="text-center py-12">
@@ -1306,47 +1387,26 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-900 to-black text-gray-400 py-12 px-4">
-        <div className="container mx-auto">
-          <div className="flex justify-center gap-6 mb-8">
-            <a href={`tel:${primaryPhone}`} className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
-              <Phone className="w-6 h-6" />
-            </a>
-            <a href={`mailto:${primaryEmail}`} className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110">
-              <Mail className="w-6 h-6" />
-            </a>
-            <a
-              href={mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-12 h-12 bg-orange-500/20 hover:bg-orange-500 rounded-full flex items-center justify-center transition-all hover:scale-110"
-            >
-              <MapPin className="w-6 h-6" />
-            </a>
-          </div>
-          <p className="text-base font-bold text-white mb-1 text-center">
-            {t.companyName}
-          </p>
-          <p className="text-xs text-center">© 2024 - {t.footer.rights}</p>
-        </div>
-      </footer>
+      <Footer
+        companyName={t.companyName}
+        rights={`- ${t.footer.rights}`}
+        phone={primaryPhone}
+        email={primaryEmail}
+        mapUrl={mapUrl}
+      />
 
       {/* Modals */}
       {selectedProduct && (
-        <ProductDetailModal 
-          product={selectedProduct} 
-          onClose={() => {
-            setSelectedProduct(null);
-            setCurrentSlide(0);
-          }}
+        <ProductDetailModal
+          product={selectedProduct}
+          onClose={handleCloseProductModal}
         />
       )}
 
       {showPriceModal && (
-        <PriceModal 
-          product={priceProduct} 
-          onClose={() => setShowPriceModal(false)}
+        <PriceModal
+          product={priceProduct}
+          onClose={handleClosePriceModal}
         />
       )}
     </div>

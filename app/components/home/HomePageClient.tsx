@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Award, CheckCircle, Mail, MapPin, Phone, Shield, Users } from 'lucide-react';
+import { Award, CheckCircle, Shield, Users } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Script from 'next/script';
 import Header from '@/app/components/Header';
+import Footer from '@/app/components/Footer';
 import HeroSection from '@/app/components/home/HeroSection';
 import ServicesSection from '@/app/components/home/ServicesSection';
 import WhyUsSection from '@/app/components/home/WhyUsSection';
@@ -208,59 +209,17 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
         />
       </main>
 
-      <footer className="bg-gray-900 text-gray-400 py-16 px-4" role="contentinfo">
-        <div className="container mx-auto">
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">FS</span>
-                </div>
-                <h3 className="text-white font-bold text-xl">{messages.common.companyName}</h3>
-              </div>
-              <p className="leading-relaxed max-w-md mb-6">{messages.common.footer.about}</p>
-              <div className="flex gap-4">
-                {[Shield, Award, CheckCircle].map((Icon, i) => (
-                  <div
-                    key={i}
-                    className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer"
-                    role="img"
-                    aria-label={i === 0 ? 'ISO Certified' : i === 1 ? 'CE Compliant' : 'Verified'}
-                  >
-                    <Icon className="w-5 h-5 text-orange-500" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">{messages.common.footer.contact}</h4>
-              <address className="not-italic space-y-3">
-                <a
-                  href={`tel:${contactConfig.phones[0].value}`}
-                  className="flex items-center gap-2 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span dir="ltr">{messages.common.footer.phone}</span>
-                </a>
-                <a
-                  href={`mailto:${messages.common.footer.email}`}
-                  className="flex items-center gap-2 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 rounded"
-                >
-                  <Mail className="w-4 h-4" />
-                  {messages.common.footer.email}
-                </a>
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
-                  <span>{messages.common.footer.address}</span>
-                </div>
-              </address>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-gray-800 text-center text-sm">
-            {messages.common.footer.copyright}
-          </div>
-        </div>
-      </footer>
+      <Footer
+        variant="detailed"
+        companyName={messages.common.companyName}
+        about={messages.common.footer.about}
+        contactLabel={messages.common.footer.contact}
+        phoneLabel={messages.common.footer.phone}
+        emailLabel={messages.common.footer.email}
+        address={messages.common.footer.address}
+        copyright={messages.common.footer.copyright}
+        email={messages.common.footer.email}
+      />
 
       <ConsentBanner consent={messages.home.consent} isRTL={isRTL} />
     </div>

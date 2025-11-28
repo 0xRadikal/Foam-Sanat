@@ -49,6 +49,8 @@ export default function ConsentBanner({ consent, isRTL }: ConsentBannerProps) {
         isRTL ? 'text-right' : 'text-left'
       }`}
       dir={isRTL ? 'rtl' : 'ltr'}
+      role="region"
+      aria-label={isRTL ? 'بنر رضایت کوکی' : 'Cookie consent banner'}
     >
       <p className="mb-4">{consent.message}</p>
       <div className="flex gap-3">
