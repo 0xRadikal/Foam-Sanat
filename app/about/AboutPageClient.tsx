@@ -461,7 +461,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                 {t.vision.content}
               </p>
               <div className="space-y-4">
-              {t.vision.goals.map((goal, i) => (
+              {t.vision.goals.map((goal) => (
                 <div key={goal.year} className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold">
                       {goal.year}
