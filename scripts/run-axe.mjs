@@ -1,13 +1,26 @@
 import { chromium } from 'playwright';
 import { AxeBuilder } from '@axe-core/playwright';
+import { ensureChromiumDependencies, ensureChromiumExecutable } from './ensure-chromium.mjs';
 
 async function runAxe(url) {
-  const executablePath = process.env.CHROME_PATH || chromium.executablePath();
-  const browser = await chromium.launch({
-    headless: true,
-    executablePath,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  });
+  const executablePath = ensureChromiumExecutable();
+  let browser;
+
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    });
+  } catch (error) {
+    console.warn('Chromium launch failed, installing system dependencies via Playwright...');
+    ensureChromiumDependencies();
+    browser = await chromium.launch({
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    });
+  }
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto(url, { waitUntil: 'networkidle' });
