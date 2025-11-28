@@ -167,6 +167,7 @@ export async function verifyTurnstileToken(
   }
 
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
+  const isProd = process.env.NODE_ENV === 'production';
   if (!secretKey) {
     console.error('Turnstile verification failed: missing TURNSTILE_SECRET_KEY.');
     return {
@@ -177,6 +178,13 @@ export async function verifyTurnstileToken(
   }
 
   if (!token || token.trim().length === 0) {
+    if (!isProd) {
+      console.info(
+        'Turnstile token not provided; skipping verification in non-production environments.',
+      );
+      return null;
+    }
+
     console.warn('Turnstile secret configured but token was not provided with the request.');
     return { message: 'CAPTCHA token is required.', status: 403 };
   }
