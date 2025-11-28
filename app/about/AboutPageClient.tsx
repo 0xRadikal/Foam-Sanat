@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
-  Globe, ArrowRight, Phone,
+  Globe, ArrowRight,
   TrendingUp, Award, Users, Trophy, Rocket, Building2, Star,
   Shield, Lightbulb, Heart, Leaf, Target, Eye, CheckCircle,
   Sparkles, Zap, Gauge, Clock, ChevronDown
