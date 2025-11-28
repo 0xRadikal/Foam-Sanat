@@ -65,7 +65,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "object-src 'none';",
     "base-uri 'self';",
     "form-action 'self';",
-    "frame-ancestors 'self';",
+    "frame-ancestors 'self' https://www.google.com https://maps.google.com https://maps.googleapis.com https://maps.app.goo.gl;",
     'upgrade-insecure-requests;',
   ].join(' ');
 }
