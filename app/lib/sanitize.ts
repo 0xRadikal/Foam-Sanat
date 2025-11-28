@@ -1,11 +1,5 @@
-const HTML_ESCAPE_PATTERN = /[&<>]/g;
-
-const HTML_ESCAPE_REPLACEMENTS: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;'
-};
+import DOMPurify from 'isomorphic-dompurify';
 
 export function sanitizeForInnerHTML(value: string): string {
-  return value.replace(HTML_ESCAPE_PATTERN, (char) => HTML_ESCAPE_REPLACEMENTS[char] ?? char);
+  return DOMPurify.sanitize(value);
 }
