@@ -50,6 +50,11 @@ export type HomeNamespaceSchema = {
       sending: string;
       success: string;
       error: string;
+      captcha: string;
+      captchaRequired: string;
+      captchaExpired: string;
+      captchaError: string;
+      captchaUnavailable: string;
     };
     info: {
       title: string;
@@ -163,7 +168,12 @@ export const homeMessages = {
         submit: 'ارسال پیام',
         sending: 'در حال ارسال...',
         success: 'پیام شما با موفقیت ارسال شد',
-        error: 'خطا در ارسال پیام'
+        error: 'خطا در ارسال پیام',
+        captcha: 'اعتبارسنجی امنیتی',
+        captchaRequired: 'لطفاً بررسی امنیتی را تکمیل کنید.',
+        captchaExpired: 'کد امنیتی منقضی شد، لطفاً دوباره تلاش کنید.',
+        captchaError: 'دریافت پاسخ کپچا ممکن نیست، لطفاً دوباره تلاش کنید.',
+        captchaUnavailable: 'کپچا فعال نیست؛ ارسال در محیط تولید ممکن است با خطا مواجه شود.'
       },
       info: {
         title: 'اطلاعات تماس',
@@ -275,7 +285,12 @@ export const homeMessages = {
         submit: 'Send Message',
         sending: 'Sending...',
         success: 'Your message has been sent successfully',
-        error: 'Error sending message'
+        error: 'Error sending message',
+        captcha: 'Security check',
+        captchaRequired: 'Please complete the security check.',
+        captchaExpired: 'Security token expired. Please try again.',
+        captchaError: 'Unable to verify CAPTCHA. Please retry.',
+        captchaUnavailable: 'Security check is unavailable; submissions may fail in production.'
       },
       info: {
         title: 'Contact Information',
