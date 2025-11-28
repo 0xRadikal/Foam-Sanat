@@ -244,16 +244,19 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           {/* Animated Background */}
           {isMounted && (
             <div className="absolute inset-0 opacity-20">
-              {blobStyles.map((style, i) => (
+              {blobStyles.map((style) => {
+                const blobKey = `${style.top ?? ''}-${style.left ?? ''}-${style.width ?? ''}-${style.height ?? ''}`;
+                return (
                 <div
-                  key={i}
+                  key={blobKey}
                   className="absolute rounded-full bg-gradient-to-r from-orange-500 to-purple-600"
                   style={style}
                 />
-              ))}
-            </div>
-          )}
-        </div>
+              );
+              })}
+              </div>
+            )}
+          </div>
         
         <div className="container mx-auto relative z-10">
           <div className="text-center max-w-5xl mx-auto">
@@ -264,8 +267,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
             
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
               {t.hero.title.map((word, i) => (
-                <div 
-                  key={i}
+                <div
+                  key={word}
                   className="inline-block bg-gradient-to-r from-blue-600 via-orange-500 to-purple-600 bg-clip-text text-transparent animate-pulse"
                   style={{ animationDelay: `${i * 0.2}s` }}
                 >
@@ -311,8 +314,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
             {t.stats.map((stat, i) => {
               const Icon = statsIcons[i];
               return (
-                <div 
-                  key={i}
+                <div
+                  key={stat.label}
                   className={`${cardBg} rounded-3xl p-8 text-center group hover:scale-110 transition-all shadow-xl hover:shadow-2xl`}
                 >
                   <div className={`w-20 h-20 bg-gradient-to-br ${stat.color} rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:rotate-12 transition-transform`}>
@@ -350,7 +353,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
               return (
                 <div
-                  key={i}
+                  key={`${item.year}-${item.title}`}
                   className={`relative mb-12 transition-all duration-500 ${isActive ? 'scale-105' : ''}`}
                 >
                   <div className={`flex items-center ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
@@ -395,11 +398,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           </div>
 
           <div className="space-y-8">
-            {t.story.paragraphs.map((para, i) => (
-              <div 
-                key={i}
-                className={`${cardBg} rounded-3xl p-10 shadow-xl hover:shadow-2xl transition-all group`}
-              >
+              {t.story.paragraphs.map((para, i) => (
+                <div
+                  key={para.title}
+                  className={`${cardBg} rounded-3xl p-10 shadow-xl hover:shadow-2xl transition-all group`}
+                >
                 <div className="flex items-start gap-6">
                   <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-black text-2xl group-hover:scale-110 transition-transform">
                     {i + 1}
@@ -435,15 +438,15 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                 {t.mission.content}
               </p>
               <div className="space-y-3">
-                {t.mission.points.map((point, i) => {
-                  const Icon = missionIcons[i];
-                  return (
-                    <div key={i} className="flex items-center gap-3">
-                      <Icon className="w-6 h-6 text-orange-500 flex-shrink-0" />
-                      <span className="font-semibold">{point}</span>
-                    </div>
-                  );
-                })}
+              {t.mission.points.map((point, i) => {
+                const Icon = missionIcons[i];
+                return (
+                  <div key={point} className="flex items-center gap-3">
+                    <Icon className="w-6 h-6 text-orange-500 flex-shrink-0" />
+                    <span className="font-semibold">{point}</span>
+                  </div>
+                );
+              })}
               </div>
             </div>
 
@@ -458,8 +461,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                 {t.vision.content}
               </p>
               <div className="space-y-4">
-                {t.vision.goals.map((goal, i) => (
-                  <div key={i} className="flex items-start gap-4">
+              {t.vision.goals.map((goal) => (
+                <div key={goal.year} className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-bold">
                       {goal.year}
                     </div>
@@ -484,11 +487,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {t.values.items.map((value, i) => {
-              const Icon = valuesIcons[i];
-              return (
-                <div 
-                  key={i}
+              {t.values.items.map((value, i) => {
+                const Icon = valuesIcons[i];
+                return (
+                <div
+                    key={value.title}
                   className={`${cardBg} rounded-3xl p-10 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group`}
                 >
                   <div className={`w-20 h-20 bg-gradient-to-br ${value.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-12 transition-all shadow-xl`}>
@@ -499,9 +502,9 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                     {value.desc}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {value.metrics.map((metric, j) => (
-                      <span 
-                        key={j}
+                    {value.metrics.map((metric) => (
+                      <span
+                        key={`${value.title}-${metric}`}
                         className="bg-gradient-to-r from-orange-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-bold"
                       >
                         {metric}
@@ -525,11 +528,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {t.team.departments.map((dept, i) => {
-              const Icon = teamIcons[i];
-              return (
-                <div 
-                  key={i}
+              {t.team.departments.map((dept, i) => {
+                const Icon = teamIcons[i];
+                return (
+                <div
+                    key={dept.name}
                   className={`${cardBg} rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group`}
                 >
                   <div className={`w-20 h-20 bg-gradient-to-br ${dept.color} rounded-2xl flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform shadow-xl`}>
@@ -540,8 +543,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
                   </div>
                   <h3 className="text-2xl font-bold text-center mb-4">{dept.name}</h3>
                   <div className="space-y-2">
-                    {dept.roles.map((role, j) => (
-                      <div key={j} className={`text-center text-sm ${getThemeToken(theme, 'mutedText')}`}>
+                    {dept.roles.map((role) => (
+                      <div key={`${dept.name}-${role}`} className={`text-center text-sm ${getThemeToken(theme, 'mutedText')}`}>
                         • {role}
                       </div>
                     ))}
@@ -562,11 +565,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {t.achievements.items.map((item, i) => {
-              const Icon = achievementIcons[i];
-              return (
-                <div 
-                  key={i}
+              {t.achievements.items.map((item, i) => {
+                const Icon = achievementIcons[i];
+                return (
+                <div
+                    key={`${item.title}-${item.year}`}
                   className={`${cardBg} rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all hover:scale-105 group`}
                 >
                   <div className="flex items-center gap-6 mb-4">

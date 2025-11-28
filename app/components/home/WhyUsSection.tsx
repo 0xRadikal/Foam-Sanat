@@ -18,8 +18,8 @@ export default function WhyUsSection({ whyUs, isDark, sectionBg }: WhyUsSectionP
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6">{whyUs.title}</h2>
             <p className={`text-lg mb-8 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{whyUs.subtitle}</p>
             <div className="space-y-6">
-              {whyUs.features.map((feature, index) => (
-                <div key={index} className="flex gap-4">
+              {whyUs.features.map((feature) => (
+                <div key={feature.title} className="flex gap-4">
                   <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center flex-shrink-0">
                     <CheckCircle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                   </div>
