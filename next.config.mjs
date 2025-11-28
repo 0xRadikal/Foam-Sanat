@@ -1,3 +1,4 @@
+import bundleAnalyzer from '@next/bundle-analyzer';
 import envConfig from './env.config.js';
 
 function generatePlaceholder(key) {
@@ -49,10 +50,16 @@ validateBuildEnv();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  productionBrowserSourceMaps: true,
   images: {
     formats: ['image/avif', 'image/webp'],
     domains: ['foamsanat.com'],
   },
 };
 
-export default nextConfig;
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false,
+});
+
+export default withBundleAnalyzer(nextConfig);
