@@ -1090,7 +1090,7 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
                     <div className="flex gap-0.5 mb-3">
                       {[...Array(5)].map((_, i) => (
                         <Star
-                          key={i}
+                          key={`${comment.id}-star-${i}`}
                           className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
                         />
                       ))}
