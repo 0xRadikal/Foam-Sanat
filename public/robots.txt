@@ -3,7 +3,7 @@ User-agent: *
 Allow: /
 
 # Host
-Host: https://example.local
+Host: https://foamsanat.com
 
 # Sitemaps
-Sitemap: https://example.local/sitemap.xml
+Sitemap: https://foamsanat.com/sitemap.xml
