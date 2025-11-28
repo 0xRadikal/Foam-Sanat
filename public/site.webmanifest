@@ -1,0 +1,9 @@
+{
+  "name": "Foam Sanat",
+  "short_name": "FoamSanat",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "icons": []
+}

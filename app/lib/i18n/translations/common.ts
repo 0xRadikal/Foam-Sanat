@@ -26,6 +26,7 @@ const defaultContactPhoneFa = getEnvValue(
   ['NEXT_PUBLIC_CONTACT_PHONE_FA', 'CONTACT_PHONE_FA'],
   {
     visibility: 'public',
+    severity: 'recommended',
     fallback: '+98 912 000 0000',
   },
 );
@@ -34,6 +35,7 @@ const defaultContactPhoneEn = getEnvValue(
   ['NEXT_PUBLIC_CONTACT_PHONE_EN', 'CONTACT_PHONE_EN'],
   {
     visibility: 'public',
+    severity: 'recommended',
     fallback: '+98 21 000 0000',
   },
 );
@@ -42,6 +44,7 @@ const defaultContactEmail = getEnvValue(
   ['NEXT_PUBLIC_CONTACT_EMAIL', 'CONTACT_EMAIL'],
   {
     visibility: 'public',
+    severity: 'recommended',
     fallback: 'info@example.com',
   },
 );
