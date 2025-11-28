@@ -128,6 +128,11 @@ export function getEnvValue(keys: string | string[], options: GetEnvOptions): st
   const severity = options.severity ?? 'required';
   const message = `Missing ${options.visibility} environment value for ${traceKeyList(keyList)}.`;
 
+  // Avoid noisy client-side logs for optional public values; return the fallback silently.
+  if (!isServerRuntime && severity === 'recommended') {
+    return options.fallback ?? '';
+  }
+
   if (severity === 'required' && isProd) {
     throw new Error(message);
   }
