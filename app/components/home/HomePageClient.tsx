@@ -15,6 +15,7 @@ import { contactConfig, getContactAddress } from '@/app/config/contact';
 import { createNavigation } from '@/app/lib/navigation-config';
 import { defaultLocale, getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
+import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 
 const ConsentBanner = dynamic(() => import('@/app/components/home/ConsentBanner'), {
   ssr: false
@@ -142,7 +143,7 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
         id="schema-org"
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData)
+          __html: sanitizeForInnerHTML(JSON.stringify(structuredData))
         }}
       />
 
