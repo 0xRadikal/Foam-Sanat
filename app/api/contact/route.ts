@@ -229,6 +229,13 @@ function sanitizeRequiredContactField(
 
 async function forwardContactSubmission(payload: ContactPayload): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  if (!isProd && (!apiKey || apiKey.startsWith('re_test'))) {
+    console.info('Skipping email delivery in non-production environment.');
+    return;
+  }
+
   if (!apiKey) {
     throw new EmailProviderError('Email provider API key is not configured.');
   }

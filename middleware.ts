@@ -41,7 +41,14 @@ function buildContentSecurityPolicy(nonce: string): string {
     'https://www.googletagmanager.com',
   ];
 
-  const frameSrc = ["'self'", 'https://challenges.cloudflare.com'];
+  const frameSrc = [
+    "'self'",
+    'https://challenges.cloudflare.com',
+    'https://www.google.com',
+    'https://maps.googleapis.com',
+    'https://maps.google.com',
+    'https://maps.app.goo.gl',
+  ];
 
   const styleSrc = ["'self'", "'unsafe-inline'"];
 
