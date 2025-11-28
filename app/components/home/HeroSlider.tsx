@@ -56,7 +56,7 @@ export default function HeroSlider({ slides, isRTL, isDark }: HeroSliderProps) {
       <div className="relative h-full overflow-hidden rounded-2xl">
         {slides.map((slide, index) => (
           <div
-            key={index}
+            key={slide.title}
             className={`absolute inset-0 transition-all duration-700 ease-in-out ${
               index === current
                 ? 'opacity-100 translate-x-0'
@@ -105,9 +105,9 @@ export default function HeroSlider({ slides, isRTL, isDark }: HeroSliderProps) {
       </button>
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {slides.map((_, index) => (
+        {slides.map((slide, index) => (
           <button
-            key={index}
+            key={`${slide.title}-dot`}
             onClick={() => goToSlide(index)}
             className={`w-2 h-2 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white ${
               index === current ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'
