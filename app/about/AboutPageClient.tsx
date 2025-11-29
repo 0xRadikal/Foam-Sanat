@@ -125,11 +125,13 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const hasSyncedInitialLocale = useRef(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const blobStyles = useMemo(() => {
-    const seededRandom = createSeededRandom(hashStringToSeed(initialLocale));
-    return generateBlobs(30, seededRandom);
-  }, [initialLocale]);
+  const seededRandom = useMemo(
+    () => createSeededRandom(hashStringToSeed(initialLocale)),
+    [initialLocale],
+  );
+  const blobStyles = useMemo(() => generateBlobs(30, seededRandom), [seededRandom]);
 
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
@@ -216,6 +218,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   useEffect(() => {
     if (showVideo) {
       trackEvent('about_video_opened', { locale: lang });
+    } else {
+      setVideoError(false);
     }
   }, [showVideo, lang]);
   return (
@@ -659,15 +663,21 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
         {t.videoModal.title}
       </p>
 
-      <div className="w-full h-full">
+      <div className="w-full h-full flex flex-col gap-3">
         <video
           controls
           className="w-full h-full rounded-xl"
           poster="./images/video-poster.jpg" // اگر پوستر داری، در غیر اینصورت حذفش کن
+          onError={() => setVideoError(true)}
         >
           <source src="./videos/Factory.mp4" type="video/mp4" />
           مرورگر شما از پخش این ویدیو پشتیبانی نمی‌کند.
         </video>
+        {videoError && (
+          <p className="text-sm text-red-300 text-center" role="alert">
+            {t.videoModal.error}
+          </p>
+        )}
       </div>
     </div>
   </div>

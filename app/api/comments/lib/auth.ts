@@ -23,12 +23,6 @@ type AdminTokenPayload = {
   exp?: number;
 }; 
 
-type LegacyAdminIdentity = {
-  id: string;
-  displayName: string;
-  token: string;
-};
-
 const DEFAULT_TRUSTED_PROXIES = new Set(['127.0.0.1', '::1']);
 const ADMIN_TOKEN_ALG = 'HS256';
 const ADMIN_TOKEN_TTL_MINUTES = Number(process.env.COMMENTS_ADMIN_TOKEN_TTL_MINUTES ?? '180');
@@ -64,63 +58,6 @@ export function getClientIdentifier(request: NextRequest): string {
   }
 
   return clientIp ?? 'unknown';
-}
-
-function parseLegacyAdminIdentities(): LegacyAdminIdentity[] {
-  const fallbackToken = process.env.COMMENTS_ADMIN_TOKEN;
-  const defaultAdmin: LegacyAdminIdentity | null = fallbackToken
-    ? {
-        token: fallbackToken,
-        id: process.env.COMMENTS_ADMIN_ID || 'comments-admin',
-        displayName: process.env.COMMENTS_ADMIN_NAME || 'Comments Admin',
-      }
-    : null;
-
-  const configuredAdminsRaw = process.env.COMMENTS_ADMIN_IDENTITIES;
-  if (!configuredAdminsRaw) {
-    return defaultAdmin ? [defaultAdmin] : [];
-  }
-
-  try {
-    const parsed = JSON.parse(configuredAdminsRaw) as unknown;
-    if (!Array.isArray(parsed)) {
-      console.warn('COMMENTS_ADMIN_IDENTITIES must be a JSON array.');
-      return defaultAdmin ? [defaultAdmin] : [];
-    }
-
-    const adminEntries = parsed
-      .map((entry) => {
-        if (
-          entry &&
-          typeof entry === 'object' &&
-          'token' in entry &&
-          typeof (entry as { token: unknown }).token === 'string'
-        ) {
-          const { token, id, displayName } = entry as {
-            token: string;
-            id?: string;
-            displayName?: string;
-          };
-          return {
-            token,
-            id: id?.trim() || 'comments-admin',
-            displayName: displayName?.trim() || 'Comments Admin',
-          } satisfies LegacyAdminIdentity;
-        }
-        return null;
-      })
-      .filter(Boolean) as LegacyAdminIdentity[];
-
-    if (adminEntries.length === 0) {
-      console.warn('COMMENTS_ADMIN_IDENTITIES did not include any valid admin entries.');
-      return defaultAdmin ? [defaultAdmin] : [];
-    }
-
-    return adminEntries;
-  } catch (error) {
-    console.warn('Failed to parse COMMENTS_ADMIN_IDENTITIES. Falling back to default admin.', { error });
-    return defaultAdmin ? [defaultAdmin] : [];
-  }
 }
 
 function getAdminTokenSecrets(): string[] {
@@ -273,17 +210,6 @@ export function createSignedAdminSession(
   };
 }
 
-function verifyLegacyAdminToken(token: string): AuthenticatedAdmin | null {
-  const admin = parseLegacyAdminIdentities().find((entry) => entry.token === token.trim());
-  if (!admin) return null;
-
-  return {
-    id: admin.id,
-    displayName: admin.displayName,
-    source: 'legacy',
-  } satisfies AuthenticatedAdmin;
-}
-
 function extractBearerToken(request: NextRequest): string | null {
   const header = request.headers.get('authorization');
   if (!header) return null;
@@ -305,12 +231,6 @@ export function assertAdmin(request: NextRequest): AuthenticatedAdmin | null {
   const signedAdmin = verifySignedAdminToken(token);
   if (signedAdmin) {
     return signedAdmin;
-  }
-
-  const legacyAdmin = verifyLegacyAdminToken(token);
-  if (legacyAdmin) {
-    console.warn('Legacy admin token used. Please migrate to signed admin tokens with rotation.');
-    return legacyAdmin;
   }
 
   console.warn('Invalid admin token received.');

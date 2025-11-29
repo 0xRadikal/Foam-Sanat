@@ -12,8 +12,6 @@ function generateNonce(): string {
 // policy cannot be bypassed by markup. Update the allowlists below when adding
 // new script or iframe providers.
 function buildContentSecurityPolicy(nonce: string): string {
-  const isDev = process.env.NODE_ENV === 'development';
-
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
@@ -22,11 +20,6 @@ function buildContentSecurityPolicy(nonce: string): string {
     'https://www.google-analytics.com',
     'https://challenges.cloudflare.com',
   ];
-
-  if (isDev) {
-    // Allow React Fast Refresh / webpack dev runtime to use eval locally only during development.
-    scriptSrc.push("'unsafe-eval'");
-  }
 
   const connectSrc = [
     "'self'",
