@@ -5,12 +5,13 @@ import { getAllMessages, type MessagesByLocale } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
 import { getBreadcrumbSchema, getProductSchemas } from '@/app/lib/seo/schema';
 import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
+import { getCommentsAvailability } from '@/app/api/comments/lib/status';
 
 interface ProductsPageProps {
   searchParams?: { lang?: string };
 }
 
-export default function ProductsPage({ searchParams }: ProductsPageProps) {
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const locale = resolveLocale(searchParams?.lang, { warn: true });
   const messages: MessagesByLocale<typeof locale> = getAllMessages(locale);
   const cspNonce = headers().get('x-csp-nonce') ?? undefined;
@@ -19,6 +20,7 @@ export default function ProductsPage({ searchParams }: ProductsPageProps) {
     { name: messages.common.nav.home, path: '' },
     { name: messages.common.nav.products, path: 'products' },
   ]);
+  const commentsAvailability = await getCommentsAvailability();
 
   return (
     <>
@@ -40,7 +42,12 @@ export default function ProductsPage({ searchParams }: ProductsPageProps) {
           __html: sanitizeForInnerHTML(JSON.stringify(breadcrumbSchema)),
         }}
       />
-      <ProductsPageClient initialLocale={locale} initialMessages={messages} />
+      <ProductsPageClient
+        initialLocale={locale}
+        initialMessages={messages}
+        commentsEnabled={commentsAvailability.enabled}
+        commentsDisabledReason={commentsAvailability.reason}
+      />
     </>
   );
 }

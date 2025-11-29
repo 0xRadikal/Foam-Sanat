@@ -60,6 +60,9 @@ export type HomeNamespaceSchema = {
       captchaExpired: string;
       captchaError: string;
       captchaUnavailable: string;
+      captchaFailed: string;
+      captchaTemporarilyUnavailable: string;
+      invalidOrigin: string;
     };
     info: {
       title: string;
@@ -183,7 +186,10 @@ export const homeMessages = {
         captchaRequired: 'لطفاً بررسی امنیتی را تکمیل کنید.',
         captchaExpired: 'کد امنیتی منقضی شد، لطفاً دوباره تلاش کنید.',
         captchaError: 'دریافت پاسخ کپچا ممکن نیست، لطفاً دوباره تلاش کنید.',
-        captchaUnavailable: 'کپچا فعال نیست؛ ارسال در محیط تولید ممکن است با خطا مواجه شود.'
+        captchaUnavailable: 'کپچا فعال نیست؛ ارسال در محیط تولید ممکن است با خطا مواجه شود.',
+        captchaFailed: 'تأیید کپچا انجام نشد، لطفاً دوباره تلاش کنید.',
+        captchaTemporarilyUnavailable: 'بررسی کپچا در حال حاضر ممکن نیست؛ بعداً دوباره تلاش کنید.',
+        invalidOrigin: 'مبدا درخواست معتبر نیست. لطفاً صفحه را تازه‌سازی کنید.'
       },
       info: {
         title: 'اطلاعات تماس',
@@ -305,7 +311,10 @@ export const homeMessages = {
         captchaRequired: 'Please complete the security check.',
         captchaExpired: 'Security token expired. Please try again.',
         captchaError: 'Unable to verify CAPTCHA. Please retry.',
-        captchaUnavailable: 'Security check is unavailable; submissions may fail in production.'
+        captchaUnavailable: 'Security check is unavailable; submissions may fail in production.',
+        captchaFailed: 'CAPTCHA verification failed. Please retry.',
+        captchaTemporarilyUnavailable: 'CAPTCHA verification is temporarily unavailable; please try again later.',
+        invalidOrigin: 'The request origin is not allowed. Please refresh and try again.'
       },
       info: {
         title: 'Contact Information',

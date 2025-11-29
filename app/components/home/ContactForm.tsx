@@ -35,6 +35,18 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
   const hasError = status === 'error';
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const captchaEnabled = useMemo(() => Boolean(turnstileSiteKey), [turnstileSiteKey]);
+  const errorMessageMap = useMemo(
+    () => ({
+      'CAPTCHA token is required.': contact.form.captchaRequired,
+      'CAPTCHA verification failed.': contact.form.captchaFailed,
+      'CAPTCHA verification is unavailable due to server configuration.':
+        contact.form.captchaUnavailable,
+      'Unable to verify CAPTCHA at this time. Please try again later.':
+        contact.form.captchaTemporarilyUnavailable,
+      'Invalid request origin.': contact.form.invalidOrigin,
+    }),
+    [contact.form],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,19 +112,23 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
           email: trimmedEmail,
           phone: trimmedPhone,
           message: trimmedMessage,
-          turnstileToken: captchaToken || undefined
-        })
+          turnstileToken: captchaToken || undefined,
+        }),
       });
 
       if (!response.ok) {
-        let errorData;
+        let errorMessage: string = contact.form.errorGeneric;
         try {
-          errorData = await response.json();
+          const errorData = (await response.json()) as { message?: string; error?: string };
+          const rawMessage = errorData.message || errorData.error;
+          if (rawMessage && rawMessage in errorMessageMap) {
+            errorMessage = errorMessageMap[rawMessage as keyof typeof errorMessageMap];
+          }
         } catch {
-          errorData = { message: contact.form.errorGeneric };
+          // Fallback to generic error
         }
 
-        throw new Error(errorData.message || contact.form.errorGeneric);
+        throw new Error(errorMessage || contact.form.errorGeneric);
       }
 
       await response.json();
@@ -132,8 +148,11 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
     } catch (error) {
       console.error('Contact form submission error:', error);
 
-      setErrorMessage(contact.form.errorGeneric);
-      setCaptchaError(contact.form.errorGeneric);
+      const message =
+        error instanceof Error && error.message ? error.message : contact.form.errorGeneric;
+
+      setErrorMessage(message);
+      setCaptchaError(message);
       setStatus('error');
       setCaptchaRefresh((current) => current + 1);
 

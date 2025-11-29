@@ -72,6 +72,7 @@ export type ProductsNamespaceSchema = {
     replyFailed: string;
     loadFailed: string;
     loading: string;
+    disabled: string;
     status: {
       pending: string;
       approved: string;
@@ -345,6 +346,7 @@ export const productsMessages = {
       replyFailed: 'ارسال پاسخ انجام نشد.',
       loadFailed: 'امکان بارگذاری نظرات نبود.',
       loading: 'در حال بارگذاری نظرات...',
+      disabled: 'ثبت نظرات در حال حاضر غیرفعال است.',
       status: {
         pending: 'در انتظار تایید',
         approved: 'تایید شده',
@@ -621,6 +623,7 @@ Foam filter benefits:
       replyFailed: 'Unable to send your reply.',
       loadFailed: 'Unable to load comments.',
       loading: 'Loading comments...',
+      disabled: 'Comments are currently disabled.',
       status: {
         pending: 'Pending review',
         approved: 'Approved',
