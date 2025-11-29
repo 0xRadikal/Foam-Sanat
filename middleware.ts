@@ -12,10 +12,16 @@ function generateNonce(): string {
 // policy cannot be bypassed by markup. Update the allowlists below when adding
 // new script or iframe providers.
 function buildContentSecurityPolicy(nonce: string): string {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
+    // Next.js uses eval-based tooling in development. Adding 'unsafe-eval'
+    // here prevents CSP violations when running the dev server while keeping
+    // production as strict as possible.
+    ...(isDevelopment ? ["'unsafe-eval'"] : []),
     'https://www.googletagmanager.com',
     'https://www.google-analytics.com',
     'https://challenges.cloudflare.com',
