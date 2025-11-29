@@ -2,15 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import '@/app/lib/server-bootstrap';
 
-const isDev = process.env.NODE_ENV === 'development';
-
 function generateNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
   return btoa(String.fromCharCode(...array));
 }
 
+// CSP is enforced via HTTP headers (never via <meta http-equiv>) to ensure the
+// policy cannot be bypassed by markup. Update the allowlists below when adding
+// new script or iframe providers.
 function buildContentSecurityPolicy(nonce: string): string {
+  const isDev = process.env.NODE_ENV === 'development';
+
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
@@ -21,7 +24,7 @@ function buildContentSecurityPolicy(nonce: string): string {
   ];
 
   if (isDev) {
-    // Allow React Fast Refresh / webpack dev runtime to use eval locally.
+    // Allow React Fast Refresh / webpack dev runtime to use eval locally only during development.
     scriptSrc.push("'unsafe-eval'");
   }
 
@@ -43,12 +46,18 @@ function buildContentSecurityPolicy(nonce: string): string {
 
   const frameSrc = [
     "'self'",
+    // Cloudflare Turnstile challenge iframe
     'https://challenges.cloudflare.com',
-    'https://www.google.com',
-    'https://maps.googleapis.com',
-    'https://maps.google.com',
+    // Google Maps embeds used in ContactSection map URL
     'https://maps.app.goo.gl',
+    'https://www.google.com',
+    'https://maps.google.com',
+    'https://maps.googleapis.com',
   ];
+
+  // Restrict which origins can frame this site. Expand only if there is a
+  // demonstrated embedding requirement.
+  const frameAncestors = ["'self'"];
 
   const styleSrc = ["'self'", "'unsafe-inline'"];
 
@@ -65,7 +74,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "object-src 'none';",
     "base-uri 'self';",
     "form-action 'self';",
-    "frame-ancestors 'self' https://www.google.com https://maps.google.com https://maps.googleapis.com https://maps.app.goo.gl;",
+    `frame-ancestors ${frameAncestors.join(' ')};`,
     'upgrade-insecure-requests;',
   ].join(' ');
 }

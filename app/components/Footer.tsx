@@ -42,12 +42,16 @@ export default function Footer(props: FooterProps) {
               </div>
               <p className="leading-relaxed max-w-md mb-6">{about}</p>
               <div className="flex gap-4">
-                {[Shield, Award, CheckCircle].map((Icon, i) => (
+                {[
+                  { key: 'iso', Icon: Shield, label: 'ISO Certified' },
+                  { key: 'ce', Icon: Award, label: 'CE Compliant' },
+                  { key: 'verified', Icon: CheckCircle, label: 'Verified' }
+                ].map(({ key, Icon, label }) => (
                   <div
-                    key={i}
+                    key={key}
                     className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer"
                     role="img"
-                    aria-label={i === 0 ? 'ISO Certified' : i === 1 ? 'CE Compliant' : 'Verified'}
+                    aria-label={label}
                   >
                     <Icon className="w-5 h-5 text-orange-500" />
                   </div>
