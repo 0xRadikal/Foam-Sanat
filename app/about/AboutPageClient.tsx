@@ -642,21 +642,41 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
         mapUrl={mapUrl}
       />
 
-      {/* Video Modal */}
-      {showVideo && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setShowVideo(false)}>
-          <div className="max-w-4xl w-full aspect-video bg-gray-800 rounded-2xl flex items-center justify-center">
-            <p className="text-white text-2xl">{t.videoModal.title}</p>
-          </div>
-        </div>
-      )}
+{/* Video Modal */}
+{showVideo && (
+  <div
+    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+    onClick={() => setShowVideo(false)}
+  >
+    <div
+      className="max-w-4xl w-full aspect-video bg-gray-800 rounded-2xl flex flex-col items-center justify-center"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <p className="text-white text-lg mb-3 text-center">
+        {t.videoModal.title}
+      </p>
 
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-20px) scale(1.05); }
-        }
-      `}</style>
+      <div className="w-full h-full">
+        <video
+          controls
+          className="w-full h-full rounded-xl"
+          poster="./images/video-poster.jpg" // اگر پوستر داری، در غیر اینصورت حذفش کن
+        >
+          <source src="./videos/Factory.mp4" type="video/mp4" />
+          مرورگر شما از پخش این ویدیو پشتیبانی نمی‌کند.
+        </video>
+      </div>
+    </div>
+  </div>
+)}
+
+<style jsx>{`
+  @keyframes float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
+  }
+`}</style>
+
     </div>
     
   );
