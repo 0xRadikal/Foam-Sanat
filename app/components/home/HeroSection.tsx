@@ -4,6 +4,8 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { ArrowRight } from 'lucide-react';
 import type { HomeNamespaceSchema } from '@/app/lib/i18n';
+import type { Locale } from '@/app/lib/i18n';
+import { trackEvent } from '@/app/lib/analytics';
 
 const HeroSlider = dynamic(() => import('./HeroSlider'), {
   ssr: false,
@@ -20,9 +22,10 @@ type HeroSectionProps = {
   slider: HomeSliderMessages;
   isDark: boolean;
   isRTL: boolean;
+  locale: Locale;
 };
 
-export default function HeroSection({ hero, slider, isDark, isRTL }: HeroSectionProps) {
+export default function HeroSection({ hero, slider, isDark, isRTL, locale }: HeroSectionProps) {
   return (
     <section id="home" className="relative pt-32 pb-20 px-4 overflow-hidden">
       <div
@@ -45,6 +48,11 @@ export default function HeroSection({ hero, slider, isDark, isRTL }: HeroSection
               <a
                 href="#contact"
                 className="group inline-flex items-center justify-center gap-2 bg-orange-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-orange-600 transition-all hover:scale-105 shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
+                onClick={() =>
+                  trackEvent('homepage_primary_cta_clicked', {
+                    locale,
+                  })
+                }
               >
                 {hero.cta1}
                 <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${isRTL ? 'rotate-180' : ''}`} />
