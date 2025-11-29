@@ -34,23 +34,26 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const captchaEnabled = useMemo(() => Boolean(turnstileSiteKey), [turnstileSiteKey]);
 
-  // ✅ FIX #10: Improved error handling with specific messages
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus('sending');
     setErrorMessage('');
+    setCaptchaError(null);
 
     const trimmedName = formState.name.trim();
     const trimmedEmail = formState.email.trim();
     const trimmedPhone = formState.phone.trim();
     const trimmedMessage = formState.message.trim();
 
+    const setFieldError = (message: string) => {
+      setStatus('error');
+      setErrorMessage(message);
+    };
+
     if (
       trimmedName.length < VALIDATION_RULES.name.minLength ||
       trimmedName.length > VALIDATION_RULES.name.maxLength
     ) {
-      setStatus('error');
-      setErrorMessage(contact.form.error);
+      setFieldError(contact.form.errorName);
       return;
     }
 
@@ -59,33 +62,32 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       trimmedEmail.length > VALIDATION_RULES.email.maxLength ||
       !validateEmail(trimmedEmail)
     ) {
-      setStatus('error');
-      setErrorMessage(contact.form.error);
+      setFieldError(contact.form.errorEmail);
       return;
     }
 
     if (
-      trimmedPhone.length < VALIDATION_RULES.phone.minLength ||
-      trimmedPhone.length > VALIDATION_RULES.phone.maxLength ||
-      !validatePhone(trimmedPhone)
+      trimmedPhone &&
+      (trimmedPhone.length < VALIDATION_RULES.phone.minLength ||
+        trimmedPhone.length > VALIDATION_RULES.phone.maxLength ||
+        !validatePhone(trimmedPhone))
     ) {
-      setStatus('error');
-      setErrorMessage(contact.form.error);
+      setFieldError(contact.form.errorPhone);
       return;
     }
 
     if (trimmedMessage.length < 10) {
-      setStatus('error');
-      setErrorMessage(contact.form.error);
+      setFieldError(contact.form.errorMessage);
       return;
     }
 
     if (captchaEnabled && !captchaToken) {
-      setStatus('error');
-      setErrorMessage(contact.form.captchaRequired);
+      setFieldError(contact.form.captchaRequired);
       setCaptchaError(contact.form.captchaRequired);
       return;
     }
+
+    setStatus('sending');
 
     try {
       const response = await fetch('/api/contact', {
@@ -100,16 +102,15 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
         })
       });
 
-      // ✅ FIXED: Properly handle non-OK responses
       if (!response.ok) {
         let errorData;
         try {
           errorData = await response.json();
         } catch {
-          errorData = { message: 'Server error occurred' };
+          errorData = { message: contact.form.errorGeneric };
         }
-        
-        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+
+        throw new Error(errorData.message || contact.form.errorGeneric);
       }
 
       await response.json();
@@ -121,17 +122,11 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
 
       // Auto-clear success message after 5 seconds
       setTimeout(() => setStatus('idle'), 5000);
-      
     } catch (error) {
-      // ✅ FIXED: Better error logging and user feedback
       console.error('Contact form submission error:', error);
-      
-      const message = error instanceof Error
-        ? error.message
-        : 'Failed to submit form. Please try again.';
 
-      setErrorMessage(message);
-      setCaptchaError(message);
+      setErrorMessage(contact.form.errorGeneric);
+      setCaptchaError(contact.form.errorGeneric);
       setStatus('error');
       setCaptchaRefresh((current) => current + 1);
 
@@ -210,7 +205,6 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
         <input
           type="tel"
           id="phone"
-          required
           value={formState.phone}
           onChange={(e) => {
             setFormState({ ...formState, phone: e.target.value });
