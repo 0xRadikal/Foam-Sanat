@@ -160,12 +160,16 @@ export default function ProductsPageClient({
   // Load stored admin token
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const storedToken = localStorage.getItem('comments-admin-token');
-    if (storedToken && isLikelySignedAdminToken(storedToken)) {
-      setAdminToken(storedToken);
-      setAdminTokenInput(storedToken);
-    } else if (storedToken) {
-      localStorage.removeItem('comments-admin-token');
+    try {
+      const storedToken = localStorage.getItem('comments-admin-token');
+      if (storedToken && isLikelySignedAdminToken(storedToken)) {
+        setAdminToken(storedToken);
+        setAdminTokenInput(storedToken);
+      } else if (storedToken) {
+        localStorage.removeItem('comments-admin-token');
+      }
+    } catch (error) {
+      console.warn('Unable to read admin token from storage:', error);
     }
   }, []);
 
@@ -179,7 +183,7 @@ export default function ProductsPageClient({
 
   const t = useMemo(() => messages.products, [messages]);
 
-  const resetCommentUIState = useCallback(() => {
+  const handleCloseProductModal = useCallback(() => {
     setReplyingTo(null);
     setReplyText('');
     setCommentError(null);
@@ -188,19 +192,15 @@ export default function ProductsPageClient({
     setNewComment(createDefaultComment());
     setCurrentSlide(0);
     setReplyLoading(null);
-  }, []);
-
-  const handleCloseProductModal = useCallback(() => {
     setSelectedProduct(null);
-    resetCommentUIState();
-  }, [resetCommentUIState]);
+  }, []);
 
   const handleSelectProduct = useCallback(
     (product: Product) => {
-      resetCommentUIState();
+      handleCloseProductModal();
       setSelectedProduct(product);
     },
-    [resetCommentUIState]
+    [handleCloseProductModal]
   );
 
   const handleClosePriceModal = useCallback(() => {
@@ -292,28 +292,44 @@ export default function ProductsPageClient({
     if (typeof window === 'undefined') return;
     const trimmed = adminTokenInput.trim();
     if (!trimmed) {
-      localStorage.removeItem('comments-admin-token');
+      try {
+        localStorage.removeItem('comments-admin-token');
+      } catch (error) {
+        console.warn('Unable to clear admin token from storage:', error);
+      }
       setAdminToken('');
       setCommentError(null);
       return;
     }
 
     if (!isLikelySignedAdminToken(trimmed)) {
-      localStorage.removeItem('comments-admin-token');
+      try {
+        localStorage.removeItem('comments-admin-token');
+      } catch (error) {
+        console.warn('Unable to clear admin token from storage:', error);
+      }
       setAdminToken('');
       setCommentError(t.comments.adminTokenRequired);
       return;
     }
 
-      localStorage.setItem('comments-admin-token', trimmed);
+      try {
+        localStorage.setItem('comments-admin-token', trimmed);
+      } catch (error) {
+        console.warn('Unable to persist admin token:', error);
+      }
       setAdminToken(trimmed);
-    setCommentError(null);
+      setCommentError(null);
   }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
   const handleClearAdminToken = useCallback(() => {
     if (!commentsEnabled) return;
     if (typeof window === 'undefined') return;
-    localStorage.removeItem('comments-admin-token');
+    try {
+      localStorage.removeItem('comments-admin-token');
+    } catch (error) {
+      console.warn('Unable to clear admin token from storage:', error);
+    }
     setAdminToken('');
     setAdminTokenInput('');
     setCommentError(null);
@@ -698,9 +714,16 @@ export default function ProductsPageClient({
         );
   }, [filteredProducts, searchTerm]);
 
+  const {
+    resultsSuffix,
+    details: detailsLabel,
+    call: callLabel,
+    price: priceLabel,
+  } = t.ui;
+
   const resultsCountLabel = useMemo(
-    () => `${searchedProducts.length} ${t.ui.resultsSuffix}`,
-    [searchedProducts.length, t.ui.resultsSuffix]
+    () => `${searchedProducts.length} ${resultsSuffix}`,
+    [resultsSuffix, searchedProducts.length]
   );
 
   const productCards = useMemo(
@@ -712,7 +735,8 @@ export default function ProductsPageClient({
         >
           <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
             <div className="absolute inset-0 flex items-center justify-center">
-              {product.images[0]}
+              <span aria-hidden="true">{product.images[0]}</span>
+              <span className="sr-only">{product.name}</span>
             </div>
           </div>
 
@@ -738,7 +762,7 @@ export default function ProductsPageClient({
             </div>
 
             <div className="text-center mb-4 p-3 rounded-lg border-2 border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-purple-600/5">
-              <p className="text-xs font-bold text-orange-600 mb-0.5">{t.ui.price}</p>
+              <p className="text-xs font-bold text-orange-600 mb-0.5">{priceLabel}</p>
               <p className="text-sm md:text-base font-black text-orange-600 line-clamp-1">{product.price}</p>
             </div>
 
@@ -749,13 +773,13 @@ export default function ProductsPageClient({
                   }}
                 className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm"
               >
-                {t.ui.details}
+                {detailsLabel}
               </button>
               <a
                 href={`tel:${primaryPhone}`}
                 className="w-full text-center border-2 border-orange-500 text-orange-500 px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm bg-transparent"
               >
-                {t.ui.call}
+                {callLabel}
               </a>
             </div>
           </div>
@@ -766,7 +790,9 @@ export default function ProductsPageClient({
       handleSelectProduct,
       primaryPhone,
       searchedProducts,
-      t.ui,
+      callLabel,
+      detailsLabel,
+      priceLabel,
     ]
   );
 
@@ -836,20 +862,21 @@ export default function ProductsPageClient({
           <div className="mb-8">
             <div className="relative mb-4 group">
               <div className="aspect-video bg-gradient-to-br from-orange-400 to-purple-600 rounded-2xl flex items-center justify-center text-6xl md:text-8xl overflow-hidden w-full">
-                {product.images[currentSlide]}
+                <span aria-hidden="true">{product.images[currentSlide]}</span>
+                <span className="sr-only">{product.name}</span>
               </div>
               
               {product.images.length > 1 && (
                 <>
                     <button
                       onClick={() => setCurrentSlide((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                     >
                       <ChevronLeft className="w-6 h-6" />
                     </button>
                     <button
                       onClick={() => setCurrentSlide((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                     >
                       <ChevronRight className="w-6 h-6" />
                     </button>
@@ -863,7 +890,7 @@ export default function ProductsPageClient({
                           className={`w-3 h-3 rounded-full transition-all ${
                             i === currentSlide ? 'bg-orange-500 w-8' : 'bg-gray-400'
                           }`}
-                          aria-label={`Image ${i + 1}`}
+                          aria-label={`${product.name} image ${i + 1} of ${product.images.length}`}
                         />
                       );
                     })}
@@ -1005,6 +1032,7 @@ export default function ProductsPageClient({
                           aria-label={`${
                             showAdminToken ? t.comments.hideToken : t.comments.showToken
                           } ${t.comments.tokenPlaceholder}`}
+                          aria-pressed={showAdminToken}
                         >
                           {showAdminToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           <span className="hidden sm:inline">
@@ -1037,17 +1065,17 @@ export default function ProductsPageClient({
 
                 {commentsLoading && (
                   <div
-                    className={`mb-4 flex items-center gap-2 text-sm ${
-                      isDark ? 'text-gray-300' : 'text-gray-700'
-                    }`}
+                    className={`mb-6 flex items-center justify-center gap-3 rounded-xl border ${
+                      isDark ? 'border-gray-600 bg-gray-800/60 text-gray-200' : 'border-gray-200 bg-white text-gray-700'
+                    } p-4 shadow-sm`}
                     role="status"
                     aria-live="polite"
                   >
                     <span
-                      className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent"
+                      className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent"
                       aria-hidden
                     />
-                    <span>{t.comments.loading}</span>
+                    <span className="font-semibold">{t.comments.loading}</span>
                   </div>
                 )}
 

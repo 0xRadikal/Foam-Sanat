@@ -20,13 +20,11 @@ function NavLink({
   onClick?: () => void;
 }) {
   const isHashLink = (() => {
-    if (item.href.startsWith('#')) return true;
-
     try {
       const parsed = new URL(item.href, 'http://localhost');
-      return parsed.hash.length > 0 && parsed.pathname === '/';
+      return Boolean(parsed.hash) && (!parsed.pathname || parsed.pathname === '/');
     } catch {
-      return false;
+      return item.href.startsWith('#');
     }
   })();
   const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverClass}`;
@@ -63,7 +61,18 @@ function NavLink({
   );
 }
 
-const MemoizedNavLink = memo(NavLink);
+const MemoizedNavLink = memo(
+  NavLink,
+  (prev, next) =>
+    prev.item.key === next.item.key &&
+    prev.item.href === next.item.href &&
+    prev.item.label === next.item.label &&
+    prev.item.variant === next.item.variant &&
+    prev.isMobile === next.isMobile &&
+    prev.isActive === next.isActive &&
+    prev.hoverClass === next.hoverClass &&
+    prev.onClick === next.onClick,
+);
 
 interface HeaderProps {
   lang: Locale;

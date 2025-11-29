@@ -50,6 +50,17 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
     [contact.form],
   );
 
+  const translateApiError = useCallback(
+    (message?: string | null) => {
+      const normalizedKey = message ? normalizeErrorKey(message) : null;
+      if (normalizedKey && normalizedKey in errorMessageMap) {
+        return errorMessageMap[normalizedKey as keyof typeof errorMessageMap];
+      }
+      return null;
+    },
+    [errorMessageMap, normalizeErrorKey],
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -88,10 +99,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         try {
           const errorData = (await response.json()) as { message?: string; error?: string };
           const rawMessage = errorData.message || errorData.error;
-          const normalizedKey = rawMessage ? normalizeErrorKey(rawMessage) : null;
-          if (normalizedKey && normalizedKey in errorMessageMap) {
-            errorMessage = errorMessageMap[normalizedKey as keyof typeof errorMessageMap];
-          }
+          errorMessage = translateApiError(rawMessage) ?? errorMessage;
         } catch {
           // Fallback to generic error
         }
@@ -116,14 +124,8 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
     } catch (error) {
       console.error('Contact form submission error:', error);
 
-      const normalizedKey =
-        error instanceof Error && error.message
-          ? normalizeErrorKey(error.message)
-          : null;
-
-      const mappedError = normalizedKey
-        ? errorMessageMap[normalizedKey as keyof typeof errorMessageMap]
-        : undefined;
+      const mappedError =
+        error instanceof Error ? translateApiError(error.message) : translateApiError(null);
 
       const message = mappedError ?? contact.form.errorGeneric;
       const captchaMessages: string[] = [
