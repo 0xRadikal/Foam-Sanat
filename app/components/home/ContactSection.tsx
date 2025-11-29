@@ -29,7 +29,12 @@ export default function ContactSection({ contact, locale, isRTL, isDark, cardBg,
 
         <div className="grid lg:grid-cols-2 gap-12">
           <div className={`rounded-2xl shadow-xl p-8 ${cardBg}`}>
-            <ContactForm contact={contact} isRTL={isRTL} isDark={isDark} />
+            <ContactForm
+              contact={contact}
+              isRTL={isRTL}
+              isDark={isDark}
+              locale={locale}
+            />
           </div>
 
           <div className="space-y-8">

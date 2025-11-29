@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Award, CheckCircle, Shield, Users } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import Script from 'next/script';
 import Header from '@/app/components/Header';
 import Footer from '@/app/components/Footer';
 import HeroSection from '@/app/components/home/HeroSection';
@@ -11,11 +10,9 @@ import ServicesSection from '@/app/components/home/ServicesSection';
 import WhyUsSection from '@/app/components/home/WhyUsSection';
 import FaqSection from '@/app/components/home/FaqSection';
 import ContactSection from '@/app/components/home/ContactSection';
-import { contactConfig, getContactAddress } from '@/app/config/contact';
 import { createNavigation } from '@/app/lib/navigation-config';
-import { defaultLocale, getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
+import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
-import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 
 const ConsentBanner = dynamic(() => import('@/app/components/home/ConsentBanner'), {
   ssr: false
@@ -103,35 +100,6 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
     [aboutNavLabel, contactNavLabel, faqNavLabel, homeNavLabel, productsNavLabel, whyUsNavLabel]
   );
 
-  const structuredData = useMemo(
-    () => ({
-      '@context': 'https://schema.org',
-      '@type': 'Organization',
-      name: 'Foam Sanat Industrial Group',
-      alternateName: 'گروه صنعتی فوم صنعت',
-      url: 'https://foamsanat.com',
-      logo: 'https://foamsanat.com/logo.png',
-      description: 'Leading manufacturer of PU foam injection machinery',
-      foundingDate: '2010',
-      contactPoint: {
-        '@type': 'ContactPoint',
-        telephone: contactConfig.phones[0].value,
-        contactType: 'customer service',
-        email: contactConfig.emails[0].value,
-        areaServed: ['IR', 'TR', 'AE', 'EU'],
-        availableLanguage: ['fa', 'en', 'ar', 'tr']
-      },
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: getContactAddress(defaultLocale),
-        addressLocality: 'Karaj',
-        addressRegion: 'Tehran',
-        addressCountry: 'IR'
-      }
-    }),
-    []
-  );
-
   return (
     <div
       className={`min-h-screen transition-colors duration-300 ${pageBackground} ${pageText}`}
@@ -139,14 +107,6 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
       lang={activeLocale}
       style={{ fontFamily }}
     >
-      <Script
-        id="schema-org"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: sanitizeForInnerHTML(JSON.stringify(structuredData))
-        }}
-      />
-
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:z-50 bg-orange-500 text-white px-6 py-3 rounded-lg shadow-lg focus:outline-none focus:ring-4 focus:ring-orange-300"
@@ -172,7 +132,13 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
       />
 
       <main id="main-content" role="main">
-        <HeroSection hero={messages.home.hero} slider={messages.home.slider} isDark={isDark} isRTL={isRTL} />
+        <HeroSection
+          hero={messages.home.hero}
+          slider={messages.home.slider}
+          isDark={isDark}
+          isRTL={isRTL}
+          locale={activeLocale}
+        />
 
         <section className={`py-12 ${sectionBg}`} aria-label="Certifications and achievements">
           <div className="container mx-auto px-4">

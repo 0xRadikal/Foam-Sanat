@@ -10,6 +10,7 @@ import { isLocale, localeSettings } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
 import { renderResourceHints } from '@/app/lib/headResources';
 import { SiteChromeProvider } from '@/app/lib/useSiteChrome';
+import { getFaqSchema, getOrganizationSchema } from '@/app/lib/seo/schema';
 import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 import './globals.css';
 
@@ -147,10 +148,14 @@ export default function RootLayout({
   };
 
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+  const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
   const cspNonce = requestHeaders.get('x-csp-nonce') ?? undefined;
   const permissionsPolicy =
     'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()';
   const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;
+  const gtmIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GTM_ID : undefined;
+  const organizationSchema = getOrganizationSchema(runtimeLocale as 'fa' | 'en');
+  const faqSchema = getFaqSchema(runtimeLocale as 'fa' | 'en');
 
   return (
     <html
@@ -168,6 +173,24 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#FF6700" />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
         <meta httpEquiv="Permissions-Policy" content={permissionsPolicy} />
+        <Script
+          id="organization-schema"
+          type="application/ld+json"
+          strategy="afterInteractive"
+          nonce={cspNonce}
+          dangerouslySetInnerHTML={{
+            __html: sanitizeForInnerHTML(JSON.stringify(organizationSchema)),
+          }}
+        />
+        <Script
+          id="faq-schema"
+          type="application/ld+json"
+          strategy="afterInteractive"
+          nonce={cspNonce}
+          dangerouslySetInnerHTML={{
+            __html: sanitizeForInnerHTML(JSON.stringify(faqSchema)),
+          }}
+        />
       </head>
       <body className={bodyClassName} suppressHydrationWarning style={bodyStyle}>
         <FontConsentController
@@ -177,6 +200,7 @@ export default function RootLayout({
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
         <AnalyticsManager
           gaTrackingId={analyticsIdForLocale}
+          gtmId={gtmIdForLocale}
           locale={runtimeLocale}
           nonce={cspNonce}
         />

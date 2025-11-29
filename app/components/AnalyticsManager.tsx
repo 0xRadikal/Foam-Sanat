@@ -36,17 +36,20 @@ function useAnalyticsConsent(locale: SupportedLocale, enabled: boolean) {
 
 export function AnalyticsManager({
   gaTrackingId,
+  gtmId,
   locale,
   nonce,
 }: {
   gaTrackingId?: string;
+  gtmId?: string;
   locale: SupportedLocale;
   nonce?: string;
 }) {
   const localeAllowsAnalytics = localeSettings[locale].analyticsEnabled;
   const shouldLoadAnalytics = useAnalyticsConsent(locale, localeAllowsAnalytics);
 
-  if (!shouldLoadAnalytics || !gaTrackingId || !localeAllowsAnalytics) return null;
+  if (!shouldLoadAnalytics || !localeAllowsAnalytics || (!gaTrackingId && !gtmId))
+    return null;
 
-  return renderAnalyticsScripts(gaTrackingId, nonce);
+  return renderAnalyticsScripts(gaTrackingId, nonce, gtmId);
 }
