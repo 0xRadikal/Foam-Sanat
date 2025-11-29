@@ -99,16 +99,42 @@ export function getProductSchemas(locale: SupportedSchemaLocale) {
   });
 }
 
+type BreadcrumbSegment =
+  | string
+  | { name: string; path?: string; href?: string };
+
 export function getBreadcrumbSchema(
   _locale: SupportedSchemaLocale,
-  segments: string[],
+  segments: BreadcrumbSegment[],
 ) {
-  const itemListElements = segments.map((segment, index) => ({
-    '@type': 'ListItem',
-    position: index + 1,
-    name: segment,
-    item: `${SITE_URL}/${segments.slice(0, index + 1).join('/')}`,
-  }));
+  const normalized = segments.map((segment) => {
+    if (typeof segment === 'string') {
+      return { name: segment, path: segment };
+    }
+
+    return segment;
+  });
+
+  const itemListElements = normalized.map((segment, index) => {
+    const name = segment.name;
+    const href = segment.href;
+    const pathSegments = normalized
+      .slice(0, index + 1)
+      .map((s) => s.path ?? s.name)
+      .filter(Boolean);
+    const item = href
+      ? href
+      : pathSegments.length === 0
+        ? SITE_URL
+        : `${SITE_URL}/${pathSegments.join('/')}`;
+
+    return {
+      '@type': 'ListItem',
+      position: index + 1,
+      name,
+      item,
+    };
+  });
 
   return {
     '@context': 'https://schema.org',

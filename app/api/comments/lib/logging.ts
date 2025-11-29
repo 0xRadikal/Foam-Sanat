@@ -1,26 +1,35 @@
 import type { NextRequest } from 'next/server';
+import { createRequestLogger, type RequestLoggingContext } from '../../lib/logging';
 
-export function emitMetric(name: string, opts?: Record<string, unknown>): void {
-  // mark params as intentionally unused so lint doesn't fail
-  void name;
-  void opts;
-  // no-op placeholder for metrics emission.
-  return;
+type MetricTags = Record<string, string | number | boolean | null | undefined>;
+
+type MetricOptions = {
+  value?: number;
+  tags?: MetricTags;
+  requestId?: string;
+};
+
+export function emitMetric(name: string, opts: MetricOptions = {}): void {
+  const payload = {
+    event: 'metric',
+    name,
+    value: opts.value ?? 1,
+    tags: opts.tags,
+    requestId: opts.requestId,
+    timestamp: new Date().toISOString(),
+  };
+
+  console.info(payload);
 }
 
 export function withRequestLogging(handler: (...args: unknown[]) => unknown) {
-  return async (request: NextRequest, ...rest: unknown[]) => {
-    const logger = {
-      info: (...args: unknown[]) => console.info(...args),
-      warn: (...args: unknown[]) => console.warn(...args),
-      error: (...args: unknown[]) => console.error(...args),
-    };
-
-    const requestId = typeof request === 'object' && request
-      ? request.headers?.get?.('x-request-id') ?? 'local'
-      : 'local';
+  return async (
+    request: NextRequest,
+    ...rest: unknown[]
+  ): Promise<unknown> => {
+    const logging: RequestLoggingContext = createRequestLogger(request);
 
     // cast to unknown/any-like signature only at call site to avoid using `any` in declarations
-    return (handler as (...args: unknown[]) => unknown)(request, ...rest, { logger, requestId });
+    return (handler as (...args: unknown[]) => unknown)(request, ...rest, logging);
   };
 }
