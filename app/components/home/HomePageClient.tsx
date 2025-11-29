@@ -178,12 +178,12 @@ export default function HomePageClient({ initialLocale, initialMessages }: HomeP
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {[
-                { icon: Shield, text: messages.home.trust.iso, color: 'text-blue-600' },
-                { icon: Award, text: messages.home.trust.ce, color: 'text-green-600' },
-                { icon: Users, text: messages.home.trust.experience, color: 'text-purple-600' },
-                { icon: CheckCircle, text: messages.home.trust.projects, color: 'text-orange-600' }
-              ].map((item, i) => (
-                <div key={i} className="flex flex-col items-center text-center group">
+                { id: 'iso', icon: Shield, text: messages.home.trust.iso, color: 'text-blue-600' },
+                { id: 'ce', icon: Award, text: messages.home.trust.ce, color: 'text-green-600' },
+                { id: 'experience', icon: Users, text: messages.home.trust.experience, color: 'text-purple-600' },
+                { id: 'projects', icon: CheckCircle, text: messages.home.trust.projects, color: 'text-orange-600' }
+              ].map((item) => (
+                <div key={item.id} className="flex flex-col items-center text-center group">
                   <div className={`w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mb-3 transition-transform group-hover:scale-110 ${item.color}`}>
                     <item.icon className="w-8 h-8" aria-hidden="true" />
                   </div>
