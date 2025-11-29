@@ -8,6 +8,9 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...array));
 }
 
+// CSP is enforced via HTTP headers (never via <meta http-equiv>) to ensure the
+// policy cannot be bypassed by markup. Update the allowlists below when adding
+// new script or iframe providers.
 function buildContentSecurityPolicy(nonce: string): string {
   const isDev = process.env.NODE_ENV === 'development';
 
@@ -21,7 +24,7 @@ function buildContentSecurityPolicy(nonce: string): string {
   ];
 
   if (isDev) {
-    // Allow React Fast Refresh / webpack dev runtime to use eval locally.
+    // Allow React Fast Refresh / webpack dev runtime to use eval locally only during development.
     scriptSrc.push("'unsafe-eval'");
   }
 
@@ -43,13 +46,17 @@ function buildContentSecurityPolicy(nonce: string): string {
 
   const frameSrc = [
     "'self'",
+    // Cloudflare Turnstile challenge iframe
     'https://challenges.cloudflare.com',
+    // Google Maps embeds used in ContactSection map URL
+    'https://maps.app.goo.gl',
     'https://www.google.com',
     'https://maps.google.com',
     'https://maps.googleapis.com',
-    'https://maps.app.goo.gl',
   ];
 
+  // Restrict which origins can frame this site. Expand only if there is a
+  // demonstrated embedding requirement.
   const frameAncestors = ["'self'"];
 
   const styleSrc = ["'self'", "'unsafe-inline'"];
