@@ -2,10 +2,11 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import type { HomeMessages } from '@/app/lib/i18n';
+import type { HomeMessages, Locale } from '@/app/lib/i18n';
 import { validateEmail, validatePhone, VALIDATION_RULES } from '@/app/lib/validation';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 import { TurnstileWidget } from '@/app/components/TurnstileWidget';
+import { trackEvent } from '@/app/lib/analytics';
 
 type HomeContactMessages = HomeMessages['contact'];
 
@@ -13,9 +14,10 @@ type ContactFormProps = {
   contact: HomeContactMessages;
   isRTL: boolean;
   isDark: boolean;
+  locale: Locale;
 };
 
-export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps) {
+export default function ContactForm({ contact, isRTL, isDark, locale }: ContactFormProps) {
   const theme: Theme = isDark ? 'dark' : 'light';
   const statusMessageId = useId();
   const [formState, setFormState] = useState({
@@ -119,6 +121,11 @@ export default function ContactForm({ contact, isRTL, isDark }: ContactFormProps
       setFormState({ name: '', email: '', phone: '', message: '' });
       setCaptchaToken('');
       setCaptchaRefresh((current) => current + 1);
+
+      trackEvent('contact_form_submitted', {
+        locale,
+        hasPhone: Boolean(trimmedPhone),
+      });
 
       // Auto-clear success message after 5 seconds
       setTimeout(() => setStatus('idle'), 5000);

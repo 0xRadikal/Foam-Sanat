@@ -17,6 +17,7 @@ import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i1
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
+import { trackEvent, trackPageView } from '@/app/lib/analytics';
 
 type BlobStyle = CSSProperties;
 
@@ -157,11 +158,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'page_view', {
-        page_path: '/about',
-      });
-    }
+    trackPageView('/about');
   }, []);
   const {
     pageBackground,
@@ -215,6 +212,12 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
     return () => clearInterval(interval);
   }, [timelineLength]);
+
+  useEffect(() => {
+    if (showVideo) {
+      trackEvent('about_video_opened', { locale: lang });
+    }
+  }, [showVideo, lang]);
   return (
     <div
       className={`min-h-screen ${pageBackground} ${pageText} transition-all duration-300`}
