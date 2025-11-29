@@ -50,6 +50,11 @@ export type HomeNamespaceSchema = {
       sending: string;
       success: string;
       error: string;
+      errorName: string;
+      errorEmail: string;
+      errorPhone: string;
+      errorMessage: string;
+      errorGeneric: string;
       captcha: string;
       captchaRequired: string;
       captchaExpired: string;
@@ -169,6 +174,11 @@ export const homeMessages = {
         sending: 'در حال ارسال...',
         success: 'پیام شما با موفقیت ارسال شد',
         error: 'خطا در ارسال پیام',
+        errorName: 'لطفاً یک نام معتبر وارد کنید.',
+        errorEmail: 'لطفاً یک ایمیل معتبر وارد کنید.',
+        errorPhone: 'لطفاً یک شماره تماس معتبر وارد کنید.',
+        errorMessage: 'پیام شما خیلی کوتاه است. لطفاً جزئیات بیشتری اضافه کنید.',
+        errorGeneric: 'مشکلی رخ داد. لطفاً دوباره تلاش کنید.',
         captcha: 'اعتبارسنجی امنیتی',
         captchaRequired: 'لطفاً بررسی امنیتی را تکمیل کنید.',
         captchaExpired: 'کد امنیتی منقضی شد، لطفاً دوباره تلاش کنید.',
@@ -286,6 +296,11 @@ export const homeMessages = {
         sending: 'Sending...',
         success: 'Your message has been sent successfully',
         error: 'Error sending message',
+        errorName: 'Please enter a valid name.',
+        errorEmail: 'Please enter a valid email address.',
+        errorPhone: 'Please enter a valid phone number.',
+        errorMessage: 'Your message is too short. Please add more details.',
+        errorGeneric: 'Something went wrong. Please try again.',
         captcha: 'Security check',
         captchaRequired: 'Please complete the security check.',
         captchaExpired: 'Security token expired. Please try again.',
