@@ -2,8 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import '@/app/lib/server-bootstrap';
 
-const isDev = process.env.NODE_ENV === 'development';
-
 function generateNonce(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
@@ -11,6 +9,8 @@ function generateNonce(): string {
 }
 
 function buildContentSecurityPolicy(nonce: string): string {
+  const isDev = process.env.NODE_ENV === 'development';
+
   const scriptSrc = [
     "'self'",
     `'nonce-${nonce}'`,
@@ -45,10 +45,12 @@ function buildContentSecurityPolicy(nonce: string): string {
     "'self'",
     'https://challenges.cloudflare.com',
     'https://www.google.com',
-    'https://maps.googleapis.com',
     'https://maps.google.com',
+    'https://maps.googleapis.com',
     'https://maps.app.goo.gl',
   ];
+
+  const frameAncestors = ["'self'"];
 
   const styleSrc = ["'self'", "'unsafe-inline'"];
 
@@ -65,7 +67,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "object-src 'none';",
     "base-uri 'self';",
     "form-action 'self';",
-    "frame-ancestors 'self' https://www.google.com https://maps.google.com https://maps.googleapis.com https://maps.app.goo.gl;",
+    `frame-ancestors ${frameAncestors.join(' ')};`,
     'upgrade-insecure-requests;',
   ].join(' ');
 }
