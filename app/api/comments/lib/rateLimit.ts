@@ -25,8 +25,15 @@ class MemoryRateLimitStore implements RateLimitStore {
   private hits: Map<string, { count: number; expiresAt: number }> = new Map();
 
   async increment(key: string, windowMs: number): Promise<{ count: number; expiresAt: number }> {
-    const existing = this.hits.get(key);
     const now = Date.now();
+
+    for (const [storedKey, { expiresAt }] of this.hits) {
+      if (expiresAt <= now) {
+        this.hits.delete(storedKey);
+      }
+    }
+
+    const existing = this.hits.get(key);
     const expiresAt = existing?.expiresAt && existing.expiresAt > now ? existing.expiresAt : now + windowMs;
     const count = existing && existing.expiresAt > now ? existing.count + 1 : 1;
 

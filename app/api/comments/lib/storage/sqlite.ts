@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { applySqliteMigrations } from './migrations';
@@ -28,23 +28,23 @@ export class SqliteCommentStorage implements CommentStorage {
   constructor(private readonly connectionString: string, private readonly options: { allowDirCreation?: boolean } = {}) {}
 
   async initialize(): Promise<void> {
-    this.performInitialization();
+    await this.performInitialization();
   }
 
-  initializeSync(): void {
-    this.performInitialization();
-  }
-
-  private performInitialization(): void {
+  private async performInitialization(): Promise<void> {
     if (this.initialized && this.db) return;
 
     const dataDir = path.dirname(this.connectionString);
     const isFileSystemPath = !this.connectionString.includes('://');
-    if (isFileSystemPath && !fs.existsSync(dataDir)) {
-      if (this.options.allowDirCreation !== false) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      } else {
-        throw new Error(`comments.sqlite.dir_missing:${dataDir}`);
+    if (isFileSystemPath) {
+      try {
+        await fs.access(dataDir);
+      } catch {
+        if (this.options.allowDirCreation !== false) {
+          await fs.mkdir(dataDir, { recursive: true });
+        } else {
+          throw new Error(`comments.sqlite.dir_missing:${dataDir}`);
+        }
       }
     }
 
