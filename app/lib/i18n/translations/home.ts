@@ -63,6 +63,8 @@ export type HomeNamespaceSchema = {
       captchaFailed: string;
       captchaTemporarilyUnavailable: string;
       invalidOrigin: string;
+      dismiss: string;
+      dismissSuccess: string;
     };
     info: {
       title: string;
@@ -189,7 +191,9 @@ export const homeMessages = {
         captchaUnavailable: 'کپچا فعال نیست؛ ارسال در محیط تولید ممکن است با خطا مواجه شود.',
         captchaFailed: 'تأیید کپچا انجام نشد، لطفاً دوباره تلاش کنید.',
         captchaTemporarilyUnavailable: 'بررسی کپچا در حال حاضر ممکن نیست؛ بعداً دوباره تلاش کنید.',
-        invalidOrigin: 'مبدا درخواست معتبر نیست. لطفاً صفحه را تازه‌سازی کنید.'
+        invalidOrigin: 'مبدا درخواست معتبر نیست. لطفاً صفحه را تازه‌سازی کنید.',
+        dismiss: 'بستن',
+        dismissSuccess: 'بستن پیام موفقیت'
       },
       info: {
         title: 'اطلاعات تماس',
@@ -314,7 +318,9 @@ export const homeMessages = {
         captchaUnavailable: 'Security check is unavailable; submissions may fail in production.',
         captchaFailed: 'CAPTCHA verification failed. Please retry.',
         captchaTemporarilyUnavailable: 'CAPTCHA verification is temporarily unavailable; please try again later.',
-        invalidOrigin: 'The request origin is not allowed. Please refresh and try again.'
+        invalidOrigin: 'The request origin is not allowed. Please refresh and try again.',
+        dismiss: 'Dismiss',
+        dismissSuccess: 'Dismiss success message'
       },
       info: {
         title: 'Contact Information',

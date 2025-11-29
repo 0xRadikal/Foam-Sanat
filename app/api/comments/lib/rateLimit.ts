@@ -5,6 +5,7 @@ import {
   type RedisFunctions,
   type RedisScripts,
 } from 'redis';
+import { emitMetric } from '../../lib/logging';
 
 export type RateLimitResult = {
   limited: boolean;
@@ -24,8 +25,15 @@ class MemoryRateLimitStore implements RateLimitStore {
   private hits: Map<string, { count: number; expiresAt: number }> = new Map();
 
   async increment(key: string, windowMs: number): Promise<{ count: number; expiresAt: number }> {
-    const existing = this.hits.get(key);
     const now = Date.now();
+
+    for (const [storedKey, { expiresAt }] of this.hits) {
+      if (expiresAt <= now) {
+        this.hits.delete(storedKey);
+      }
+    }
+
+    const existing = this.hits.get(key);
     const expiresAt = existing?.expiresAt && existing.expiresAt > now ? existing.expiresAt : now + windowMs;
     const count = existing && existing.expiresAt > now ? existing.count + 1 : 1;
 
@@ -46,6 +54,7 @@ class RedisRateLimitStore implements RateLimitStore {
       .connect()
       .catch((error: Error) => {
         console.error('Failed to connect to Redis for rate limiting.', error);
+        emitMetric('rate_limit.redis.connect_failed');
         throw error;
       });
   }
@@ -82,6 +91,7 @@ function getStore(): RateLimitStore {
       return rateLimitStore;
     } catch (error) {
       console.warn('Falling back to in-memory rate limiter because Redis is unavailable.', error);
+      emitMetric('rate_limit.redis.fallback', { tags: { reason: 'connect_failed' } });
     }
   }
 
@@ -103,6 +113,7 @@ export async function checkRateLimit(identifier: string): Promise<RateLimitResul
       console.warn('Rate limit store unavailable, falling back to in-memory store.', error);
       if (!(store instanceof MemoryRateLimitStore)) {
         rateLimitStore = new MemoryRateLimitStore();
+        emitMetric('rate_limit.redis.fallback', { tags: { reason: 'operation_failed' } });
         return rateLimitStore.increment(identifier, WINDOW_MS);
       }
       throw error;

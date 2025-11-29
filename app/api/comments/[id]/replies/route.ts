@@ -53,9 +53,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to add reply.' },
-      { status: 404 },
-    );
+    console.error('comments.reply.failed', { commentId: params.id, error });
+    return NextResponse.json({ error: 'Unable to add reply.' }, { status: 404 });
   }
 }

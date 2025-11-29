@@ -250,7 +250,7 @@ describe('contact POST handler', () => {
     assert.equal(response.status, 502);
     assert.deepEqual(payload, {
       success: false,
-      message: 'Unable to deliver contact request. Please try again later.',
+      message: 'Email delivery failed. Please try again later.',
     });
 
     const errorEvents = getEvents(errorMock.mock.calls, 'contact.forwarding-failed');

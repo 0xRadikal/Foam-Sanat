@@ -1,9 +1,8 @@
-// app/components/home/ContactForm.tsx - FIXED: Lines 27-49
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import type { HomeMessages, Locale } from '@/app/lib/i18n';
-import { validateEmail, validatePhone, VALIDATION_RULES } from '@/app/lib/validation';
+import { useContactValidation } from '@/app/lib/hooks/useFormHelpers';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
 import { TurnstileWidget } from '@/app/components/TurnstileWidget';
 import { trackEvent } from '@/app/lib/analytics';
@@ -35,17 +34,31 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
   const hasError = status === 'error';
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const captchaEnabled = useMemo(() => Boolean(turnstileSiteKey), [turnstileSiteKey]);
+  const normalizeErrorKey = useCallback((message: string) => message.trim().replace(/[.!]*$/, ''), []);
+  const validateContactForm = useContactValidation(contact);
+
   const errorMessageMap = useMemo(
     () => ({
-      'CAPTCHA token is required.': contact.form.captchaRequired,
-      'CAPTCHA verification failed.': contact.form.captchaFailed,
-      'CAPTCHA verification is unavailable due to server configuration.':
+      'CAPTCHA token is required': contact.form.captchaRequired,
+      'CAPTCHA verification failed': contact.form.captchaFailed,
+      'CAPTCHA verification is unavailable due to server configuration':
         contact.form.captchaUnavailable,
-      'Unable to verify CAPTCHA at this time. Please try again later.':
+      'Unable to verify CAPTCHA at this time. Please try again later':
         contact.form.captchaTemporarilyUnavailable,
-      'Invalid request origin.': contact.form.invalidOrigin,
+      'Invalid request origin': contact.form.invalidOrigin,
     }),
     [contact.form],
+  );
+
+  const translateApiError = useCallback(
+    (message?: string | null) => {
+      const normalizedKey = message ? normalizeErrorKey(message) : null;
+      if (normalizedKey && normalizedKey in errorMessageMap) {
+        return errorMessageMap[normalizedKey as keyof typeof errorMessageMap];
+      }
+      return null;
+    },
+    [errorMessageMap, normalizeErrorKey],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,53 +66,18 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
     setErrorMessage('');
     setCaptchaError(null);
 
-    const trimmedName = formState.name.trim();
-    const trimmedEmail = formState.email.trim();
-    const trimmedPhone = formState.phone.trim();
-    const trimmedMessage = formState.message.trim();
-
-    const setFieldError = (message: string) => {
+    const validationResult = validateContactForm(formState, { captchaEnabled, captchaToken });
+    if (!validationResult.sanitized) {
+      const message = validationResult.error ?? contact.form.errorGeneric;
       setStatus('error');
       setErrorMessage(message);
-    };
-
-    if (
-      trimmedName.length < VALIDATION_RULES.name.minLength ||
-      trimmedName.length > VALIDATION_RULES.name.maxLength
-    ) {
-      setFieldError(contact.form.errorName);
+      if (message === contact.form.captchaRequired) {
+        setCaptchaError(message);
+      }
       return;
     }
 
-    if (
-      trimmedEmail.length < VALIDATION_RULES.email.minLength ||
-      trimmedEmail.length > VALIDATION_RULES.email.maxLength ||
-      !validateEmail(trimmedEmail)
-    ) {
-      setFieldError(contact.form.errorEmail);
-      return;
-    }
-
-    if (
-      trimmedPhone &&
-      (trimmedPhone.length < VALIDATION_RULES.phone.minLength ||
-        trimmedPhone.length > VALIDATION_RULES.phone.maxLength ||
-        !validatePhone(trimmedPhone))
-    ) {
-      setFieldError(contact.form.errorPhone);
-      return;
-    }
-
-    if (trimmedMessage.length < 10) {
-      setFieldError(contact.form.errorMessage);
-      return;
-    }
-
-    if (captchaEnabled && !captchaToken) {
-      setFieldError(contact.form.captchaRequired);
-      setCaptchaError(contact.form.captchaRequired);
-      return;
-    }
+    const { name, email, phone, message: bodyMessage } = validationResult.sanitized;
 
     setStatus('sending');
 
@@ -108,10 +86,10 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: trimmedName,
-          email: trimmedEmail,
-          phone: trimmedPhone,
-          message: trimmedMessage,
+          name,
+          email,
+          phone,
+          message: bodyMessage,
           turnstileToken: captchaToken || undefined,
         }),
       });
@@ -121,9 +99,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         try {
           const errorData = (await response.json()) as { message?: string; error?: string };
           const rawMessage = errorData.message || errorData.error;
-          if (rawMessage && rawMessage in errorMessageMap) {
-            errorMessage = errorMessageMap[rawMessage as keyof typeof errorMessageMap];
-          }
+          errorMessage = translateApiError(rawMessage) ?? errorMessage;
         } catch {
           // Fallback to generic error
         }
@@ -140,19 +116,32 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
 
       trackEvent('contact_form_submitted', {
         locale,
-        hasPhone: Boolean(trimmedPhone),
+        hasPhone: Boolean(phone),
       });
 
-      // Auto-clear success message after 5 seconds
-      setTimeout(() => setStatus('idle'), 5000);
+      // Auto-clear success message after 10 seconds
+      setTimeout(() => setStatus('idle'), 10000);
     } catch (error) {
       console.error('Contact form submission error:', error);
 
-      const message =
-        error instanceof Error && error.message ? error.message : contact.form.errorGeneric;
+      const mappedError =
+        error instanceof Error ? translateApiError(error.message) : translateApiError(null);
+
+      const message = mappedError ?? contact.form.errorGeneric;
+      const captchaMessages: string[] = [
+        contact.form.captchaRequired,
+        contact.form.captchaExpired,
+        contact.form.captchaError,
+        contact.form.captchaUnavailable,
+        contact.form.captchaFailed,
+        contact.form.captchaTemporarilyUnavailable,
+        contact.form.invalidOrigin,
+      ];
 
       setErrorMessage(message);
-      setCaptchaError(message);
+      if (captchaMessages.includes(message)) {
+        setCaptchaError(message);
+      }
       setStatus('error');
       setCaptchaRefresh((current) => current + 1);
 
@@ -319,9 +308,17 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
           id={statusMessageId}
           role="status"
           aria-live="polite"
-          className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg"
+          className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 p-4 rounded-lg flex items-start justify-between gap-4"
         >
-          {contact.form.success}
+          <span>{contact.form.success}</span>
+          <button
+            type="button"
+            onClick={() => setStatus('idle')}
+            className="text-sm font-semibold text-green-800 underline dark:text-green-100"
+            aria-label={contact.form.dismissSuccess}
+          >
+            {contact.form.dismiss}
+          </button>
         </div>
       )}
 
