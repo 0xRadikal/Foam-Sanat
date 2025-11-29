@@ -4,7 +4,7 @@ export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || '';
 declare global {
   interface Window {
     dataLayer?: Record<string, unknown>[];
-    gtag?: (...args: any[]) => void;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -18,7 +18,10 @@ export function trackPageView(url: string) {
   }
 }
 
-export function trackEvent(action: string, params: Record<string, any> = {}) {
+export function trackEvent(
+  action: string,
+  params: Record<string, unknown> = {},
+) {
   if (!GA_ID || !isBrowser) return;
   window.gtag?.('event', action, params);
   if (GTM_ID && window.dataLayer) {
