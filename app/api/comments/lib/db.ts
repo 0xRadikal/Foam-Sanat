@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { emitMetric } from '../../lib/logging';
@@ -60,9 +60,9 @@ async function initializeStorage(logger: Logger = defaultLogger, options: Initia
 
   backendUsed = resolveBackend();
   const connectionString = resolveConnectionString(backendUsed, options.connectionString);
-  const allowDirCreation =
-    options.allowDirCreation ??
-    (backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db'));
+  const allowDefaultDirCreation =
+    backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db');
+  const allowDirCreation = options.allowDirCreation ?? allowDefaultDirCreation;
   lastConnectionString = connectionString;
   const adapter =
     backendUsed === 'postgres'
@@ -107,7 +107,7 @@ async function initializeStorage(logger: Logger = defaultLogger, options: Initia
       return null;
     })
     .finally(() => {
-      if (initializationPromise === initPromise) {
+      if (initializationPromise === initPromise && initializationPromise !== null) {
         initializationPromise = null;
       }
     });
@@ -128,7 +128,7 @@ export async function getCommentStorage(logger: Logger = defaultLogger): Promise
 export async function resetDbForTesting(): Promise<void> {
   if (lastConnectionString && !lastConnectionString.startsWith(dataDir)) {
     try {
-      fs.rmSync(path.dirname(lastConnectionString), { recursive: true, force: true });
+      await fs.rm(path.dirname(lastConnectionString), { recursive: true, force: true });
     } catch (error) {
       defaultLogger.warn('comments.db.test_cleanup_failed', { error });
     }

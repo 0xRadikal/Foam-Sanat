@@ -30,9 +30,12 @@ const SITE_URL = getEnvValue('NEXT_PUBLIC_SITE_URL', {
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
 class EmailProviderError extends Error {
-  constructor(message: string) {
+  reason?: string;
+
+  constructor(message: string, reason?: string) {
     super(message);
     this.name = 'EmailProviderError';
+    this.reason = reason;
   }
 }
 
@@ -135,7 +138,7 @@ export const POST = withRequestLogging(async (request: Request, _context, { logg
 
     if (isEmailProviderError(error)) {
       logger.error('contact.forwarding-failed', {
-        reason: getErrorMessage(error),
+        reason: error.reason ?? getErrorMessage(error),
       });
 
       return NextResponse.json(
@@ -243,7 +246,7 @@ async function forwardContactSubmission(
   }
 
   if (!apiKey) {
-    throw new EmailProviderError('Email provider API key is not configured.');
+    throw new EmailProviderError('Email provider API key is not configured.', 'missing api key');
   }
 
   const fromAddress = process.env.RESEND_FROM_EMAIL ?? CONTACT_EMAIL;
@@ -273,7 +276,7 @@ async function forwardContactSubmission(
       to: toAddress,
       from: fromAddress,
     });
-    throw new EmailProviderError(GENERIC_EMAIL_ERROR);
+    throw new EmailProviderError(GENERIC_EMAIL_ERROR, getErrorMessage(error));
   }
 
   if (!response.ok) {
@@ -298,7 +301,7 @@ async function forwardContactSubmission(
       from: fromAddress,
       subject,
     });
-    throw new EmailProviderError(GENERIC_EMAIL_ERROR);
+    throw new EmailProviderError(GENERIC_EMAIL_ERROR, providerDetail);
   }
 }
 

@@ -115,14 +115,22 @@ export function SiteChromeProvider({
   const persistLang = useCallback((value: Locale) => {
     setLangState(value);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(value));
+      try {
+        window.localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(value));
+      } catch (error) {
+        console.warn('Failed to persist language preference:', error);
+      }
     }
   }, []);
 
   const persistTheme = useCallback((value: Theme) => {
     setThemeState(value);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(value));
+      try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(value));
+      } catch (error) {
+        console.warn('Failed to persist theme preference:', error);
+      }
     }
   }, []);
 
@@ -131,7 +139,11 @@ export function SiteChromeProvider({
       const currentIndex = locales.indexOf(prev);
       const next = locales[(currentIndex + 1) % locales.length];
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(next));
+        try {
+          window.localStorage.setItem(LANG_STORAGE_KEY, JSON.stringify(next));
+        } catch (error) {
+          console.warn('Failed to persist language preference:', error);
+        }
       }
       return next;
     });
@@ -141,7 +153,11 @@ export function SiteChromeProvider({
     setThemeState((prev) => {
       const next = prev === 'light' ? 'dark' : 'light';
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(next));
+        try {
+          window.localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(next));
+        } catch (error) {
+          console.warn('Failed to persist theme preference:', error);
+        }
       }
       return next;
     });
@@ -165,8 +181,8 @@ export function SiteChromeProvider({
       body.style.overflow = 'hidden';
       body.style.touchAction = 'none';
     } else {
-      body.style.overflow = previousOverflow;
-      body.style.touchAction = previousTouchAction;
+      body.style.overflow = '';
+      body.style.touchAction = '';
     }
 
     return () => {
