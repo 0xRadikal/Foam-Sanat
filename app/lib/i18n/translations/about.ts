@@ -98,6 +98,7 @@ export type AboutNamespaceSchema = {
   };
   videoModal: {
     title: string;
+    error: string;
   };
 };
 
@@ -309,7 +310,8 @@ export const aboutMessages = {
       rights: 'تمامی حقوق محفوظ است'
     },
     videoModal: {
-      title: 'ویدیو معرفی'
+      title: 'ویدیو معرفی',
+      error: 'ویدیو بارگذاری نشد. لطفاً بعداً دوباره تلاش کنید.'
     }
   },
   en: {
@@ -519,7 +521,8 @@ export const aboutMessages = {
       rights: 'All rights reserved'
     },
     videoModal: {
-      title: 'Introduction Video'
+      title: 'Introduction Video',
+      error: 'Video failed to load. Please try again later.'
     }
   }
 } as const satisfies LocaleRecord<AboutNamespaceSchema>;

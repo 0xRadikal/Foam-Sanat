@@ -40,6 +40,15 @@ function createSeededRandom(seed: number) {
   };
 }
 
+const seededRandomCache = new Map<Locale, () => number>();
+
+function getSeededRandom(locale: Locale) {
+  if (!seededRandomCache.has(locale)) {
+    seededRandomCache.set(locale, createSeededRandom(hashStringToSeed(locale)));
+  }
+  return seededRandomCache.get(locale) as () => number;
+}
+
 function generateBlobs(count: number, randomizer: () => number): BlobStyle[] {
   return Array.from({ length: count }, () => {
     const randomSize = 50 + randomizer() * 300;
@@ -125,11 +134,10 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const hasSyncedInitialLocale = useRef(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const blobStyles = useMemo(() => {
-    const seededRandom = createSeededRandom(hashStringToSeed(initialLocale));
-    return generateBlobs(30, seededRandom);
-  }, [initialLocale]);
+  const seededRandom = useMemo(() => getSeededRandom(initialLocale), [initialLocale]);
+  const blobStyles = useMemo(() => generateBlobs(30, seededRandom), [seededRandom]);
 
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
@@ -216,6 +224,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   useEffect(() => {
     if (showVideo) {
       trackEvent('about_video_opened', { locale: lang });
+    } else {
+      setVideoError(false);
     }
   }, [showVideo, lang]);
   return (
@@ -346,47 +356,49 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           <div className="relative">
             <div className={`absolute ${isRTL ? 'right-1/2' : 'left-1/2'} top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 via-orange-500 to-purple-500 hidden md:block`} />
 
-            {t.timeline.items.map((item, i) => {
-              const Icon =
-                timelineIcons[i] ??
-                (TIMELINE_ICON_POOL.length > 0
-                  ? TIMELINE_ICON_POOL[i % TIMELINE_ICON_POOL.length]
-                  : Globe) ?? Globe;
-              const isActive = activeTimeline === i;
+            <ul className="list-none m-0 p-0">
+              {t.timeline.items.map((item, i) => {
+                const Icon =
+                  timelineIcons[i] ??
+                  (TIMELINE_ICON_POOL.length > 0
+                    ? TIMELINE_ICON_POOL[i % TIMELINE_ICON_POOL.length]
+                    : Globe) ?? Globe;
+                const isActive = activeTimeline === i;
 
-              return (
-                <div
-                  key={`${item.year}-${item.title}`}
-                  className={`relative mb-12 transition-all duration-500 ${isActive ? 'scale-105' : ''}`}
-                >
-                  <div className={`flex items-center ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
-                    <div className={`w-full md:w-5/12 ${cardBg} rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all ${
-                      isActive ? 'ring-4 ring-orange-500' : ''
-                    }`}>
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className={`w-16 h-16 bg-gradient-to-br ${isActive ? 'from-orange-500 to-purple-600 scale-110' : 'from-gray-500 to-gray-700'} rounded-2xl flex items-center justify-center transition-all`}>
-                          <Icon className="w-8 h-8 text-white" />
+                return (
+                  <li
+                    key={`${item.year}-${item.title}`}
+                    className={`relative mb-12 transition-all duration-500 ${isActive ? 'scale-105' : ''}`}
+                  >
+                    <div className={`flex items-center ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
+                      <div className={`w-full md:w-5/12 ${cardBg} rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all ${
+                        isActive ? 'ring-4 ring-orange-500' : ''
+                      }`}>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className={`w-16 h-16 bg-gradient-to-br ${isActive ? 'from-orange-500 to-purple-600 scale-110' : 'from-gray-500 to-gray-700'} rounded-2xl flex items-center justify-center transition-all`}>
+                            <Icon className="w-8 h-8 text-white" />
+                          </div>
+                          <div>
+                            <div className="text-3xl font-black text-orange-500">{item.year}</div>
+                            <div className="text-sm font-bold text-purple-500">{item.highlight}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-3xl font-black text-orange-500">{item.year}</div>
-                          <div className="text-sm font-bold text-purple-500">{item.highlight}</div>
-                        </div>
+                        <h3 className="text-2xl font-bold mb-3">{item.title}</h3>
+                        <p className={`text-lg ${getThemeToken(theme, 'mutedText')}`}>{item.desc}</p>
                       </div>
-                      <h3 className="text-2xl font-bold mb-3">{item.title}</h3>
-                      <p className={`text-lg ${getThemeToken(theme, 'mutedText')}`}>{item.desc}</p>
-                    </div>
 
-                    <div className="hidden md:flex w-2/12 justify-center">
-                      <div className={`w-8 h-8 rounded-full ${
-                        isActive ? 'bg-orange-500 scale-150 ring-8 ring-orange-500/30' : 'bg-gray-400'
-                      } transition-all duration-500`} />
-                    </div>
+                      <div className="hidden md:flex w-2/12 justify-center">
+                        <div className={`w-8 h-8 rounded-full ${
+                          isActive ? 'bg-orange-500 scale-150 ring-8 ring-orange-500/30' : 'bg-gray-400'
+                        } transition-all duration-500`} />
+                      </div>
 
-                    <div className="hidden md:block w-5/12" />
-                  </div>
-                </div>
-              );
-            })}
+                      <div className="hidden md:block w-5/12" />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       </section>
@@ -659,15 +671,23 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
         {t.videoModal.title}
       </p>
 
-      <div className="w-full h-full">
+      <div className="w-full h-full flex flex-col gap-3 relative">
         <video
           controls
           className="w-full h-full rounded-xl"
           poster="./images/video-poster.jpg" // اگر پوستر داری، در غیر اینصورت حذفش کن
+          onError={() => setVideoError(true)}
         >
           <source src="./videos/Factory.mp4" type="video/mp4" />
           مرورگر شما از پخش این ویدیو پشتیبانی نمی‌کند.
         </video>
+        {videoError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+            <p className="text-sm text-red-100 text-center px-4" role="alert">
+              {t.videoModal.error}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   </div>

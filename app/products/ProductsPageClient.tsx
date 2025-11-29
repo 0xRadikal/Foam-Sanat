@@ -6,7 +6,7 @@ import {
   Factory, Zap, Gauge, Wrench, Shield, Award,
   Search, Check,
   Sparkles, Users, Target, ChevronLeft, ChevronRight,
-  Star, Send, Reply, MessageCircle, Trash2
+  Star, Send, Reply, MessageCircle, Trash2, Eye, EyeOff
 } from 'lucide-react';
 import Header from '@/app/components/Header';
 import Footer from '@/app/components/Footer';
@@ -17,11 +17,9 @@ import { createNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
-import { validateEmail, VALIDATION_RULES } from '@/app/lib/validation';
+import { useCommentValidation, useLocalizedDateFormatter } from '@/app/lib/hooks/useFormHelpers';
 
 type Product = ProductsNamespaceSchema['products'][number];
-
-const MIN_COMMENT_LENGTH = VALIDATION_RULES.comment.minLength;
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -57,6 +55,12 @@ type DraftComment = {
   text: string;
   author: string;
   email: string;
+};
+
+const createDefaultComment = (): DraftComment => ({ rating: 5, text: '', author: '', email: '' });
+const isLikelySignedAdminToken = (token: string): boolean => {
+  const segments = token.split('.');
+  return segments.length === 3 && segments.every(Boolean);
 };
 
 type ApiCommentReply = {
@@ -107,12 +111,12 @@ export default function ProductsPageClient({
     themeClasses,
     toggleLang,
     toggleTheme,
-    toggleMobileMenu,
-    setLang
+    toggleMobileMenu
   } = useSiteChrome();
-  const [activeLocale, setActiveLocale] = useState<Locale>(initialLocale);
-  const [messages, setMessages] = useState(initialMessages);
-  const hasSyncedInitialLocale = useRef(false);
+  const [activeLocale, setActiveLocale] = useState<Locale>(lang);
+  const [messages, setMessages] = useState(() =>
+    lang === initialLocale ? initialMessages : getAllMessages(lang),
+  );
   // State Management
   const [scrolled, setScrolled] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -120,7 +124,7 @@ export default function ProductsPageClient({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [comments, setComments] = useState<CommentsState>({});
-  const [newComment, setNewComment] = useState<DraftComment>({ rating: 5, text: '', author: '', email: '' });
+  const [newComment, setNewComment] = useState<DraftComment>(() => createDefaultComment());
   const [commentError, setCommentError] = useState<string | null>(null);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -132,14 +136,7 @@ export default function ProductsPageClient({
   const [replyLoading, setReplyLoading] = useState<string | null>(null);
   const [adminToken, setAdminToken] = useState('');
   const [adminTokenInput, setAdminTokenInput] = useState('');
-  useEffect(() => {
-    if (!hasSyncedInitialLocale.current) {
-      hasSyncedInitialLocale.current = true;
-      if (lang !== initialLocale) {
-        setLang(initialLocale);
-      }
-    }
-  }, [initialLocale, lang, setLang]);
+  const [showAdminToken, setShowAdminToken] = useState(false);
 
   useEffect(() => {
     if (lang !== activeLocale) {
@@ -163,10 +160,16 @@ export default function ProductsPageClient({
   // Load stored admin token
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const storedToken = localStorage.getItem('comments-admin-token');
-    if (storedToken) {
-      setAdminToken(storedToken);
-      setAdminTokenInput(storedToken);
+    try {
+      const storedToken = localStorage.getItem('comments-admin-token');
+      if (storedToken && isLikelySignedAdminToken(storedToken)) {
+        setAdminToken(storedToken);
+        setAdminTokenInput(storedToken);
+      } else if (storedToken) {
+        localStorage.removeItem('comments-admin-token');
+      }
+    } catch (error) {
+      console.warn('Unable to read admin token from storage:', error);
     }
   }, []);
 
@@ -178,48 +181,52 @@ export default function ProductsPageClient({
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
+  const t = useMemo(() => messages.products, [messages]);
+
+  const handleCloseProductModal = useCallback(() => {
+    setReplyingTo(null);
+    setReplyText('');
     setCommentError(null);
     setCommentsError(null);
     setCommentsLoading(false);
-    setReplyingTo(null);
-    setReplyText('');
-  }, [selectedProduct]);
-
-  const handleCloseProductModal = useCallback(() => {
-    setSelectedProduct(null);
+    setNewComment(createDefaultComment());
     setCurrentSlide(0);
-    setReplyingTo(null);
-    setReplyText('');
-    setCommentError(null);
-    setCommentsError(null);
+    setReplyLoading(null);
+    setSelectedProduct(null);
   }, []);
+
+  const handleSelectProduct = useCallback(
+    (product: Product) => {
+      handleCloseProductModal();
+      setSelectedProduct(product);
+    },
+    [handleCloseProductModal]
+  );
 
   const handleClosePriceModal = useCallback(() => {
     setShowPriceModal(false);
     setPriceProduct(null);
-    setReplyingTo(null);
-    setReplyText('');
   }, []);
 
-  const mapApiComment = useCallback((comment: unknown): ProductComment | null => {
-    if (!isRecord(comment)) {
-      console.warn('Skipping comment: invalid shape', comment);
-      return null;
-    }
+  const mapApiComment = useCallback(
+    (comment: unknown): { comment: ProductComment | null; error?: string } => {
+      if (!isRecord(comment)) {
+        console.warn('Skipping comment: invalid shape', comment);
+        return { comment: null, error: t.comments.loadFailed };
+      }
 
-    const { id, productId, rating, author, text, createdAt, status } = comment;
-    if (
-      typeof id !== 'string' ||
-      typeof productId !== 'string' ||
-      typeof rating !== 'number' ||
-      typeof author !== 'string' ||
-      typeof text !== 'string' ||
-      typeof createdAt !== 'string'
-    ) {
-      console.warn('Skipping comment: missing required fields', comment);
-      return null;
-    }
+      const { id, productId, rating, author, text, createdAt, status } = comment;
+      if (
+        typeof id !== 'string' ||
+        typeof productId !== 'string' ||
+        typeof rating !== 'number' ||
+        typeof author !== 'string' ||
+        typeof text !== 'string' ||
+        typeof createdAt !== 'string'
+      ) {
+        console.warn('Skipping comment: missing required fields', comment);
+        return { comment: null, error: t.comments.loadFailed };
+      }
 
     const normalizedStatus: CommentStatus =
       status === 'pending' || status === 'rejected' ? status : 'approved';
@@ -260,44 +267,69 @@ export default function ProductsPageClient({
         })
       : [];
 
-    return {
-      id,
-      productId,
-      rating,
-      author,
-      text,
-      createdAt,
-      status: normalizedStatus,
-      replies
-    };
-  }, []);
-  
-  const formatDate = useCallback(
-    (isoDate: string) => new Date(isoDate).toLocaleDateString(activeLocale === 'fa' ? 'fa-IR' : 'en-US'),
-    [activeLocale]
+      return {
+        comment: {
+          id,
+          productId,
+          rating,
+          author,
+          text,
+          createdAt,
+          status: normalizedStatus,
+          replies
+        }
+      };
+    },
+    [t.comments.loadFailed]
   );
 
-  const t = useMemo(() => messages.products, [messages]);
+  const formatDate = useLocalizedDateFormatter(activeLocale);
+  const { validateComment, validateReply } = useCommentValidation(t.comments);
   const hasAdminToken = Boolean(adminToken);
 
   const handleSaveAdminToken = useCallback(() => {
     if (!commentsEnabled) return;
     if (typeof window === 'undefined') return;
     const trimmed = adminTokenInput.trim();
-    if (trimmed) {
-      localStorage.setItem('comments-admin-token', trimmed);
-      setAdminToken(trimmed);
-    } else {
-      localStorage.removeItem('comments-admin-token');
+    if (!trimmed) {
+      try {
+        localStorage.removeItem('comments-admin-token');
+      } catch (error) {
+        console.warn('Unable to clear admin token from storage:', error);
+      }
       setAdminToken('');
+      setCommentError(null);
+      return;
     }
-    setCommentError(null);
-  }, [adminTokenInput, commentsEnabled]);
+
+    if (!isLikelySignedAdminToken(trimmed)) {
+      try {
+        localStorage.removeItem('comments-admin-token');
+      } catch (error) {
+        console.warn('Unable to clear admin token from storage:', error);
+      }
+      setAdminToken('');
+      setCommentError(t.comments.adminTokenRequired);
+      return;
+    }
+
+      try {
+        localStorage.setItem('comments-admin-token', trimmed);
+      } catch (error) {
+        console.warn('Unable to persist admin token:', error);
+      }
+      setAdminToken(trimmed);
+      setCommentError(null);
+  }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
   const handleClearAdminToken = useCallback(() => {
     if (!commentsEnabled) return;
     if (typeof window === 'undefined') return;
-    localStorage.removeItem('comments-admin-token');
+    try {
+      localStorage.removeItem('comments-admin-token');
+    } catch (error) {
+      console.warn('Unable to clear admin token from storage:', error);
+    }
     setAdminToken('');
     setAdminTokenInput('');
     setCommentError(null);
@@ -309,24 +341,13 @@ export default function ProductsPageClient({
         setCommentError(t.comments.disabled);
         return;
       }
-      const trimmedAuthor = newComment.author.trim();
-      const trimmedEmail = newComment.email.trim();
-      const trimmedText = newComment.text.trim();
-
-      if (!trimmedAuthor || !trimmedEmail || !trimmedText) {
-        setCommentError(t.comments.validationError);
+      const validationResult = validateComment(newComment);
+      if (!validationResult.sanitized) {
+        setCommentError(validationResult.error ?? t.comments.validationError);
         return;
       }
 
-      if (!validateEmail(trimmedEmail)) {
-        setCommentError(t.comments.invalidEmail);
-        return;
-      }
-
-      if (trimmedText.length < MIN_COMMENT_LENGTH) {
-        setCommentError(t.comments.tooShort);
-        return;
-      }
+      const { author: trimmedAuthor, email: trimmedEmail, text: trimmedText } = validationResult.sanitized;
 
       setCommentError(null);
 
@@ -373,23 +394,25 @@ export default function ProductsPageClient({
 
         const serverComment = mapApiComment(data.comment);
 
-        if (serverComment) {
+        if (serverComment.comment) {
+          const confirmedComment = serverComment.comment;
+
           setComments((prev) => {
             const productComments = prev[productId] ?? [];
             return {
               ...prev,
               [productId]: productComments.map((comment) =>
-                comment.id === optimisticComment.id ? serverComment : comment
+                comment.id === optimisticComment.id ? confirmedComment : comment
               )
             };
           });
 
-          setNewComment({ rating: 5, text: '', author: '', email: '' });
+          setNewComment(createDefaultComment());
           setTimeout(() => {
             scrollToLatestComment();
           }, 50);
         } else {
-          throw new Error(t.comments.submitError);
+          throw new Error(serverComment.error ?? t.comments.submitError);
         }
       } catch (error) {
         setComments((prev) => {
@@ -420,10 +443,9 @@ export default function ProductsPageClient({
       newComment,
       scrollToLatestComment,
       t.comments.disabled,
-      t.comments.invalidEmail,
       t.comments.submitError,
-      t.comments.tooShort,
       t.comments.validationError,
+      validateComment,
     ]
   );
 
@@ -473,11 +495,13 @@ export default function ProductsPageClient({
       if (!commentsEnabled || !hasAdminToken) {
         return;
       }
-      const trimmedReply = replyTxt.trim();
-      if (!trimmedReply) {
-        setCommentError(t.comments.emptyReply);
+      const replyValidation = validateReply(replyTxt);
+      if (!replyValidation.sanitized) {
+        setCommentError(replyValidation.error ?? t.comments.replyFailed);
         return;
       }
+
+      const trimmedReply = replyValidation.sanitized;
 
       setCommentError(null);
 
@@ -563,7 +587,7 @@ export default function ProductsPageClient({
         setReplyLoading(null);
       }
     },
-    [adminToken, commentsEnabled, hasAdminToken, t.comments.admin, t.comments.emptyReply, t.comments.replyFailed]
+    [adminToken, commentsEnabled, hasAdminToken, t.comments.admin, t.comments.replyFailed, validateReply]
   );
 
   useEffect(() => {
@@ -600,14 +624,20 @@ export default function ProductsPageClient({
           ? ((data as { comments: ApiComment[] }).comments)
           : [];
 
-        const mapped = apiComments
-          .map(mapApiComment)
-          .filter((comment): comment is ProductComment => Boolean(comment));
+        const mappedResults = apiComments.map(mapApiComment);
+        const mapped = mappedResults
+          .filter((result): result is { comment: ProductComment } => Boolean(result.comment))
+          .map((result) => result.comment);
+        const firstError = mappedResults.find((result) => result.error)?.error;
 
         setComments((prev) => ({
           ...prev,
           [productId]: mapped
         }));
+
+        if (firstError) {
+          setCommentsError(firstError);
+        }
       } catch (error) {
         if (controller.signal.aborted) {
           return;
@@ -684,9 +714,16 @@ export default function ProductsPageClient({
         );
   }, [filteredProducts, searchTerm]);
 
+  const {
+    resultsSuffix,
+    details: detailsLabel,
+    call: callLabel,
+    price: priceLabel,
+  } = t.ui;
+
   const resultsCountLabel = useMemo(
-    () => `${searchedProducts.length} ${t.ui.resultsSuffix}`,
-    [searchedProducts.length, t.ui.resultsSuffix]
+    () => `${searchedProducts.length} ${resultsSuffix}`,
+    [resultsSuffix, searchedProducts.length]
   );
 
   const productCards = useMemo(
@@ -698,7 +735,8 @@ export default function ProductsPageClient({
         >
           <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
             <div className="absolute inset-0 flex items-center justify-center">
-              {product.images[0]}
+              <span aria-hidden="true">{product.images[0]}</span>
+              <span className="sr-only">{product.name}</span>
             </div>
           </div>
 
@@ -724,31 +762,38 @@ export default function ProductsPageClient({
             </div>
 
             <div className="text-center mb-4 p-3 rounded-lg border-2 border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-purple-600/5">
-              <p className="text-xs font-bold text-orange-600 mb-0.5">{t.ui.price}</p>
+              <p className="text-xs font-bold text-orange-600 mb-0.5">{priceLabel}</p>
               <p className="text-sm md:text-base font-black text-orange-600 line-clamp-1">{product.price}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  setSelectedProduct(product);
-                  setCurrentSlide(0);
-                }}
+                <button
+                  onClick={() => {
+                    handleSelectProduct(product);
+                  }}
                 className="w-full bg-gradient-to-r from-orange-500 to-purple-600 text-white px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm"
               >
-                {t.ui.details}
+                {detailsLabel}
               </button>
               <a
                 href={`tel:${primaryPhone}`}
                 className="w-full text-center border-2 border-orange-500 text-orange-500 px-3 py-2 rounded-lg font-bold hover:scale-105 transition-all text-xs md:text-sm bg-transparent"
               >
-                {t.ui.call}
+                {callLabel}
               </a>
             </div>
           </div>
         </div>
       )),
-    [cardBg, primaryPhone, searchedProducts, t.ui]
+    [
+      cardBg,
+      handleSelectProduct,
+      primaryPhone,
+      searchedProducts,
+      callLabel,
+      detailsLabel,
+      priceLabel,
+    ]
   );
 
   // Modal Components
@@ -817,23 +862,24 @@ export default function ProductsPageClient({
           <div className="mb-8">
             <div className="relative mb-4 group">
               <div className="aspect-video bg-gradient-to-br from-orange-400 to-purple-600 rounded-2xl flex items-center justify-center text-6xl md:text-8xl overflow-hidden w-full">
-                {product.images[currentSlide]}
+                <span aria-hidden="true">{product.images[currentSlide]}</span>
+                <span className="sr-only">{product.name}</span>
               </div>
               
               {product.images.length > 1 && (
                 <>
-                  <button
-                    onClick={() => setCurrentSlide((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentSlide((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
+                    <button
+                      onClick={() => setCurrentSlide((prev) => (prev === 0 ? product.images.length - 1 : prev - 1))}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentSlide((prev) => (prev === product.images.length - 1 ? 0 : prev + 1))}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-3 rounded-full opacity-100 sm:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
                   <div className="flex justify-center gap-2 mt-4">
                     {product.images.map((image, i) => {
                       const slideKey = typeof image === 'string' ? `${product.id}-${image}` : `${product.id}-slide-${i}`;
@@ -844,7 +890,7 @@ export default function ProductsPageClient({
                           className={`w-3 h-3 rounded-full transition-all ${
                             i === currentSlide ? 'bg-orange-500 w-8' : 'bg-gray-400'
                           }`}
-                          aria-label={`Image ${i + 1}`}
+                          aria-label={`${product.name} image ${i + 1} of ${product.images.length}`}
                         />
                       );
                     })}
@@ -966,20 +1012,38 @@ export default function ProductsPageClient({
                   {t.comments.moderationNotice}
                 </p>
 
-                <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-2xl mb-8`}>
-                  <p className="text-sm font-bold mb-3">{t.comments.adminControls}</p>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="password"
-                      value={adminTokenInput}
-                      onChange={(e) => setAdminTokenInput(e.target.value)}
-                      placeholder={t.comments.tokenPlaceholder}
-                      className={`flex-1 px-4 py-3 rounded-lg text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSaveAdminToken}
+                  <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-2xl mb-8`}>
+                    <p className="text-sm font-bold mb-3">{t.comments.adminControls}</p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex flex-1 items-center gap-2">
+                        <input
+                          type={showAdminToken ? 'text' : 'password'}
+                          value={adminTokenInput}
+                          onChange={(e) => setAdminTokenInput(e.target.value)}
+                          placeholder={t.comments.tokenPlaceholder}
+                          className={`flex-1 px-4 py-3 rounded-lg text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAdminToken((prev) => !prev)}
+                          className={`px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-1 ${
+                            isDark ? 'bg-gray-800 text-white border-orange-500/40' : 'bg-white text-gray-700 border-orange-500/40'
+                          } hover:border-orange-500`}
+                          aria-label={`${
+                            showAdminToken ? t.comments.hideToken : t.comments.showToken
+                          } ${t.comments.tokenPlaceholder}`}
+                          aria-pressed={showAdminToken}
+                        >
+                          {showAdminToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          <span className="hidden sm:inline">
+                            {showAdminToken ? t.comments.hideToken : t.comments.showToken}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveAdminToken}
                         className={`px-4 py-2 rounded-lg font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-purple-600 hover:scale-105 transition-transform ${
                           adminTokenInput.trim() === '' ? 'opacity-80' : ''
                         }`}
@@ -999,7 +1063,23 @@ export default function ProductsPageClient({
                   </div>
                 </div>
 
-                {commentsError && (
+                {commentsLoading && (
+                  <div
+                    className={`mb-6 flex items-center justify-center gap-3 rounded-xl border ${
+                      isDark ? 'border-gray-600 bg-gray-800/60 text-gray-200' : 'border-gray-200 bg-white text-gray-700'
+                    } p-4 shadow-sm`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span
+                      className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent"
+                      aria-hidden
+                    />
+                    <span className="font-semibold">{t.comments.loading}</span>
+                  </div>
+                )}
+
+                {!commentsLoading && commentsError && (
                   <p className="mb-4 text-sm text-red-500">{commentsError}</p>
                 )}
 
@@ -1074,15 +1154,13 @@ export default function ProductsPageClient({
                 )}
 
                 {/* Comments List */}
-                {commentsLoading ? (
-                  <p className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {t.comments.loading}
-                  </p>
-                ) : productComments.length === 0 ? (
+                {!commentsLoading && !commentsError && productComments.length === 0 && (
                   <p className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     {t.comments.noComments}
                   </p>
-                ) : (
+                )}
+
+                {!commentsLoading && !commentsError && productComments.length > 0 && (
                   <div ref={commentsListRef} className="space-y-6">
                     {productComments.map((comment) => (
                       <div key={comment.id} className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>

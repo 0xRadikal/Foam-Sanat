@@ -22,7 +22,15 @@ type ContactConfig = {
   emails: ContactEmail[];
 };
 
-export const contactConfig: ContactConfig = {
+const buildContactConfig = (config: ContactConfig): ContactConfig => {
+  if (!Array.isArray(config.phones) || config.phones.length === 0) {
+    throw new Error('contactConfig.phones must include at least one phone number.');
+  }
+
+  return config;
+};
+
+export const contactConfig: ContactConfig = buildContactConfig({
   companyName: 'Foam Sanat Industrial Group',
   addresses: {
     fa: 'تهران، کرج، جاده ماهدشت - خیابان زیبادشت',
@@ -49,7 +57,7 @@ export const contactConfig: ContactConfig = {
     { value: 'info@foamsanat.com' },
     { value: 'saeidniazpour@yahoo.com' }
   ]
-};
+});
 
 const getLocalizedValue = (value: LocalizedValue, locale: Locale) => value[locale] ?? value.en;
 

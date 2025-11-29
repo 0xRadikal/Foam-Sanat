@@ -65,6 +65,8 @@ export type ProductsNamespaceSchema = {
     moderationNotice: string;
     adminControls: string;
     tokenPlaceholder: string;
+    showToken: string;
+    hideToken: string;
     saveToken: string;
     clearToken: string;
     adminTokenRequired: string;
@@ -339,6 +341,8 @@ export const productsMessages = {
       moderationNotice: 'تمامی نظرات پس از بررسی مدیر منتشر می‌شوند.',
       adminControls: 'مدیریت نظرات (ویژه مدیر)',
       tokenPlaceholder: 'توکن مدیریت را وارد کنید',
+      showToken: 'نمایش توکن',
+      hideToken: 'مخفی کردن توکن',
       saveToken: 'ثبت توکن',
       clearToken: 'حذف توکن',
       adminTokenRequired: 'برای اعمال تغییرات به توکن مدیریت نیاز است.',
@@ -616,6 +620,8 @@ Foam filter benefits:
       moderationNotice: 'All comments are published after moderator review.',
       adminControls: 'Moderation controls (admin only)',
       tokenPlaceholder: 'Enter moderation token',
+      showToken: 'Show token',
+      hideToken: 'Hide token',
       saveToken: 'Save token',
       clearToken: 'Clear token',
       adminTokenRequired: 'A moderation token is required for this action.',

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { memo } from 'react';
 import { Menu, X, Globe, Sun, Moon } from 'lucide-react';
 import type { Locale } from '@/app/lib/i18n';
 import type { NavigationItem } from '@/app/lib/navigation';
@@ -18,7 +19,14 @@ function NavLink({
   hoverClass: string;
   onClick?: () => void;
 }) {
-  const isHashLink = item.href.startsWith('#');
+  const isHashLink = (() => {
+    try {
+      const parsed = new URL(item.href, 'http://localhost');
+      return Boolean(parsed.hash) && (!parsed.pathname || parsed.pathname === '/');
+    } catch {
+      return item.href.startsWith('#');
+    }
+  })();
   const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverClass}`;
   const desktopClasses = `hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1${
     isActive ? ' text-orange-500 font-semibold' : ''
@@ -52,6 +60,19 @@ function NavLink({
     </Link>
   );
 }
+
+const MemoizedNavLink = memo(
+  NavLink,
+  (prev, next) =>
+    prev.item.key === next.item.key &&
+    prev.item.href === next.item.href &&
+    prev.item.label === next.item.label &&
+    prev.item.variant === next.item.variant &&
+    prev.isMobile === next.isMobile &&
+    prev.isActive === next.isActive &&
+    prev.hoverClass === next.hoverClass &&
+    prev.onClick === next.onClick,
+);
 
 interface HeaderProps {
   lang: Locale;
@@ -120,7 +141,7 @@ export default function Header({
           {/* Desktop Navigation */}
           <div className="hidden md:flex gap-6 items-center">
             {regularNavItems.map((item) => (
-              <NavLink
+              <MemoizedNavLink
                 key={item.key}
                 item={item}
                 isMobile={false}
@@ -195,7 +216,7 @@ export default function Header({
               role="menu"
             >
               {[...regularNavItems, ...(ctaItem ? [ctaItem] : [])].map((item) => (
-                <NavLink
+                <MemoizedNavLink
                   key={item.key}
                   item={item}
                   isMobile

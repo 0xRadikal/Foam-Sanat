@@ -37,23 +37,23 @@ describe('comment database initialization', () => {
     process.env.DATABASE_URL = originalEnv.DATABASE_URL;
   });
 
-  it('short-circuits initialization in read-only environments', () => {
+  it('short-circuits initialization in read-only environments', async () => {
     const { logger, messages } = createLogger();
     process.env.VERCEL = '1';
     delete process.env.COMMENTS_DATABASE_URL;
     delete process.env.DATABASE_URL;
 
-    const instance = initializeDatabase(logger);
+    const instance = await initializeDatabase(logger);
 
     assert.equal(instance, null);
     assert.ok(messages.some((entry) => entry.level === 'warn'));
   });
 
-  it('logs and throws when initialization fails', () => {
+  it('logs and throws when initialization fails', async () => {
     const { logger, messages } = createLogger();
     const badConnectionString = path.join('/this/path/does/not/exist', 'comments.db');
 
-    initializeDatabase(logger, { connectionString: badConnectionString });
+    await initializeDatabase(logger, { connectionString: badConnectionString });
 
     assert.ok(messages.some((entry) => entry.level === 'error'));
     assert.throws(() => getDb(logger));
