@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PauseCircle, PlayCircle } from 'lucide-react';
 import type { HomeNamespaceSchema } from '@/app/lib/i18n';
 
 export type HeroSliderProps = {
@@ -49,6 +49,10 @@ export default function HeroSlider({ slides, isRTL, isDark }: HeroSliderProps) {
     setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
     setIsAutoPlaying(false);
     setTimeout(() => setIsAutoPlaying(true), 10000);
+  };
+
+  const toggleAutoPlay = () => {
+    setIsAutoPlaying((prev) => !prev);
   };
 
   return (
@@ -112,14 +116,25 @@ export default function HeroSlider({ slides, isRTL, isDark }: HeroSliderProps) {
             className={`w-2 h-2 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white ${
               index === current ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'
             }`}
-            aria-label={`Go to slide ${index + 1}`}
+            aria-label={`Go to slide ${index + 1} of ${slides.length}`}
           />
         ))}
       </div>
 
-      <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${isAutoPlaying ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
-        {isAutoPlaying ? 'Auto' : 'Paused'}
+      <div className="absolute top-4 right-4 flex items-center gap-3">
+        <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-white text-sm font-semibold flex items-center gap-2 shadow-lg">
+          <div className={`w-3 h-3 rounded-full ${isAutoPlaying ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+          {isAutoPlaying ? 'Auto play' : 'Paused'}
+        </div>
+        <button
+          type="button"
+          onClick={toggleAutoPlay}
+          className="bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white p-2 rounded-full shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-white"
+          aria-label={isAutoPlaying ? 'Pause slider auto play' : 'Resume slider auto play'}
+          aria-pressed={isAutoPlaying}
+        >
+          {isAutoPlaying ? <PauseCircle className="w-7 h-7" /> : <PlayCircle className="w-7 h-7" />}
+        </button>
       </div>
     </div>
   );

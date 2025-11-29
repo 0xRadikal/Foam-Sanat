@@ -19,6 +19,13 @@ export function sanitizeStringField(
 
   const trimmed = value.trim();
 
+  // Block bidirectional override and other invisible control characters that can
+  // be abused to hide or reorder text content.
+  const forbiddenCharacters = /[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/;
+  if (forbiddenCharacters.test(trimmed)) {
+    return { ok: false, error: `${fieldName} contains invalid characters.` };
+  }
+
   if (trimmed.length < minLength) {
     return { ok: false, error: `${fieldName} is too short.` };
   }
