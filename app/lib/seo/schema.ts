@@ -1,7 +1,10 @@
 import { contactConfig, getContactAddress } from '@/app/config/contact';
 import { commonMessages } from '@/app/lib/i18n/translations/common';
 import { homeMessages } from '@/app/lib/i18n/translations/home';
-import { productsMessages } from '@/app/lib/i18n/translations/products';
+import {
+  productsMessages,
+  type ProductsNamespaceSchema,
+} from '@/app/lib/i18n/translations/products';
 import type { Locale } from '@/app/lib/i18n';
 
 type SupportedSchemaLocale = Extract<Locale, 'fa' | 'en'>;
@@ -60,7 +63,7 @@ export function getProductSchemas(locale: SupportedSchemaLocale) {
   const { products } = productsMessages[locale];
   const brandName = commonMessages[locale].companyName;
 
-  return products.map((product) => {
+  return products.map((product: ProductsNamespaceSchema['products'][number]) => {
     const images = (product.images ?? []).map((img) =>
       img.startsWith('http') ? img : `${SITE_URL}${img}`,
     );
