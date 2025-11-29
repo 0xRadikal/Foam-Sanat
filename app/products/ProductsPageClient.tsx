@@ -1018,6 +1018,7 @@ export default function ProductsPageClient({
                       <div className="flex flex-1 items-center gap-2">
                         <input
                           type={showAdminToken ? 'text' : 'password'}
+                          name="adminToken"
                           value={adminTokenInput}
                           onChange={(e) => setAdminTokenInput(e.target.value)}
                           placeholder={t.comments.tokenPlaceholder}
@@ -1112,6 +1113,7 @@ export default function ProductsPageClient({
 
                   <input
                     type="text"
+                    name="author"
                     placeholder={t.comments.yourName}
                     value={newComment.author}
                     onChange={(e) => setNewComment({ ...newComment, author: e.target.value })}
@@ -1121,6 +1123,7 @@ export default function ProductsPageClient({
 
                   <input
                     type="email"
+                    name="email"
                     placeholder={t.comments.yourEmail}
                     value={newComment.email}
                     onChange={(e) => setNewComment({ ...newComment, email: e.target.value })}
@@ -1130,6 +1133,7 @@ export default function ProductsPageClient({
 
                   <textarea
                     placeholder={t.comments.yourComment}
+                    name="comment"
                     value={newComment.text}
                     onChange={(e) => setNewComment({ ...newComment, text: e.target.value })}
                     rows={4}
@@ -1375,6 +1379,7 @@ export default function ProductsPageClient({
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-500 pointer-events-none" />
                 <input
                   type="text"
+                  name="search"
                   placeholder={t.ui.searchPlaceholder}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
