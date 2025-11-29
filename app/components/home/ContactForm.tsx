@@ -173,6 +173,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         <input
           type="text"
           id="name"
+          name="name"
           required
           value={formState.name}
           onChange={(e) => {
@@ -196,6 +197,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         <input
           type="email"
           id="email"
+          name="email"
           required
           value={formState.email}
           onChange={(e) => {
@@ -220,6 +222,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         <input
           type="tel"
           id="phone"
+          name="phone"
           value={formState.phone}
           onChange={(e) => {
             setFormState({ ...formState, phone: e.target.value });
@@ -242,6 +245,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
         </label>
         <textarea
           id="message"
+          name="message"
           required
           rows={5}
           value={formState.message}
