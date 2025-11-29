@@ -57,6 +57,8 @@ function isInvalidPayloadError(error: unknown): boolean {
   );
 }
 
+const GENERIC_EMAIL_ERROR = 'Email delivery failed. Please try again later.';
+
 function isEmailProviderError(error: unknown): error is EmailProviderError {
   return error instanceof EmailProviderError;
 }
@@ -133,13 +135,13 @@ export const POST = withRequestLogging(async (request: Request, _context, { logg
 
     if (isEmailProviderError(error)) {
       logger.error('contact.forwarding-failed', {
-        reason: error.message,
+        reason: getErrorMessage(error),
       });
 
       return NextResponse.json(
         {
           success: false,
-          message: 'Unable to deliver contact request. Please try again later.',
+          message: GENERIC_EMAIL_ERROR,
         },
         { status: 502 },
       );
@@ -271,32 +273,32 @@ async function forwardContactSubmission(
       to: toAddress,
       from: fromAddress,
     });
-    throw new EmailProviderError('Failed to reach the email provider.');
+    throw new EmailProviderError(GENERIC_EMAIL_ERROR);
   }
 
   if (!response.ok) {
-    let errorMessage = `Email provider responded with status ${response.status}`;
+    let providerDetail = `Email provider responded with status ${response.status}`;
 
     try {
       const errorPayload = await response.json();
       const detail = errorPayload?.message ?? errorPayload?.error;
       if (typeof detail === 'string' && detail.trim().length > 0) {
-        errorMessage = detail;
+        providerDetail = detail;
       }
     } catch (jsonError) {
       const message = getErrorMessage(jsonError);
-      errorMessage = `${errorMessage}; failed to parse error response: ${message}`;
+      providerDetail = `${providerDetail}; failed to parse error response: ${message}`;
     }
 
     logger.error('contact.resend.provider_error', {
       status: response.status,
-      error: errorMessage,
+      error: providerDetail,
       requestId,
       to: toAddress,
       from: fromAddress,
       subject,
     });
-    throw new EmailProviderError(errorMessage);
+    throw new EmailProviderError(GENERIC_EMAIL_ERROR);
   }
 }
 

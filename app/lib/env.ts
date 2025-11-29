@@ -15,7 +15,7 @@ const isServerRuntime = typeof window === 'undefined';
 const isProd = process.env.NODE_ENV === 'production';
 
 const normalizeList = (value: string | string[]): string[] =>
-  Array.isArray(value) ? value : [value];
+  Array.isArray(value) ? [...value] : [value];
 
 const traceKeyList = (keys: string[]): string => keys.join(' | ');
 

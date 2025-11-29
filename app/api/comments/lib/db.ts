@@ -48,7 +48,9 @@ function resolveConnectionString(backend: StorageBackend, explicit?: string): st
   return path.join(dataDir, 'comments.db');
 }
 
-async function initializeStorage(logger: Logger = defaultLogger, options: { connectionString?: string } = {}) {
+type InitializeOptions = { connectionString?: string; allowDirCreation?: boolean };
+
+async function initializeStorage(logger: Logger = defaultLogger, options: InitializeOptions = {}) {
   if (storage) return storage;
   if (initializationPromise) return initializationPromise;
 
@@ -58,14 +60,16 @@ async function initializeStorage(logger: Logger = defaultLogger, options: { conn
 
   backendUsed = resolveBackend();
   const connectionString = resolveConnectionString(backendUsed, options.connectionString);
-  const allowDirCreation = backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db');
+  const allowDirCreation =
+    options.allowDirCreation ??
+    (backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db'));
   lastConnectionString = connectionString;
   const adapter =
     backendUsed === 'postgres'
       ? new PostgresCommentStorage(connectionString)
       : new SqliteCommentStorage(connectionString, { allowDirCreation });
 
-  initializationPromise = adapter
+  const initPromise = adapter
     .initialize()
     .then(() => {
       storage = adapter;
@@ -103,67 +107,14 @@ async function initializeStorage(logger: Logger = defaultLogger, options: { conn
       return null;
     })
     .finally(() => {
-      initializationPromise = null;
+      if (initializationPromise === initPromise) {
+        initializationPromise = null;
+      }
     });
+
+  initializationPromise = initPromise;
 
   return initializationPromise;
-}
-
-function initializeStorageSync(logger: Logger = defaultLogger, options: { connectionString?: string } = {}): CommentStorage | null {
-  if (storage) return storage;
-  if (initializationPromise) return null;
-
-  initializationAttempted = true;
-  initializationMetrics.attempts += 1;
-  initializationMetrics.lastAttemptAt = new Date();
-
-  backendUsed = resolveBackend();
-  const connectionString = resolveConnectionString(backendUsed, options.connectionString);
-  const allowDirCreation = backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db');
-  lastConnectionString = connectionString;
-
-  if (backendUsed !== 'sqlite') {
-    void initializeStorage(logger, options);
-    return null;
-  }
-
-  const adapter = new SqliteCommentStorage(connectionString, { allowDirCreation });
-
-  try {
-    adapter.initializeSync();
-    storage = adapter;
-    initializationError = null;
-    initializationErrorCode = null;
-    initializationMetrics.successes += 1;
-    initializationMetrics.lastSuccessAt = new Date();
-    if (
-      backendUsed === 'sqlite' &&
-      process.env.NODE_ENV === 'production' &&
-      !sqliteProdWarningLogged
-    ) {
-      logger.warn('comments.db.sqlite.production_environment', {
-        message: 'SQLite is not recommended for high-concurrency production workloads.',
-      });
-      sqliteProdWarningLogged = true;
-    }
-    logger.info('Comment storage initialized.', { backend: backendUsed });
-    return storage;
-  } catch (error) {
-    initializationError = error as Error;
-    initializationErrorCode = (error as NodeJS.ErrnoException).code ?? 'COMMENTS_DB_INIT_FAILED';
-    initializationMetrics.failures += 1;
-    emitMetric('comments.db.init.failure', {
-      tags: { code: initializationErrorCode, backend: backendUsed },
-    });
-    logger.error('Failed to initialize the comments storage.', {
-      backend: backendUsed,
-      code: initializationErrorCode,
-      attempts: initializationMetrics.attempts,
-      failures: initializationMetrics.failures,
-      error,
-    });
-    return null;
-  }
 }
 
 export async function getCommentStorage(logger: Logger = defaultLogger): Promise<CommentStorage> {
@@ -228,10 +179,10 @@ export async function getCommentsStorageStatus(): Promise<{
   };
 }
 
-export function initializeDatabase(
+export async function initializeDatabase(
   logger: Logger = defaultLogger,
-  options: { connectionString?: string } = {},
-): CommentStorage | null {
+  options: InitializeOptions = {},
+): Promise<CommentStorage | null> {
   const hasExplicit = Boolean(options.connectionString || process.env.COMMENTS_DATABASE_URL || process.env.DATABASE_URL);
 
   if (process.env.VERCEL === '1' && !hasExplicit) {
@@ -244,13 +195,8 @@ export function initializeDatabase(
     return null;
   }
 
-  const syncInstance = initializeStorageSync(logger, options);
-  if (syncInstance) {
-    return syncInstance;
-  }
-
-  void initializeStorage(logger, options);
-  return null;
+  const instance = await initializeStorage(logger, options);
+  return instance;
 }
 
 export function getDb(logger: Logger = defaultLogger): Database.Database {

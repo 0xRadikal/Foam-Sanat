@@ -26,6 +26,46 @@ const THEME_STORAGE_KEY = 'foam-sanat-theme';
 const DEFAULT_LANG: Locale = defaultLocale;
 const DEFAULT_THEME: Theme = 'light';
 
+function readStoredLang(fallback: Locale): Locale {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  try {
+    const storedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
+    if (storedLang) {
+      const parsed = JSON.parse(storedLang);
+      if (typeof parsed === 'string' && isLocale(parsed)) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load language from storage:', error);
+  }
+
+  return fallback;
+}
+
+function readStoredTheme(fallback: Theme): Theme {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme) {
+      const parsed = JSON.parse(storedTheme) as Theme;
+      if (parsed === 'light' || parsed === 'dark') {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load theme from storage:', error);
+  }
+
+  return fallback;
+}
+
 export interface SiteChromeState {
   lang: Locale;
   dir: 'ltr' | 'rtl';
@@ -53,37 +93,9 @@ export function SiteChromeProvider({
   children: ReactNode;
   initialLocale?: Locale;
 }) {
-  const [lang, setLangState] = useState<Locale>(initialLocale);
-  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
+  const [lang, setLangState] = useState<Locale>(() => readStoredLang(initialLocale));
+  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme(DEFAULT_THEME));
   const [mobileMenuOpen, setMobileMenuOpenState] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const storedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
-      if (storedLang) {
-        const parsed = JSON.parse(storedLang);
-        if (typeof parsed === 'string' && isLocale(parsed)) {
-          setLangState(parsed);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load language from storage:', error);
-    }
-
-    try {
-      const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-      if (storedTheme) {
-        const parsed = JSON.parse(storedTheme) as Theme;
-        if (parsed === 'light' || parsed === 'dark') {
-          setThemeState(parsed);
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load theme from storage:', error);
-    }
-  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -142,6 +154,26 @@ export function SiteChromeProvider({
   const closeMobileMenu = useCallback(() => {
     setMobileMenuOpenState(false);
   }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+    const previousTouchAction = body.style.touchAction;
+
+    if (mobileMenuOpen) {
+      body.style.overflow = 'hidden';
+      body.style.touchAction = 'none';
+    } else {
+      body.style.overflow = previousOverflow;
+      body.style.touchAction = previousTouchAction;
+    }
+
+    return () => {
+      body.style.overflow = previousOverflow;
+      body.style.touchAction = previousTouchAction;
+    };
+  }, [mobileMenuOpen]);
 
   const handleSetMobileMenuOpen = useCallback((open: boolean) => {
     setMobileMenuOpenState(open);
