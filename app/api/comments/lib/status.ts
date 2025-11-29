@@ -48,6 +48,10 @@ export async function buildUnavailableResponse({
   const resolvedStatus = status ?? (await getCommentsStorageStatus());
   const retryAfterSeconds = getStorageRetryAfterSeconds(resolvedStatus);
   const errorCode = resolvedStatus.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE';
+  const baseMessage =
+    resolvedStatus.errorCode === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT'
+      ? 'Comments are disabled because persistent storage is not configured in this environment.'
+      : 'Comments are currently unavailable. Please try again later.';
   const errorDetails =
     resolvedStatus.error?.message ?? (await getCommentsStorageError())?.message ?? null;
 
@@ -66,7 +70,7 @@ export async function buildUnavailableResponse({
 
   return NextResponse.json(
     {
-      error: 'Comments are currently unavailable. Please try again later.',
+      error: baseMessage,
       code: errorCode,
       status: 'offline',
       retryAfterSeconds,
@@ -90,4 +94,20 @@ export async function ensureCommentsAvailable(
   }
 
   return buildUnavailableResponse({ status, logger, requestId });
+}
+
+export async function getCommentsAvailability() {
+  const status = await getCommentsStorageStatus();
+
+  return {
+    enabled: status.ready,
+    reason:
+      status.ready
+        ? null
+        : status.error?.message ??
+          (status.errorCode === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT'
+            ? 'Comments are disabled due to missing persistent database configuration.'
+            : status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE'),
+    status,
+  } as const;
 }

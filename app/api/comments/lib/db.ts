@@ -18,6 +18,7 @@ let initializationError: Error | null = null;
 let initializationErrorCode: string | null = null;
 let backendUsed: StorageBackend = 'sqlite';
 let lastConnectionString: string | null = null;
+let sqliteProdWarningLogged = false;
 
 const defaultLogger: Logger = console;
 
@@ -72,6 +73,16 @@ async function initializeStorage(logger: Logger = defaultLogger, options: { conn
       initializationErrorCode = null;
       initializationMetrics.successes += 1;
       initializationMetrics.lastSuccessAt = new Date();
+      if (
+        backendUsed === 'sqlite' &&
+        process.env.NODE_ENV === 'production' &&
+        !sqliteProdWarningLogged
+      ) {
+        logger.warn('comments.db.sqlite.production_environment', {
+          message: 'SQLite is not recommended for high-concurrency production workloads.',
+        });
+        sqliteProdWarningLogged = true;
+      }
       logger.info('Comment storage initialized.', { backend: backendUsed });
       return storage;
     })
@@ -125,6 +136,16 @@ function initializeStorageSync(logger: Logger = defaultLogger, options: { connec
     initializationErrorCode = null;
     initializationMetrics.successes += 1;
     initializationMetrics.lastSuccessAt = new Date();
+    if (
+      backendUsed === 'sqlite' &&
+      process.env.NODE_ENV === 'production' &&
+      !sqliteProdWarningLogged
+    ) {
+      logger.warn('comments.db.sqlite.production_environment', {
+        message: 'SQLite is not recommended for high-concurrency production workloads.',
+      });
+      sqliteProdWarningLogged = true;
+    }
     logger.info('Comment storage initialized.', { backend: backendUsed });
     return storage;
   } catch (error) {
@@ -214,6 +235,11 @@ export function initializeDatabase(
   const hasExplicit = Boolean(options.connectionString || process.env.COMMENTS_DATABASE_URL || process.env.DATABASE_URL);
 
   if (process.env.VERCEL === '1' && !hasExplicit) {
+    const error = new Error(
+      'Comments storage disabled: read-only environment without persistent database configuration.',
+    );
+    initializationError = error;
+    initializationErrorCode = 'COMMENTS_DB_READ_ONLY_ENVIRONMENT';
     logger.warn('comments.db.read_only_environment');
     return null;
   }

@@ -134,7 +134,21 @@ export class SqliteCommentStorage implements CommentStorage {
     const { selectApprovedComments } = this.prepared;
     if (!selectApprovedComments) throw new Error('Database not initialized');
     const rows = selectApprovedComments.all(productId) as StoredComment[];
-    return Promise.all(rows.map((comment) => this.toPublicComment(comment)));
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const commentIds = rows.map((comment) => comment.id);
+    const replies = this.fetchApprovedRepliesForComments(commentIds);
+    const repliesByComment = replies.reduce<Map<string, StoredCommentReply[]>>((acc, reply) => {
+      const existing = acc.get(reply.commentId) ?? [];
+      existing.push(reply);
+      acc.set(reply.commentId, existing);
+      return acc;
+    }, new Map());
+
+    return rows.map((comment) => this.mapToPublicComment(comment, repliesByComment.get(comment.id)));
   }
 
   async hasDuplicateComment(productId: string, email: string, text: string): Promise<boolean> {
@@ -245,7 +259,17 @@ export class SqliteCommentStorage implements CommentStorage {
   }
 
   async toPublicComment(comment: StoredComment): Promise<PublicComment> {
-    const replies = (this.prepared.selectApprovedReplies?.all(comment.id) as StoredCommentReply[] | undefined) ?? [];
+    const replies =
+      (this.prepared.selectApprovedReplies?.all(comment.id) as StoredCommentReply[] | undefined) ?? [];
+
+    return this.mapToPublicComment(comment, replies);
+  }
+
+  private mapToPublicComment(
+    comment: StoredComment,
+    replies?: StoredCommentReply[] | undefined,
+  ): PublicComment {
+    const effectiveReplies = replies ?? [];
 
     return {
       id: comment.id,
@@ -258,7 +282,7 @@ export class SqliteCommentStorage implements CommentStorage {
       moderatedAt: comment.moderatedAt ?? undefined,
       moderatedById: comment.moderatedById ?? undefined,
       moderatedByDisplayName: comment.moderatedByDisplayName ?? undefined,
-      replies: replies.map<PublicCommentReply>(
+      replies: effectiveReplies.map<PublicCommentReply>(
         ({ id, author, text, createdAt, isAdmin, status, adminId, adminDisplayName, respondedAt }) => ({
           id,
           author,
@@ -272,5 +296,20 @@ export class SqliteCommentStorage implements CommentStorage {
         }),
       ),
     };
+  }
+
+  private fetchApprovedRepliesForComments(commentIds: string[]): StoredCommentReply[] {
+    if (!this.db || commentIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = commentIds.map(() => '?').join(',');
+    const query = `SELECT id, commentId, author, text, createdAt, isAdmin, adminId, adminDisplayName, respondedAt, status
+         FROM comment_replies
+         WHERE commentId IN (${placeholders}) AND status = 'approved'
+         ORDER BY datetime(createdAt) ASC`;
+
+    const stmt = this.db.prepare(query);
+    return stmt.all(...commentIds) as StoredCommentReply[];
   }
 }

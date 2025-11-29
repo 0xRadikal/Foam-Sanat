@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { sanitizeStringField, redactPayload } from '../lib/payload';
 import { validateRequestOrigin, verifyTurnstileToken } from '../lib/security';
-import { withRequestLogging } from '../lib/logging';
+import { withRequestLogging, type RequestLogger } from '../lib/logging';
 import {
   validateEmail,
   validatePhone,
@@ -69,7 +69,7 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-export const POST = withRequestLogging(async (request: Request, _context, { logger }) => {
+export const POST = withRequestLogging(async (request: Request, _context, { logger, requestId }) => {
   try {
     const originError = validateRequestOrigin(request);
     if (originError) {
@@ -110,7 +110,7 @@ export const POST = withRequestLogging(async (request: Request, _context, { logg
       payload: redactPayload(contactPayload),
     });
 
-    await forwardContactSubmission(contactPayload);
+    await forwardContactSubmission(contactPayload, logger, requestId);
 
     return NextResponse.json({
       success: true,
@@ -227,7 +227,11 @@ function sanitizeRequiredContactField(
 }
 
 
-async function forwardContactSubmission(payload: ContactPayload): Promise<void> {
+async function forwardContactSubmission(
+  payload: ContactPayload,
+  logger: RequestLogger,
+  requestId?: string,
+): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const isProd = process.env.NODE_ENV === 'production';
 
@@ -243,19 +247,32 @@ async function forwardContactSubmission(payload: ContactPayload): Promise<void> 
   const fromAddress = process.env.RESEND_FROM_EMAIL ?? CONTACT_EMAIL;
   const toAddress = CONTACT_EMAIL;
 
-  const response = await fetch(RESEND_API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
+  let response: Response;
+  const subject = `New contact form submission from ${payload.name}`;
+
+  try {
+    response = await fetch(RESEND_API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [toAddress],
+        subject,
+        text: formatPlaintextMessage(payload),
+      }),
+    });
+  } catch (error) {
+    logger.error('contact.resend.network_error', {
+      error,
+      requestId,
+      to: toAddress,
       from: fromAddress,
-      to: [toAddress],
-      subject: `New contact form submission from ${payload.name}`,
-      text: formatPlaintextMessage(payload),
-    }),
-  });
+    });
+    throw new EmailProviderError('Failed to reach the email provider.');
+  }
 
   if (!response.ok) {
     let errorMessage = `Email provider responded with status ${response.status}`;
@@ -271,6 +288,14 @@ async function forwardContactSubmission(payload: ContactPayload): Promise<void> 
       errorMessage = `${errorMessage}; failed to parse error response: ${message}`;
     }
 
+    logger.error('contact.resend.provider_error', {
+      status: response.status,
+      error: errorMessage,
+      requestId,
+      to: toAddress,
+      from: fromAddress,
+      subject,
+    });
     throw new EmailProviderError(errorMessage);
   }
 }
