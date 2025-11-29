@@ -8,7 +8,6 @@ import {
   Sparkles, Users, Target, ChevronLeft, ChevronRight,
   Star, Send, Reply, MessageCircle, Trash2
 } from 'lucide-react';
-import Script from 'next/script';
 import Header from '@/app/components/Header';
 import Footer from '@/app/components/Footer';
 import CallToAction from '@/app/components/CallToAction';
@@ -19,8 +18,6 @@ import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamesp
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
 import { validateEmail, VALIDATION_RULES } from '@/app/lib/validation';
-import { getProductSchemas } from '@/app/lib/seo/schema';
-import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 
 type Product = ProductsNamespaceSchema['products'][number];
 
@@ -130,8 +127,6 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
   const [replyLoading, setReplyLoading] = useState<string | null>(null);
   const [adminToken, setAdminToken] = useState('');
   const [adminTokenInput, setAdminTokenInput] = useState('');
-  const productSchemas = useMemo(() => getProductSchemas(activeLocale), [activeLocale]);
-
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
       hasSyncedInitialLocale.current = true;
@@ -1204,14 +1199,6 @@ export default function ProductsPageClient({ initialLocale, initialMessages }: P
       dir={isRTL ? 'rtl' : 'ltr'}
       style={{ fontFamily }}
     >
-      <Script
-        id="product-schema"
-        type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: sanitizeForInnerHTML(JSON.stringify(productSchemas)),
-        }}
-      />
       <Header
         lang={activeLocale}
         isDark={isDark}
