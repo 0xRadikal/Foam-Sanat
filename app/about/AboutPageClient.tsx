@@ -139,7 +139,7 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const [isMounted, setIsMounted] = useState(false);
   const instanceId = useId();
   const seededRandom = useMemo(() => getSeededRandom(initialLocale, instanceId), [initialLocale, instanceId]);
-  const blobStyles = useMemo(() => generateBlobs(30, seededRandom), [seededRandom]);
+  const blobStyles = useMemo(() => generateBlobs(15, seededRandom), [seededRandom]);
 
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
