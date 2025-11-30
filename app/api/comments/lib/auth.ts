@@ -104,14 +104,15 @@ function timingSafeEqual(a: string, b: string): boolean {
 function verifySignature(segments: string[], signature: string, secrets: string[]): string | null {
   const signingInput = segments.slice(0, 2).join('.');
 
+  let matchedSecret: string | null = null;
   for (const secret of secrets) {
     const expected = createSignature(signingInput, secret);
     if (timingSafeEqual(signature, expected)) {
-      return secret;
+      matchedSecret = secret;
     }
   }
 
-  return null;
+  return matchedSecret;
 }
 
 function getPrimaryAdminSecret(): string | null {
