@@ -16,6 +16,12 @@ import './globals.css';
 
 import '@/app/lib/server-bootstrap';
 
+function generateNonce(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return btoa(String.fromCharCode(...array));
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://foamsanat.com'),
   title: {
@@ -149,7 +155,7 @@ export default function RootLayout({
 
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
   const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
-  const cspNonce = requestHeaders.get('x-csp-nonce') ?? undefined;
+  const cspNonce = requestHeaders.get('x-csp-nonce') || generateNonce();
   const permissionsPolicy =
     'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()';
   const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;

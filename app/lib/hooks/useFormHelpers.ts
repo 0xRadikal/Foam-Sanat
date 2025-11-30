@@ -88,6 +88,15 @@ export function useContactValidation(contact: HomeMessages['contact']) {
 }
 
 export function useCommentValidation(messages: ProductsNamespaceSchema['comments']) {
+  const escapeHtml = useCallback((unsafe: string): string => {
+    return unsafe
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }, []);
+
   const validateComment = useCallback(
     (draft: CommentDraft): CommentValidationResult => {
       const trimmedAuthor = draft.author.trim();
@@ -109,13 +118,13 @@ export function useCommentValidation(messages: ProductsNamespaceSchema['comments
       return {
         sanitized: {
           rating: draft.rating,
-          author: trimmedAuthor,
+          author: escapeHtml(trimmedAuthor),
           email: trimmedEmail,
-          text: trimmedText,
+          text: escapeHtml(trimmedText),
         },
       };
     },
-    [messages.invalidEmail, messages.tooShort, messages.validationError],
+    [escapeHtml, messages.invalidEmail, messages.tooShort, messages.validationError],
   );
 
   const validateReply = useCallback(
@@ -125,9 +134,17 @@ export function useCommentValidation(messages: ProductsNamespaceSchema['comments
         return { error: messages.emptyReply };
       }
 
+      if (trimmedReply.length < 10) {
+        return { error: messages.tooShort };
+      }
+
+      if (trimmedReply.length > 2000) {
+        return { error: 'Reply is too long.' };
+      }
+
       return { sanitized: trimmedReply };
     },
-    [messages.emptyReply],
+    [messages.emptyReply, messages.tooShort],
   );
 
   return { validateComment, validateReply };
