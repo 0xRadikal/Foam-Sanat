@@ -302,7 +302,12 @@ export default function ProductsPageClient({
       return;
     }
 
-    if (!isLikelySignedAdminToken(trimmed)) {
+    const tokens = adminTokenInput
+      .split(',')
+      .map((token) => token.trim())
+      .filter(Boolean);
+
+    if (tokens.length === 0 || !tokens.every(isLikelySignedAdminToken)) {
       try {
         localStorage.removeItem('comments-admin-token');
       } catch (error) {
@@ -313,13 +318,13 @@ export default function ProductsPageClient({
       return;
     }
 
-      try {
-        localStorage.setItem('comments-admin-token', trimmed);
-      } catch (error) {
-        console.warn('Unable to persist admin token:', error);
-      }
-      setAdminToken(trimmed);
-      setCommentError(null);
+    try {
+      localStorage.setItem('comments-admin-token', tokens[0]);
+    } catch (error) {
+      console.warn('Unable to persist admin token:', error);
+    }
+    setAdminToken(tokens[0]);
+    setCommentError(null);
   }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
   const handleClearAdminToken = useCallback(() => {
