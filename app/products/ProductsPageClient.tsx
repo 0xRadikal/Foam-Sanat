@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import Image from 'next/image';
 import {
   Phone, Mail,
@@ -62,7 +63,12 @@ type DraftComment = {
 const createDefaultComment = (): DraftComment => ({ rating: 5, text: '', author: '', email: '' });
 const isLikelySignedAdminToken = (token: string): boolean => {
   const segments = token.split('.');
-  return segments.length === 3 && segments.every(Boolean);
+  if (segments.length !== 3 || !segments.every(Boolean)) {
+    return false;
+  }
+
+  const base64urlPattern = /^[A-Za-z0-9_-]+$/;
+  return segments.every((segment) => base64urlPattern.test(segment));
 };
 
 const renderProductImage = (
@@ -187,10 +193,12 @@ export default function ProductsPageClient({
 
   const scrollToLatestComment = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const target =
-      (commentsListRef.current?.lastElementChild as HTMLElement | null) ??
-      commentsListRef.current;
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!commentsListRef.current) return;
+
+    commentsListRef.current.scrollTo({
+      top: commentsListRef.current.scrollHeight,
+      behavior: 'smooth'
+    });
   }, []);
 
   // Load stored admin token
@@ -889,9 +897,16 @@ export default function ProductsPageClient({
   };
 
   const ProductDetailModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
-    if (!product) return null;
+    const productComments: ProductComment[] = product ? comments[product.id] ?? [] : [];
 
-    const productComments: ProductComment[] = comments[product.id] ?? [];
+    const commentsVirtualizer = useVirtualizer({
+      count: productComments.length,
+      getScrollElement: () => commentsListRef.current,
+      estimateSize: () => 260,
+      overscan: 5
+    });
+
+    if (!product) return null;
 
     return (
       <Modal
@@ -1212,132 +1227,155 @@ export default function ProductsPageClient({
                 )}
 
                 {!commentsLoading && !commentsError && productComments.length > 0 && (
-                  <div ref={commentsListRef} className="space-y-6">
-                    {productComments.map((comment) => (
-                      <div key={comment.id} className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                        <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-bold text-lg">{comment.author}</p>
-                              {comment.status !== 'approved' && (
-                                <span
-                                  className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                                    comment.status === 'pending'
-                                      ? 'bg-yellow-100 text-yellow-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}
-                                >
-                                  {t.comments.status[comment.status]}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
-                          </div>
-                          {hasAdminToken && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteComment(product.id, comment.id)}
-                              className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              {t.comments.delete}
-                            </button>
-                          )}
-                        </div>
+                  <div ref={commentsListRef} className="max-h-[600px] overflow-auto">
+                    <div
+                      style={{
+                        height: `${commentsVirtualizer.getTotalSize()}px`,
+                        position: 'relative'
+                      }}
+                    >
+                      {commentsVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
+                        const comment = productComments[virtualRow.index];
 
-                        <div className="flex gap-0.5 mb-3">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={`${comment.id}-star-${i}`}
-                              className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
-                            />
-                          ))}
-                        </div>
-
-                        <p className="mb-4">{comment.text}</p>
-
-                        {/* Replies */}
-                        {comment.replies.length > 0 && (
-                          <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
-                            {comment.replies.map((reply) => (
-                              <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-bold text-sm text-orange-600">
-                                      {reply.adminDisplayName ?? reply.author}
-                                    </p>
-                                    {reply.status !== 'approved' && (
+                        return (
+                          <div
+                            key={comment.id}
+                            data-index={virtualRow.index}
+                            ref={commentsVirtualizer.measureElement}
+                            className="absolute left-0 w-full pb-6"
+                            style={{ transform: `translateY(${virtualRow.start}px)` }}
+                          >
+                            <div className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                              <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-bold text-lg">{comment.author}</p>
+                                    {comment.status !== 'approved' && (
                                       <span
-                                        className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                                          reply.status === 'pending'
+                                        className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                                          comment.status === 'pending'
                                             ? 'bg-yellow-100 text-yellow-700'
                                             : 'bg-red-100 text-red-700'
                                         }`}
                                       >
-                                        {t.comments.status[reply.status]}
+                                        {t.comments.status[comment.status]}
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex flex-col text-xs text-gray-400">
-                                    {reply.adminId && (
-                                      <span className="text-[11px] font-mono">ID: {reply.adminId}</span>
-                                    )}
-                                    <span>{formatDate(reply.respondedAt ?? reply.createdAt)}</span>
-                                  </div>
+                                  <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
                                 </div>
-                                <p className="text-sm mt-1">{reply.text}</p>
+                                {hasAdminToken && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteComment(product.id, comment.id)}
+                                    className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    {t.comments.delete}
+                                  </button>
+                                )}
                               </div>
-                            ))}
-                          </div>
-                        )}
 
-                        {/* Reply Form */}
-                        {hasAdminToken && (
-                          replyingTo !== comment.id ? (
-                            <button
-                              type="button"
-                              onClick={() => setReplyingTo(comment.id)}
-                              className="text-sm text-orange-500 font-bold hover:underline mt-3 flex items-center gap-1"
-                            >
-                              <Reply className="w-4 h-4" />
-                              {t.comments.reply}
-                            </button>
-                          ) : (
-                            <div className="mt-4 space-y-2">
-                              <textarea
-                                placeholder={t.comments.replyPlaceholder}
-                                value={replyText}
-                                onChange={(e) => setReplyText(e.target.value)}
-                                rows={3}
-                                className={`w-full px-3 py-2 rounded-lg text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleReply(product.id, comment.id, replyText)}
-                                  disabled={replyLoading === comment.id}
-                                  className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
-                                    replyLoading === comment.id ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-600'
-                                  }`}
-                                >
-                                  {replyLoading === comment.id ? t.comments.sendingReply : t.comments.send}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setReplyingTo(null);
-                                    setReplyText('');
-                                  }}
-                                  className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-800'}`}
-                                >
-                                  {t.comments.cancel}
-                                </button>
+                              <div className="flex gap-0.5 mb-3">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={`${comment.id}-star-${i}`}
+                                    className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
+                                  />
+                                ))}
                               </div>
+
+                              <p className="mb-4">{comment.text}</p>
+
+                              {/* Replies */}
+                              {comment.replies.length > 0 && (
+                                <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
+                                  {comment.replies.map((reply) => (
+                                    <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
+                                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                          <p className="font-bold text-sm text-orange-600">
+                                            {reply.adminDisplayName ?? reply.author}
+                                          </p>
+                                          {reply.status !== 'approved' && (
+                                            <span
+                                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                                                reply.status === 'pending'
+                                                  ? 'bg-yellow-100 text-yellow-700'
+                                                  : 'bg-red-100 text-red-700'
+                                              }`}
+                                            >
+                                              {t.comments.status[reply.status]}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-col text-xs text-gray-400">
+                                          {reply.adminId && (
+                                            <span className="text-[11px] font-mono">ID: {reply.adminId}</span>
+                                          )}
+                                          <span>{formatDate(reply.respondedAt ?? reply.createdAt)}</span>
+                                        </div>
+                                      </div>
+                                      <p className="text-sm mt-1">{reply.text}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Reply Form */}
+                              {hasAdminToken && (
+                                replyingTo !== comment.id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReplyingTo(comment.id)}
+                                    className="text-sm text-orange-500 font-bold hover:underline mt-3 flex items-center gap-1"
+                                  >
+                                    <Reply className="w-4 h-4" />
+                                    {t.comments.reply}
+                                  </button>
+                                ) : (
+                                  <div className="mt-4 space-y-2">
+                                    <textarea
+                                      placeholder={t.comments.replyPlaceholder}
+                                      value={replyText}
+                                      onChange={(e) => setReplyText(e.target.value)}
+                                      rows={3}
+                                      className={`w-full px-3 py-2 rounded-lg text-sm ${
+                                        isDark ? 'bg-gray-600 text-white' : 'bg-white'
+                                      } focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleReply(product.id, comment.id, replyText)}
+                                        disabled={replyLoading === comment.id}
+                                        className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
+                                          replyLoading === comment.id ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-600'
+                                        }`}
+                                      >
+                                        {replyLoading === comment.id ? t.comments.sendingReply : t.comments.send}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setReplyingTo(null);
+                                          setReplyText('');
+                                        }}
+                                        className={`px-4 py-2 rounded-lg font-bold text-sm ${
+                                          isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-800'
+                                        }`}
+                                      >
+                                        {t.comments.cancel}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              )}
                             </div>
-                          )
-                        )}
-                      </div>
-                    ))}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </>
