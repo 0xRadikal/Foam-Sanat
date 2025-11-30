@@ -180,7 +180,8 @@ export class SqliteCommentStorage implements CommentStorage {
         moderatedByDisplayName: newComment.moderatedByDisplayName ?? null,
       });
     } catch (error) {
-      if ((error as Database.SqliteError)?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      const sqliteError = error as { code?: string };
+      if (sqliteError?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         throw new Error('DUPLICATE_COMMENT');
       }
 
