@@ -1,5 +1,7 @@
 import type { LocaleRecord } from '../locales';
 
+export type ProductImage = { type: 'emoji'; value: string } | { type: 'url'; value: string };
+
 export type ProductsNamespaceSchema = {
   companyName: string;
   nav: {
@@ -19,7 +21,7 @@ export type ProductsNamespaceSchema = {
     id: string;
     category: string;
     name: string;
-    images: string[];
+    images: ProductImage[];
     price: string;
     badge?: string;
     shortDesc: string;
@@ -140,7 +142,11 @@ export const productsMessages = {
         id: 'lp-soft',
         category: 'lp',
         name: 'ماشین تزریق فوم نرم',
-        images: ['🛋️', '🛏️', '🪑'],
+        images: [
+          { type: 'emoji', value: '🛋️' },
+          { type: 'emoji', value: '🛏️' },
+          { type: 'emoji', value: '🪑' }
+        ],
         price: 'نیاز به مشاوره',
         badge: 'پرفروش',
         shortDesc: 'برای تشک‌ها و مبلمان',
@@ -176,7 +182,11 @@ export const productsMessages = {
         id: 'rigid-panel',
         category: 'rigid',
         name: 'ماشین تزریق فوم ریجید',
-        images: ['🏭', '🏗️', '❄️'],
+        images: [
+          { type: 'emoji', value: '🏭' },
+          { type: 'emoji', value: '🏗️' },
+          { type: 'emoji', value: '❄️' }
+        ],
         price: 'نیاز به مشاوره',
         badge: 'جدید',
         shortDesc: 'برای ساندویچ پانل',
@@ -209,7 +219,11 @@ export const productsMessages = {
         id: 'hp-integral',
         category: 'hp',
         name: 'ماشین تزریق فوم انتگرال',
-        images: ['⚙️', '🔧', '🏭'],
+        images: [
+          { type: 'emoji', value: '⚙️' },
+          { type: 'emoji', value: '🔧' },
+          { type: 'emoji', value: '🏭' }
+        ],
         price: 'نیاز به مشاوره',
         badge: 'فاخر',
         shortDesc: 'برای قطعات خودرو',
@@ -242,7 +256,11 @@ export const productsMessages = {
         id: 'hp-standard',
         category: 'hp',
         name: 'ماشین تزریق فوم هایپرشر',
-        images: ['🏭', '🔩', '⚡'],
+        images: [
+          { type: 'emoji', value: '🏭' },
+          { type: 'emoji', value: '🔩' },
+          { type: 'emoji', value: '⚡' }
+        ],
         price: '۳۵,۰۰۰,۰۰۰ تومان',
         badge: 'پرفروش',
         shortDesc: 'برای تولید انبوه',
@@ -276,7 +294,11 @@ export const productsMessages = {
         id: 'filter-line',
         category: 'hp',
         name: 'خط تولید فیلتر هوای فوم',
-        images: ['💨', '🔧', '🏭'],
+        images: [
+          { type: 'emoji', value: '💨' },
+          { type: 'emoji', value: '🔧' },
+          { type: 'emoji', value: '🏭' }
+        ],
         price: 'نیاز به مشاوره',
         badge: 'جدید',
         shortDesc: 'برای صنایع خودرو',
@@ -419,7 +441,11 @@ export const productsMessages = {
         id: 'lp-soft',
         category: 'lp',
         name: 'Soft Foam Injection Machine',
-        images: ['🛋️', '🛏️', '🪑'],
+        images: [
+          { type: 'emoji', value: '🛋️' },
+          { type: 'emoji', value: '🛏️' },
+          { type: 'emoji', value: '🪑' }
+        ],
         price: 'Contact for pricing',
         badge: 'Best Seller',
         shortDesc: 'For mattresses and furniture',
@@ -455,7 +481,11 @@ Highlights:
         id: 'rigid-panel',
         category: 'rigid',
         name: 'Rigid Foam Injection Machine',
-        images: ['🏭', '🏗️', '❄️'],
+        images: [
+          { type: 'emoji', value: '🏭' },
+          { type: 'emoji', value: '🏗️' },
+          { type: 'emoji', value: '❄️' }
+        ],
         price: 'Contact for pricing',
         badge: 'New',
         shortDesc: 'For sandwich panels',
@@ -488,7 +518,11 @@ Highlights:
         id: 'hp-integral',
         category: 'hp',
         name: 'Integral Foam Injection Machine',
-        images: ['⚙️', '🔧', '🏭'],
+        images: [
+          { type: 'emoji', value: '⚙️' },
+          { type: 'emoji', value: '🔧' },
+          { type: 'emoji', value: '🏭' }
+        ],
         price: 'Contact for pricing',
         badge: 'Premium',
         shortDesc: 'For automotive parts',
@@ -521,7 +555,11 @@ Ideal applications:
         id: 'hp-standard',
         category: 'hp',
         name: 'High-Pressure Foam Machine',
-        images: ['🏭', '🔩', '⚡'],
+        images: [
+          { type: 'emoji', value: '🏭' },
+          { type: 'emoji', value: '🔩' },
+          { type: 'emoji', value: '⚡' }
+        ],
         price: '$75,000',
         badge: 'Best Seller',
         shortDesc: 'For mass production',
@@ -555,7 +593,11 @@ Highlights:
         id: 'filter-line',
         category: 'hp',
         name: 'Foam Air Filter Line',
-        images: ['💨', '🔧', '🏭'],
+        images: [
+          { type: 'emoji', value: '💨' },
+          { type: 'emoji', value: '🔧' },
+          { type: 'emoji', value: '🏭' }
+        ],
         price: 'Contact for pricing',
         badge: 'New',
         shortDesc: 'For automotive industry',

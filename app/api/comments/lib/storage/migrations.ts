@@ -59,6 +59,13 @@ const sqliteMigrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_audit_logs_comment ON comment_audit_logs (commentId);
     `,
   },
+  {
+    id: '002_unique_comment_dedupe',
+    sql: `
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_comment
+      ON comments (productId, lower(email), text);
+    `,
+  },
 ];
 
 const postgresMigrations: Migration[] = [
@@ -110,6 +117,13 @@ const postgresMigrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_comments_moderated_at ON comments (moderatedAt);
       CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON comment_audit_logs (createdAt);
       CREATE INDEX IF NOT EXISTS idx_audit_logs_comment ON comment_audit_logs (commentId);
+    `,
+  },
+  {
+    id: '002_unique_comment_dedupe',
+    sql: `
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_comment
+      ON comments (productId, lower(email), text);
     `,
   },
 ];
