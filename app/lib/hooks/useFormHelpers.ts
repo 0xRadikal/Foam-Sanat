@@ -125,9 +125,17 @@ export function useCommentValidation(messages: ProductsNamespaceSchema['comments
         return { error: messages.emptyReply };
       }
 
+      if (trimmedReply.length < 10) {
+        return { error: messages.tooShort };
+      }
+
+      if (trimmedReply.length > 2000) {
+        return { error: 'Reply is too long.' };
+      }
+
       return { sanitized: trimmedReply };
     },
-    [messages.emptyReply],
+    [messages.emptyReply, messages.tooShort],
   );
 
   return { validateComment, validateReply };

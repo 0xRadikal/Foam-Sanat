@@ -84,14 +84,28 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
     );
   }
 
-  const newComment = await createStoredComment({
-    productId: sanitized.productId,
-    rating: sanitized.rating,
-    author: sanitized.author,
-    email: sanitized.email,
-    text: sanitized.text,
-    status: 'pending',
-  });
+  let newComment;
+  try {
+    newComment = await createStoredComment({
+      productId: sanitized.productId,
+      rating: sanitized.rating,
+      author: sanitized.author,
+      email: sanitized.email,
+      text: sanitized.text,
+      status: 'pending',
+    });
+  } catch (error) {
+    if ((error as Error).message === 'DUPLICATE_COMMENT') {
+      logger.warn('comments.post.duplicate', { productId: sanitized.productId });
+      return NextResponse.json(
+        { error: 'This comment has already been submitted and is awaiting moderation.' },
+        { status: 409 },
+      );
+    }
+
+    logger.error('comments.post.unexpected-error', { error });
+    return NextResponse.json({ error: 'Failed to save comment.' }, { status: 500 });
+  }
 
   const publicComment = await toPublicComment(newComment);
 
