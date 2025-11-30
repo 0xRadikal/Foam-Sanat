@@ -14,6 +14,7 @@ export default function HeroSlider({ slides, isRTL, isDark }: HeroSliderProps) {
   const [current, setCurrent] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const effectActive = useRef(false);
 
   const resetTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -22,15 +23,20 @@ export default function HeroSlider({ slides, isRTL, isDark }: HeroSliderProps) {
   }, []);
 
   useEffect(() => {
+    effectActive.current = true;
     resetTimeout();
     if (isAutoPlaying) {
-      timeoutRef.current = setTimeout(
-        () => setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1)),
-        5000
-      );
+      timeoutRef.current = setTimeout(() => {
+        if (effectActive.current) {
+          setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
+        }
+      }, 5000);
     }
 
-    return () => resetTimeout();
+    return () => {
+      effectActive.current = false;
+      resetTimeout();
+    };
   }, [current, isAutoPlaying, slides.length, resetTimeout]);
 
   const goToSlide = (index: number) => {
