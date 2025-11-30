@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { HomeMessages, Locale } from '@/app/lib/i18n';
 import { useContactValidation } from '@/app/lib/hooks/useFormHelpers';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
@@ -30,6 +30,15 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
   const [captchaToken, setCaptchaToken] = useState('');
   const [captchaError, setCaptchaError] = useState<string | null>(null);
   const [captchaRefresh, setCaptchaRefresh] = useState(0);
+  const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+      }
+    };
+  }, []);
   const labelAlignment = isRTL ? 'text-right' : 'text-left';
   const hasError = status === 'error';
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -66,6 +75,11 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
     setErrorMessage('');
     setCaptchaError(null);
 
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = null;
+    }
+
     const validationResult = validateContactForm(formState, { captchaEnabled, captchaToken });
     if (!validationResult.sanitized) {
       const message = validationResult.error ?? contact.form.errorGeneric;
@@ -90,7 +104,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
           email,
           phone,
           message: bodyMessage,
-          turnstileToken: captchaToken || undefined,
+          turnstileToken: captchaToken,
         }),
       });
 
@@ -112,6 +126,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       setStatus('success');
       setFormState({ name: '', email: '', phone: '', message: '' });
       setCaptchaToken('');
+      errorTimerRef.current = null;
       setCaptchaRefresh((current) => current + 1);
 
       trackEvent('contact_form_submitted', {
@@ -146,10 +161,14 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       setCaptchaRefresh((current) => current + 1);
 
       // Auto-clear error after 10 seconds
-      setTimeout(() => {
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+      }
+      errorTimerRef.current = setTimeout(() => {
         setStatus('idle');
         setErrorMessage('');
         setCaptchaError(null);
+        errorTimerRef.current = null;
       }, 10000);
     }
   };

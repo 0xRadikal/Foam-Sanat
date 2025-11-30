@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import {
   Phone, Mail,
   Factory, Zap, Gauge, Wrench, Shield, Award,
@@ -20,6 +21,7 @@ import { contactConfig } from '@/app/config/contact';
 import { useCommentValidation, useLocalizedDateFormatter } from '@/app/lib/hooks/useFormHelpers';
 
 type Product = ProductsNamespaceSchema['products'][number];
+type ProductImage = Product['images'][number];
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -60,7 +62,46 @@ type DraftComment = {
 const createDefaultComment = (): DraftComment => ({ rating: 5, text: '', author: '', email: '' });
 const isLikelySignedAdminToken = (token: string): boolean => {
   const segments = token.split('.');
-  return segments.length === 3 && segments.every(Boolean);
+  if (segments.length !== 3 || !segments.every(Boolean)) {
+    return false;
+  }
+
+  const base64urlPattern = /^[A-Za-z0-9_-]+$/;
+  return segments.every((segment) => base64urlPattern.test(segment));
+};
+
+const renderProductImage = (
+  image: ProductImage | undefined,
+  productName: string,
+  className?: string,
+) => {
+  if (!image) {
+    return <span className="sr-only">{productName}</span>;
+  }
+
+  const wrapperClassName = className ? `relative ${className}` : 'relative';
+
+  if (image.type === 'emoji') {
+    return (
+      <div className={className}>
+        <span aria-hidden="true">{image.value}</span>
+        <span className="sr-only">{productName}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={wrapperClassName}>
+      <Image
+        src={image.value}
+        alt={productName}
+        fill
+        sizes="(max-width: 768px) 100vw, 640px"
+        className="object-contain"
+        priority={false}
+      />
+    </div>
+  );
 };
 
 type ApiCommentReply = {
@@ -302,7 +343,12 @@ export default function ProductsPageClient({
       return;
     }
 
-    if (!isLikelySignedAdminToken(trimmed)) {
+    const tokens = adminTokenInput
+      .split(',')
+      .map((token) => token.trim())
+      .filter(Boolean);
+
+    if (tokens.length === 0 || !tokens.every(isLikelySignedAdminToken)) {
       try {
         localStorage.removeItem('comments-admin-token');
       } catch (error) {
@@ -313,13 +359,13 @@ export default function ProductsPageClient({
       return;
     }
 
-      try {
-        localStorage.setItem('comments-admin-token', trimmed);
-      } catch (error) {
-        console.warn('Unable to persist admin token:', error);
-      }
-      setAdminToken(trimmed);
-      setCommentError(null);
+    try {
+      localStorage.setItem('comments-admin-token', tokens[0]);
+    } catch (error) {
+      console.warn('Unable to persist admin token:', error);
+    }
+    setAdminToken(tokens[0]);
+    setCommentError(null);
   }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
   const handleClearAdminToken = useCallback(() => {
@@ -735,8 +781,11 @@ export default function ProductsPageClient({
         >
           <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
             <div className="absolute inset-0 flex items-center justify-center">
-              <span aria-hidden="true">{product.images[0]}</span>
-              <span className="sr-only">{product.name}</span>
+              {renderProductImage(
+                product.images[0],
+                product.name,
+                'text-5xl sm:text-7xl h-full w-full flex items-center justify-center',
+              )}
             </div>
           </div>
 
@@ -862,10 +911,13 @@ export default function ProductsPageClient({
           <div className="mb-8">
             <div className="relative mb-4 group">
               <div className="aspect-video bg-gradient-to-br from-orange-400 to-purple-600 rounded-2xl flex items-center justify-center text-6xl md:text-8xl overflow-hidden w-full">
-                <span aria-hidden="true">{product.images[currentSlide]}</span>
-                <span className="sr-only">{product.name}</span>
+                {renderProductImage(
+                  product.images[currentSlide],
+                  product.name,
+                  'text-6xl md:text-8xl h-full w-full flex items-center justify-center',
+                )}
               </div>
-              
+
               {product.images.length > 1 && (
                 <>
                     <button
@@ -882,7 +934,7 @@ export default function ProductsPageClient({
                     </button>
                   <div className="flex justify-center gap-2 mt-4">
                     {product.images.map((image, i) => {
-                      const slideKey = typeof image === 'string' ? `${product.id}-${image}` : `${product.id}-slide-${i}`;
+                      const slideKey = `${product.id}-${image.type}-${image.value}`;
                       return (
                         <button
                           key={slideKey}

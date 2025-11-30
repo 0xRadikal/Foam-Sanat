@@ -64,9 +64,12 @@ export function getProductSchemas(locale: SupportedSchemaLocale) {
   const brandName = commonMessages[locale].companyName;
 
   return products.map((product: ProductsNamespaceSchema['products'][number]) => {
-    const images = (product.images ?? []).map((img) =>
-      img.startsWith('http') ? img : `${SITE_URL}${img}`,
-    );
+    const images = (product.images ?? [])
+      .map((img) => {
+        if (img.type === 'emoji') return img.value;
+        return img.value.startsWith('http') ? img.value : `${SITE_URL}${img.value}`;
+      })
+      .filter(Boolean);
 
     const offer = product.hasPrice
       ? {
