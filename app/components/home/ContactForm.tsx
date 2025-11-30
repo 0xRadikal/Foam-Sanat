@@ -90,7 +90,7 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
           email,
           phone,
           message: bodyMessage,
-          turnstileToken: captchaToken || undefined,
+          turnstileToken: captchaToken,
         }),
       });
 
