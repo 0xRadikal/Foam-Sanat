@@ -58,7 +58,7 @@ function buildContentSecurityPolicy(nonce: string): string {
   // demonstrated embedding requirement.
   const frameAncestors = ["'self'"];
 
-  const styleSrc = ["'self'", "'unsafe-inline'"];
+  const styleSrc = ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"];
 
   const fontSrc = ["'self'", 'data:'];
 

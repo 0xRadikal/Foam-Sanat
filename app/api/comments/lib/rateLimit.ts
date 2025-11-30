@@ -113,8 +113,9 @@ export async function checkRateLimit(identifier: string): Promise<RateLimitResul
       console.warn('Rate limit store unavailable, falling back to in-memory store.', error);
       if (!(store instanceof MemoryRateLimitStore)) {
         rateLimitStore = new MemoryRateLimitStore();
+        const fallbackStore = rateLimitStore;
         emitMetric('rate_limit.redis.fallback', { tags: { reason: 'operation_failed' } });
-        return rateLimitStore.increment(identifier, WINDOW_MS);
+        return fallbackStore.increment(identifier, WINDOW_MS);
       }
       throw error;
     }
