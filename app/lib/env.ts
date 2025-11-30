@@ -45,15 +45,15 @@ function logMissing(keys: string[], visibility: EnvVisibility, severity: Severit
     .map((key) => `  • ${key}`)
     .join('\n')}`;
 
-  if (severity === 'required' && isProd) {
-    throw new Error(message);
+  if (severity === 'required') {
+    console.error({ event: 'env.missing.required', keys, message });
+    if (isProd) {
+      throw new Error(message);
+    }
+    return;
   }
 
-  if (severity === 'required') {
-    console.error(message);
-  } else {
-    console.warn(message);
-  }
+  console.warn({ event: 'env.missing.optional', keys, message });
 }
 
 export function validateEnv({ force = false }: { force?: boolean } = {}) {
