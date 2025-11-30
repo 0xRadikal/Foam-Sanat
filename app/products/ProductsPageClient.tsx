@@ -105,6 +105,40 @@ const renderProductImage = (
   );
 };
 
+const renderProductImage = (
+  image: ProductImage | undefined,
+  productName: string,
+  className?: string,
+) => {
+  if (!image) {
+    return <span className="sr-only">{productName}</span>;
+  }
+
+  const wrapperClassName = className ? `relative ${className}` : 'relative';
+
+  if (image.type === 'emoji') {
+    return (
+      <div className={className}>
+        <span aria-hidden="true">{image.value}</span>
+        <span className="sr-only">{productName}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={wrapperClassName}>
+      <Image
+        src={image.value}
+        alt={productName}
+        fill
+        sizes="(max-width: 768px) 100vw, 640px"
+        className="object-contain"
+        priority={false}
+      />
+    </div>
+  );
+};
+
 type ApiCommentReply = {
   id: string;
   author: string;
