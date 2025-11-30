@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
 import Image from 'next/image';
 import {
   Phone, Mail,
@@ -69,40 +69,6 @@ const isLikelySignedAdminToken = (token: string): boolean => {
 
   const base64urlPattern = /^[A-Za-z0-9_-]+$/;
   return segments.every((segment) => base64urlPattern.test(segment));
-};
-
-const renderProductImage = (
-  image: ProductImage | undefined,
-  productName: string,
-  className?: string,
-) => {
-  if (!image) {
-    return <span className="sr-only">{productName}</span>;
-  }
-
-  const wrapperClassName = className ? `relative ${className}` : 'relative';
-
-  if (image.type === 'emoji') {
-    return (
-      <div className={className}>
-        <span aria-hidden="true">{image.value}</span>
-        <span className="sr-only">{productName}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className={wrapperClassName}>
-      <Image
-        src={image.value}
-        alt={productName}
-        fill
-        sizes="(max-width: 768px) 100vw, 640px"
-        className="object-contain"
-        priority={false}
-      />
-    </div>
-  );
 };
 
 const renderProductImage = (
@@ -1268,7 +1234,7 @@ export default function ProductsPageClient({
                         position: 'relative'
                       }}
                     >
-                      {commentsVirtualizer.getVirtualItems().map((virtualRow) => {
+                      {commentsVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
                         const comment = productComments[virtualRow.index];
 
                         return (
