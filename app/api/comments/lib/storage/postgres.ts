@@ -98,23 +98,31 @@ export class PostgresCommentStorage implements CommentStorage {
       replies: [],
     };
 
-    await this.pool.query(
-      `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt, moderatedAt, moderatedById, moderatedByDisplayName)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
-        newComment.id,
-        newComment.productId,
-        newComment.rating,
-        newComment.author,
-        newComment.email,
-        newComment.text,
-        newComment.status,
-        newComment.createdAt,
-        newComment.moderatedAt ?? null,
-        newComment.moderatedById ?? null,
-        newComment.moderatedByDisplayName ?? null,
-      ],
-    );
+    try {
+      await this.pool.query(
+        `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt, moderatedAt, moderatedById, moderatedByDisplayName)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          newComment.id,
+          newComment.productId,
+          newComment.rating,
+          newComment.author,
+          newComment.email,
+          newComment.text,
+          newComment.status,
+          newComment.createdAt,
+          newComment.moderatedAt ?? null,
+          newComment.moderatedById ?? null,
+          newComment.moderatedByDisplayName ?? null,
+        ],
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') {
+        throw new Error('DUPLICATE_COMMENT');
+      }
+
+      throw error;
+    }
 
     return newComment;
   }

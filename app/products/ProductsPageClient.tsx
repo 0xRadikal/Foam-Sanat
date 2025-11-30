@@ -20,6 +20,7 @@ import { contactConfig } from '@/app/config/contact';
 import { useCommentValidation, useLocalizedDateFormatter } from '@/app/lib/hooks/useFormHelpers';
 
 type Product = ProductsNamespaceSchema['products'][number];
+type ProductImage = Product['images'][number];
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -61,6 +62,36 @@ const createDefaultComment = (): DraftComment => ({ rating: 5, text: '', author:
 const isLikelySignedAdminToken = (token: string): boolean => {
   const segments = token.split('.');
   return segments.length === 3 && segments.every(Boolean);
+};
+
+const renderProductImage = (
+  image: ProductImage | undefined,
+  productName: string,
+  className?: string,
+) => {
+  if (!image) {
+    return <span className="sr-only">{productName}</span>;
+  }
+
+  if (image.type === 'emoji') {
+    return (
+      <>
+        <span aria-hidden="true" className={className}>
+          {image.value}
+        </span>
+        <span className="sr-only">{productName}</span>
+      </>
+    );
+  }
+
+  return (
+    <img
+      src={image.value}
+      alt={productName}
+      className={className ? `${className} object-contain` : 'object-contain'}
+      loading="lazy"
+    />
+  );
 };
 
 type ApiCommentReply = {
@@ -740,8 +771,11 @@ export default function ProductsPageClient({
         >
           <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
             <div className="absolute inset-0 flex items-center justify-center">
-              <span aria-hidden="true">{product.images[0]}</span>
-              <span className="sr-only">{product.name}</span>
+              {renderProductImage(
+                product.images[0],
+                product.name,
+                'text-5xl sm:text-7xl h-full w-full flex items-center justify-center',
+              )}
             </div>
           </div>
 
@@ -867,10 +901,13 @@ export default function ProductsPageClient({
           <div className="mb-8">
             <div className="relative mb-4 group">
               <div className="aspect-video bg-gradient-to-br from-orange-400 to-purple-600 rounded-2xl flex items-center justify-center text-6xl md:text-8xl overflow-hidden w-full">
-                <span aria-hidden="true">{product.images[currentSlide]}</span>
-                <span className="sr-only">{product.name}</span>
+                {renderProductImage(
+                  product.images[currentSlide],
+                  product.name,
+                  'text-6xl md:text-8xl h-full w-full flex items-center justify-center',
+                )}
               </div>
-              
+
               {product.images.length > 1 && (
                 <>
                     <button
@@ -887,7 +924,7 @@ export default function ProductsPageClient({
                     </button>
                   <div className="flex justify-center gap-2 mt-4">
                     {product.images.map((image, i) => {
-                      const slideKey = typeof image === 'string' ? `${product.id}-${image}` : `${product.id}-slide-${i}`;
+                      const slideKey = `${product.id}-${image.type}-${image.value}`;
                       return (
                         <button
                           key={slideKey}

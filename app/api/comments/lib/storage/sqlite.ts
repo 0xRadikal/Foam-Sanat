@@ -165,19 +165,27 @@ export class SqliteCommentStorage implements CommentStorage {
       replies: [],
     };
 
-    this.prepared.insertCommentStmt?.run({
-      id: newComment.id,
-      productId: newComment.productId,
-      rating: newComment.rating,
-      author: newComment.author,
-      email: newComment.email,
-      text: newComment.text,
-      status: newComment.status,
-      createdAt: newComment.createdAt,
-      moderatedAt: newComment.moderatedAt ?? null,
-      moderatedById: newComment.moderatedById ?? null,
-      moderatedByDisplayName: newComment.moderatedByDisplayName ?? null,
-    });
+    try {
+      this.prepared.insertCommentStmt?.run({
+        id: newComment.id,
+        productId: newComment.productId,
+        rating: newComment.rating,
+        author: newComment.author,
+        email: newComment.email,
+        text: newComment.text,
+        status: newComment.status,
+        createdAt: newComment.createdAt,
+        moderatedAt: newComment.moderatedAt ?? null,
+        moderatedById: newComment.moderatedById ?? null,
+        moderatedByDisplayName: newComment.moderatedByDisplayName ?? null,
+      });
+    } catch (error) {
+      if ((error as Database.SqliteError)?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new Error('DUPLICATE_COMMENT');
+      }
+
+      throw error;
+    }
 
     return newComment;
   }

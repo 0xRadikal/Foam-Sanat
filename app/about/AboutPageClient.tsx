@@ -1,7 +1,7 @@
 // app/about/page.tsx - نسخه حرفه‌ای و کامل
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useId } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Globe, ArrowRight,
@@ -40,13 +40,14 @@ function createSeededRandom(seed: number) {
   };
 }
 
-const seededRandomCache = new Map<Locale, () => number>();
+const seededRandomCache = new Map<string, () => number>();
 
-function getSeededRandom(locale: Locale) {
-  if (!seededRandomCache.has(locale)) {
-    seededRandomCache.set(locale, createSeededRandom(hashStringToSeed(locale)));
+function getSeededRandom(locale: Locale, instanceId: string) {
+  const key = `${locale}-${instanceId}`;
+  if (!seededRandomCache.has(key)) {
+    seededRandomCache.set(key, createSeededRandom(hashStringToSeed(key)));
   }
-  return seededRandomCache.get(locale) as () => number;
+  return seededRandomCache.get(key) as () => number;
 }
 
 function generateBlobs(count: number, randomizer: () => number): BlobStyle[] {
@@ -136,7 +137,8 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const [showVideo, setShowVideo] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const seededRandom = useMemo(() => getSeededRandom(initialLocale), [initialLocale]);
+  const instanceId = useId();
+  const seededRandom = useMemo(() => getSeededRandom(initialLocale, instanceId), [initialLocale, instanceId]);
   const blobStyles = useMemo(() => generateBlobs(30, seededRandom), [seededRandom]);
 
   useEffect(() => {
