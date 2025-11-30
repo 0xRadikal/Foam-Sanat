@@ -897,9 +897,7 @@ export default function ProductsPageClient({
   };
 
   const ProductDetailModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
-    if (!product) return null;
-
-    const productComments: ProductComment[] = comments[product.id] ?? [];
+    const productComments: ProductComment[] = product ? comments[product.id] ?? [] : [];
 
     const commentsVirtualizer = useVirtualizer({
       count: productComments.length,
@@ -907,6 +905,8 @@ export default function ProductsPageClient({
       estimateSize: () => 260,
       overscan: 5
     });
+
+    if (!product) return null;
 
     return (
       <Modal
