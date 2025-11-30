@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import {
   Phone, Mail,
   Factory, Zap, Gauge, Wrench, Shield, Award,
@@ -73,24 +74,28 @@ const renderProductImage = (
     return <span className="sr-only">{productName}</span>;
   }
 
+  const wrapperClassName = className ? `relative ${className}` : 'relative';
+
   if (image.type === 'emoji') {
     return (
-      <>
-        <span aria-hidden="true" className={className}>
-          {image.value}
-        </span>
+      <div className={className}>
+        <span aria-hidden="true">{image.value}</span>
         <span className="sr-only">{productName}</span>
-      </>
+      </div>
     );
   }
 
   return (
-    <img
-      src={image.value}
-      alt={productName}
-      className={className ? `${className} object-contain` : 'object-contain'}
-      loading="lazy"
-    />
+    <div className={wrapperClassName}>
+      <Image
+        src={image.value}
+        alt={productName}
+        fill
+        sizes="(max-width: 768px) 100vw, 640px"
+        className="object-contain"
+        priority={false}
+      />
+    </div>
   );
 };
 
