@@ -151,17 +151,23 @@ function verifySignedAdminToken(token: string): AuthenticatedAdmin | null {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  const issuedAt = payload.iat ?? now;
-  const ttlSeconds = Math.max(ADMIN_TOKEN_TTL_MINUTES, 1) * 60;
-  const expiresAtSeconds = payload.exp ?? issuedAt + ttlSeconds;
-
-  if (expiresAtSeconds < now) {
-    console.warn('Admin token rejected because it is expired.', {
+  if (!payload.iat || !payload.exp) {
+    console.warn('Admin token rejected because required time claims are missing.', {
       tokenId: payload.jti,
-      expiresAt: new Date(expiresAtSeconds * 1000).toISOString(),
     });
     return null;
   }
+
+  if (payload.exp < now) {
+    console.warn('Admin token rejected because it is expired.', {
+      tokenId: payload.jti,
+      expiresAt: new Date(payload.exp * 1000).toISOString(),
+    });
+    return null;
+  }
+
+  const issuedAt = payload.iat;
+  const expiresAtSeconds = payload.exp;
 
   return {
     id: payload.sub || payload.adminId || 'comments-admin',

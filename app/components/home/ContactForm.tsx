@@ -109,16 +109,17 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       });
 
       if (!response.ok) {
-        let errorMessage: string = contact.form.errorGeneric;
+        let errorMessage: string | null = null;
         try {
           const errorData = (await response.json()) as { message?: string; error?: string };
           const rawMessage = errorData.message || errorData.error;
-          errorMessage = translateApiError(rawMessage) ?? errorMessage;
+          const translatedError = translateApiError(rawMessage);
+          errorMessage = translatedError ?? rawMessage ?? null;
         } catch {
           // Fallback to generic error
         }
 
-        throw new Error(errorMessage || contact.form.errorGeneric);
+        throw new Error(errorMessage ?? contact.form.errorGeneric);
       }
 
       await response.json();
@@ -139,10 +140,10 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
     } catch (error) {
       console.error('Contact form submission error:', error);
 
-      const mappedError =
-        error instanceof Error ? translateApiError(error.message) : translateApiError(null);
+      const rawErrorMessage = error instanceof Error ? error.message : null;
+      const mappedError = error instanceof Error ? translateApiError(error.message) : null;
 
-      const message = mappedError ?? contact.form.errorGeneric;
+      const message = mappedError ?? (rawErrorMessage ?? contact.form.errorGeneric);
       const captchaMessages: string[] = [
         contact.form.captchaRequired,
         contact.form.captchaExpired,
@@ -154,7 +155,9 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       ];
 
       setErrorMessage(message);
-      if (captchaMessages.includes(message)) {
+      const isCaptchaMessage = captchaMessages.includes(message);
+
+      if (isCaptchaMessage) {
         setCaptchaError(message);
       }
       setStatus('error');
@@ -163,13 +166,17 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       // Auto-clear error after 10 seconds
       if (errorTimerRef.current) {
         clearTimeout(errorTimerRef.current);
-      }
-      errorTimerRef.current = setTimeout(() => {
-        setStatus('idle');
-        setErrorMessage('');
-        setCaptchaError(null);
         errorTimerRef.current = null;
-      }, 10000);
+      }
+
+      if (!isCaptchaMessage) {
+        errorTimerRef.current = setTimeout(() => {
+          setStatus('idle');
+          setErrorMessage('');
+          setCaptchaError(null);
+          errorTimerRef.current = null;
+        }, 10000);
+      }
     }
   };
 

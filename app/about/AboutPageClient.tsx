@@ -1,7 +1,7 @@
 // app/about/page.tsx - نسخه حرفه‌ای و کامل
 'use client';
 
-import { useEffect, useMemo, useRef, useState, useId } from 'react';
+import { useEffect, useMemo, useRef, useState, useId, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Globe, ArrowRight,
@@ -40,17 +40,12 @@ function createSeededRandom(seed: number) {
   };
 }
 
-const seededRandomCache = new Map<string, () => number>();
-
-function getSeededRandom(locale: Locale, instanceId: string) {
-  const key = `${locale}-${instanceId}`;
-  if (!seededRandomCache.has(key)) {
-    seededRandomCache.set(key, createSeededRandom(hashStringToSeed(key)));
-  }
-  return seededRandomCache.get(key) as () => number;
-}
-
-function generateBlobs(count: number, randomizer: () => number): BlobStyle[] {
+function generateBlobs(
+  count: number,
+  randomizer: () => number,
+  blurAmount: string,
+  animate = true
+): BlobStyle[] {
   return Array.from({ length: count }, () => {
     const randomSize = 50 + randomizer() * 300;
     return {
@@ -58,9 +53,10 @@ function generateBlobs(count: number, randomizer: () => number): BlobStyle[] {
       height: `${randomSize}px`,
       top: `${randomizer() * 100}%`,
       left: `${randomizer() * 100}%`,
-      animation: `float ${10 + randomizer() * 20}s ease-in-out infinite`,
-      animationDelay: `${randomizer() * 5}s`,
-      filter: 'blur(60px)'
+      animation: animate ? `float ${10 + randomizer() * 20}s ease-in-out infinite` : 'none',
+      animationDelay: animate ? `${randomizer() * 5}s` : undefined,
+      filter: `blur(${blurAmount})`,
+      willChange: 'transform'
     };
   });
 }
@@ -135,11 +131,30 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const hasSyncedInitialLocale = useRef(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const instanceId = useId();
-  const seededRandom = useMemo(() => getSeededRandom(initialLocale, instanceId), [initialLocale, instanceId]);
-  const blobStyles = useMemo(() => generateBlobs(15, seededRandom), [seededRandom]);
+  const randomGeneratorRef = useRef<Map<string, () => number>>(new Map());
+  const getSeededRandom = useCallback(
+    (locale: Locale, id: string) => {
+      const key = `${locale}-${id}`;
+      if (!randomGeneratorRef.current.has(key)) {
+        randomGeneratorRef.current.set(key, createSeededRandom(hashStringToSeed(key)));
+      }
+
+      return randomGeneratorRef.current.get(key)!;
+    },
+    []
+  );
+  const seededRandom = useMemo(() => getSeededRandom(lang, instanceId), [getSeededRandom, instanceId, lang]);
+  const blobCount = useMemo(() => (isMobile ? 3 : 5), [isMobile]);
+  const blobBlur = useMemo(() => (isMobile ? '30px' : '60px'), [isMobile]);
+  const blobStyles = useMemo(
+    () => generateBlobs(blobCount, seededRandom, blobBlur, !isMobile),
+    [blobBlur, blobCount, isMobile, seededRandom]
+  );
 
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
@@ -159,6 +174,13 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const updateIsMobile = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 768);
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
 
   useEffect(() => {
@@ -298,7 +320,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
               <button
-                onClick={() => setShowVideo(true)}
+                onClick={() => {
+                  setVideoError(false);
+                  setVideoLoading(true);
+                  setShowVideo(true);
+                }}
                 className="inline-flex items-center gap-3 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-10 py-5 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-2xl"
               >
                 <span className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">▶</span>
@@ -678,11 +704,21 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           controls
           className="w-full h-full rounded-xl"
           poster="./images/video-poster.jpg" // اگر پوستر داری، در غیر اینصورت حذفش کن
-          onError={() => setVideoError(true)}
+          onLoadStart={() => setVideoLoading(true)}
+          onCanPlay={() => setVideoLoading(false)}
+          onError={() => {
+            setVideoError(true);
+            setVideoLoading(false);
+          }}
         >
           <source src="./videos/Factory.mp4" type="video/mp4" />
           مرورگر شما از پخش این ویدیو پشتیبانی نمی‌کند.
         </video>
+        {videoLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-xl">
+            <div className="h-16 w-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
         {videoError && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
             <p className="text-sm text-red-100 text-center px-4" role="alert">

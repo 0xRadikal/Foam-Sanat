@@ -14,6 +14,7 @@ export interface ModalProps {
   showCloseButton?: boolean;
   closeOnEscape?: boolean;
   closeOnBackdrop?: boolean;
+  closeLabel?: string;
   className?: string;
   overlayClassName?: string;
 }
@@ -38,6 +39,7 @@ export default function Modal({
   showCloseButton = true,
   closeOnEscape = true,
   closeOnBackdrop = true,
+  closeLabel = 'Close',
   className = '',
   overlayClassName = ''
 }: ModalProps) {
@@ -168,10 +170,11 @@ export default function Modal({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="ml-auto rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                className="ml-auto inline-flex items-center gap-2 rounded-lg px-3 py-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                 aria-label="Close modal"
               >
                 <X className="h-6 w-6" />
+                <span className="text-sm font-semibold">{closeLabel}</span>
               </button>
             )}
           </div>

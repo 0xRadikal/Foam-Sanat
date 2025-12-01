@@ -67,8 +67,26 @@ const isLikelySignedAdminToken = (token: string): boolean => {
     return false;
   }
 
+  const [headerSegment, payloadSegment] = segments;
   const base64urlPattern = /^[A-Za-z0-9_-]+$/;
-  return segments.every((segment) => base64urlPattern.test(segment));
+  if (!segments.every((segment) => base64urlPattern.test(segment))) {
+    return false;
+  }
+
+  try {
+    const decodeBase64Url = (value: string) => {
+      const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      return atob(padded);
+    };
+
+    const header = JSON.parse(decodeBase64Url(headerSegment)) as { typ?: string; alg?: string };
+    const payload = JSON.parse(decodeBase64Url(payloadSegment)) as { sub?: unknown };
+
+    return header.typ === 'JWT' && header.alg === 'HS256' && typeof payload.sub === 'string';
+  } catch {
+    return false;
+  }
 };
 
 const renderProductImage = (
@@ -76,13 +94,18 @@ const renderProductImage = (
   productName: string,
   className?: string,
 ) => {
+  const wrapperClassName = className ? `relative ${className}` : 'relative';
+  const fallback = (
+    <div className={className}>
+      <span className="sr-only">{productName}</span>
+    </div>
+  );
+
   if (!image) {
-    return <span className="sr-only">{productName}</span>;
+    return fallback;
   }
 
-  const wrapperClassName = className ? `relative ${className}` : 'relative';
-
-  if (image.type === 'emoji') {
+  if (image.type === 'emoji' && image.value?.trim()) {
     return (
       <div className={className}>
         <span aria-hidden="true">{image.value}</span>
@@ -91,18 +114,22 @@ const renderProductImage = (
     );
   }
 
-  return (
-    <div className={wrapperClassName}>
-      <Image
-        src={image.value}
-        alt={productName}
-        fill
-        sizes="(max-width: 768px) 100vw, 640px"
-        className="object-contain"
-        priority={false}
-      />
-    </div>
-  );
+  if (image.type === 'url' && image.value?.trim()) {
+    return (
+      <div className={wrapperClassName}>
+        <Image
+          src={image.value}
+          alt={productName}
+          fill
+          sizes="(max-width: 768px) 100vw, 640px"
+          className="object-contain"
+          priority={false}
+        />
+      </div>
+    );
+  }
+
+  return fallback;
 };
 
 type ApiCommentReply = {
@@ -167,18 +194,68 @@ export default function ProductsPageClient({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [comments, setComments] = useState<CommentsState>({});
   const [newComment, setNewComment] = useState<DraftComment>(() => createDefaultComment());
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [commentsLoadFailed, setCommentsLoadFailed] = useState(false);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [priceProduct, setPriceProduct] = useState<Product | null>(null);
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replyLoading, setReplyLoading] = useState<string | null>(null);
   const [adminToken, setAdminToken] = useState('');
   const [adminTokenInput, setAdminTokenInput] = useState('');
   const [showAdminToken, setShowAdminToken] = useState(false);
+  const hasAdminToken = Boolean(adminToken);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const productId = selectedProduct?.id;
+    setActiveReplyCommentId(null);
+    setReplyText('');
+    if (!productId) {
+      setNewComment(createDefaultComment());
+      return;
+    }
+
+    const draftKey = `comment-draft-${productId}`;
+    const draft = localStorage.getItem(draftKey);
+
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft) as DraftComment;
+        setNewComment((prev) => ({ ...prev, ...parsed }));
+        return;
+      } catch {
+        localStorage.removeItem(draftKey);
+      }
+    }
+
+    setNewComment(createDefaultComment());
+  }, [selectedProduct]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const productId = selectedProduct?.id;
+    if (!productId) return;
+
+    const draftKey = `comment-draft-${productId}`;
+
+    if (newComment.text) {
+      localStorage.setItem(draftKey, JSON.stringify(newComment));
+    } else {
+      localStorage.removeItem(draftKey);
+    }
+  }, [newComment, selectedProduct?.id]);
+
+  useEffect(() => {
+    if (!hasAdminToken) {
+      setActiveReplyCommentId(null);
+      setReplyText('');
+    }
+  }, [hasAdminToken]);
 
   useEffect(() => {
     if (lang !== activeLocale) {
@@ -228,10 +305,10 @@ export default function ProductsPageClient({
   const t = useMemo(() => messages.products, [messages]);
 
   const handleCloseProductModal = useCallback(() => {
-    setReplyingTo(null);
+    setActiveReplyCommentId(null);
     setReplyText('');
-    setCommentError(null);
-    setCommentsError(null);
+    setErrorMessage(null);
+    setCommentsLoadFailed(false);
     setCommentsLoading(false);
     setNewComment(createDefaultComment());
     setCurrentSlide(0);
@@ -329,8 +406,6 @@ export default function ProductsPageClient({
 
   const formatDate = useLocalizedDateFormatter(activeLocale);
   const { validateComment, validateReply } = useCommentValidation(t.comments);
-  const hasAdminToken = Boolean(adminToken);
-
   const handleSaveAdminToken = useCallback(() => {
     if (!commentsEnabled) return;
     if (typeof window === 'undefined') return;
@@ -342,7 +417,7 @@ export default function ProductsPageClient({
         console.warn('Unable to clear admin token from storage:', error);
       }
       setAdminToken('');
-      setCommentError(null);
+      setErrorMessage(null);
       return;
     }
 
@@ -358,7 +433,7 @@ export default function ProductsPageClient({
         console.warn('Unable to clear admin token from storage:', error);
       }
       setAdminToken('');
-      setCommentError(t.comments.adminTokenRequired);
+      setErrorMessage(t.comments.adminTokenRequired);
       return;
     }
 
@@ -368,7 +443,7 @@ export default function ProductsPageClient({
       console.warn('Unable to persist admin token:', error);
     }
     setAdminToken(tokens[0]);
-    setCommentError(null);
+    setErrorMessage(null);
   }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
   const handleClearAdminToken = useCallback(() => {
@@ -381,24 +456,27 @@ export default function ProductsPageClient({
     }
     setAdminToken('');
     setAdminTokenInput('');
-    setCommentError(null);
+    setErrorMessage(null);
   }, [commentsEnabled]);
 
   const handleAddComment = useCallback(
     async (productId: string) => {
       if (!commentsEnabled) {
-        setCommentError(t.comments.disabled);
+        setErrorMessage(t.comments.disabled);
+        return;
+      }
+      if (isSubmittingComment) {
         return;
       }
       const validationResult = validateComment(newComment);
       if (!validationResult.sanitized) {
-        setCommentError(validationResult.error ?? t.comments.validationError);
+        setErrorMessage(validationResult.error ?? t.comments.validationError);
         return;
       }
 
       const { author: trimmedAuthor, email: trimmedEmail, text: trimmedText } = validationResult.sanitized;
 
-      setCommentError(null);
+      setErrorMessage(null);
 
       const optimisticComment: ProductComment = {
         id: `temp-${Date.now()}`,
@@ -481,7 +559,7 @@ export default function ProductsPageClient({
           severity: 'error',
         });
 
-        setCommentError(message);
+        setErrorMessage(message);
       } finally {
         setIsSubmittingComment(false);
       }
@@ -490,6 +568,7 @@ export default function ProductsPageClient({
       commentsEnabled,
       mapApiComment,
       newComment,
+      isSubmittingComment,
       scrollToLatestComment,
       t.comments.disabled,
       t.comments.submitError,
@@ -504,7 +583,7 @@ export default function ProductsPageClient({
         return;
       }
 
-      setCommentError(null);
+      setErrorMessage(null);
 
       let previous: ProductComment[] = [];
 
@@ -533,7 +612,7 @@ export default function ProductsPageClient({
           ...prev,
           [productId]: [...previous]
         }));
-        setCommentError(error instanceof Error ? error.message : t.comments.deleteFailed);
+        setErrorMessage(error instanceof Error ? error.message : t.comments.deleteFailed);
       }
     },
     [adminToken, commentsEnabled, hasAdminToken, t.comments.deleteFailed]
@@ -546,13 +625,13 @@ export default function ProductsPageClient({
       }
       const replyValidation = validateReply(replyTxt);
       if (!replyValidation.sanitized) {
-        setCommentError(replyValidation.error ?? t.comments.replyFailed);
+        setErrorMessage(replyValidation.error ?? t.comments.replyFailed);
         return;
       }
 
       const trimmedReply = replyValidation.sanitized;
 
-      setCommentError(null);
+      setErrorMessage(null);
 
       const replyTimestamp = new Date().toISOString();
 
@@ -618,7 +697,7 @@ export default function ProductsPageClient({
         }));
 
         setReplyText('');
-        setReplyingTo(null);
+        setActiveReplyCommentId(null);
       } catch (error) {
         setComments((prev) => ({
           ...prev,
@@ -631,11 +710,11 @@ export default function ProductsPageClient({
               : comment
           )
         }));
-        setCommentError(error instanceof Error ? error.message : t.comments.replyFailed);
+        setErrorMessage(error instanceof Error ? error.message : t.comments.replyFailed);
       } finally {
         setReplyLoading(null);
-      }
-    },
+    }
+  },
     [adminToken, commentsEnabled, hasAdminToken, t.comments.admin, t.comments.replyFailed, validateReply]
   );
 
@@ -643,7 +722,8 @@ export default function ProductsPageClient({
     if (!commentsEnabled) {
       setComments({});
       setCommentsLoading(false);
-      setCommentsError(null);
+      setErrorMessage(null);
+      setCommentsLoadFailed(false);
       return;
     }
 
@@ -655,7 +735,8 @@ export default function ProductsPageClient({
     const productId = selectedProduct.id;
 
     setCommentsLoading(true);
-    setCommentsError(null);
+    setErrorMessage(null);
+    setCommentsLoadFailed(false);
 
     (async () => {
       try {
@@ -685,13 +766,14 @@ export default function ProductsPageClient({
         }));
 
         if (firstError) {
-          setCommentsError(firstError);
+          setErrorMessage(firstError);
         }
       } catch (error) {
         if (controller.signal.aborted) {
           return;
         }
-        setCommentsError(error instanceof Error ? error.message : t.comments.loadFailed);
+        setErrorMessage(error instanceof Error ? error.message : t.comments.loadFailed);
+        setCommentsLoadFailed(true);
       } finally {
         if (!controller.signal.aborted) {
           setCommentsLoading(false);
@@ -898,6 +980,9 @@ export default function ProductsPageClient({
 
   const ProductDetailModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
     const productComments: ProductComment[] = product ? comments[product.id] ?? [] : [];
+    const activeReplyTarget = activeReplyCommentId
+      ? productComments.find((comment) => comment.id === activeReplyCommentId)
+      : null;
 
     const commentsVirtualizer = useVirtualizer({
       count: productComments.length,
@@ -915,6 +1000,8 @@ export default function ProductsPageClient({
         size="xl"
         title={product.name}
         className={`${cardBg} shadow-2xl`}
+        closeOnBackdrop={false}
+        closeLabel={t.ui.close}
       >
         <div className="space-y-8">
           {/* Image Slider */}
@@ -1142,8 +1229,8 @@ export default function ProductsPageClient({
                   </div>
                 )}
 
-                {!commentsLoading && commentsError && (
-                  <p className="mb-4 text-sm text-red-500">{commentsError}</p>
+                {!commentsLoading && errorMessage && (
+                  <p className="mb-4 text-sm text-red-500">{errorMessage}</p>
                 )}
 
                 {/* Add Comment Form */}
@@ -1215,168 +1302,198 @@ export default function ProductsPageClient({
                   </button>
                 </form>
 
-                {commentError && (
-                  <p className="mb-8 text-sm text-red-500">{commentError}</p>
-                )}
-
                 {/* Comments List */}
-                {!commentsLoading && !commentsError && productComments.length === 0 && (
+                {!commentsLoading && !commentsLoadFailed && productComments.length === 0 && (
                   <p className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     {t.comments.noComments}
                   </p>
                 )}
 
-                {!commentsLoading && !commentsError && productComments.length > 0 && (
-                  <div ref={commentsListRef} className="max-h-[600px] overflow-auto">
-                    <div
-                      style={{
-                        height: `${commentsVirtualizer.getTotalSize()}px`,
-                        position: 'relative'
-                      }}
-                    >
-                      {commentsVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
-                        const comment = productComments[virtualRow.index];
+                {!commentsLoading && !commentsLoadFailed && productComments.length > 0 && (
+                  <>
+                    <div ref={commentsListRef} className="max-h-[600px] overflow-auto">
+                      <div
+                        style={{
+                          height: `${commentsVirtualizer.getTotalSize()}px`,
+                          position: 'relative'
+                        }}
+                      >
+                        {commentsVirtualizer.getVirtualItems().map((virtualRow: VirtualItem) => {
+                          const comment = productComments[virtualRow.index];
 
-                        return (
-                          <div
-                            key={comment.id}
-                            data-index={virtualRow.index}
-                            ref={commentsVirtualizer.measureElement}
-                            className="absolute left-0 w-full pb-6"
-                            style={{ transform: `translateY(${virtualRow.start}px)` }}
-                          >
-                            <div className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                              <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <p className="font-bold text-lg">{comment.author}</p>
-                                    {comment.status !== 'approved' && (
-                                      <span
-                                        className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                                          comment.status === 'pending'
-                                            ? 'bg-yellow-100 text-yellow-700'
-                                            : 'bg-red-100 text-red-700'
-                                        }`}
-                                      >
-                                        {t.comments.status[comment.status]}
-                                      </span>
-                                    )}
+                          return (
+                            <div
+                              key={comment.id}
+                              data-index={virtualRow.index}
+                              ref={commentsVirtualizer.measureElement}
+                              className="absolute left-0 w-full pb-6"
+                              style={{ transform: `translateY(${virtualRow.start}px)` }}
+                            >
+                              <div className={`p-6 rounded-2xl ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                                <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="font-bold text-lg">{comment.author}</p>
+                                      {comment.status !== 'approved' && (
+                                        <span
+                                          className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                                            comment.status === 'pending'
+                                              ? 'bg-yellow-100 text-yellow-700'
+                                              : 'bg-red-100 text-red-700'
+                                          }`}
+                                        >
+                                          {t.comments.status[comment.status]}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
                                   </div>
-                                  <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
+                                  {hasAdminToken && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteComment(product.id, comment.id)}
+                                      className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      {t.comments.delete}
+                                    </button>
+                                  )}
                                 </div>
+
+                                <div className="flex gap-0.5 mb-3">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={`${comment.id}-star-${i}`}
+                                      className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
+                                    />
+                                  ))}
+                                </div>
+
+                                <p className="mb-4">{comment.text}</p>
+
+                                {/* Replies */}
+                                {comment.replies.length > 0 && (
+                                  <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
+                                    {comment.replies.map((reply) => (
+                                      <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                          <div className="flex items-center gap-2">
+                                            <p className="font-bold text-sm text-orange-600">
+                                              {reply.adminDisplayName ?? reply.author}
+                                            </p>
+                                            {reply.status !== 'approved' && (
+                                              <span
+                                                className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                                                  reply.status === 'pending'
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : 'bg-red-100 text-red-700'
+                                                }`}
+                                              >
+                                                {t.comments.status[reply.status]}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-col text-xs text-gray-400">
+                                            {reply.adminId && (
+                                              <span className="text-[11px] font-mono">ID: {reply.adminId}</span>
+                                            )}
+                                            <span>{formatDate(reply.respondedAt ?? reply.createdAt)}</span>
+                                          </div>
+                                        </div>
+                                        <p className="text-sm mt-1">{reply.text}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Reply CTA */}
                                 {hasAdminToken && (
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteComment(product.id, comment.id)}
-                                    className="text-red-500 hover:text-red-700 font-bold text-sm flex items-center gap-1"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    {t.comments.delete}
-                                  </button>
-                                )}
-                              </div>
-
-                              <div className="flex gap-0.5 mb-3">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={`${comment.id}-star-${i}`}
-                                    className={`w-4 h-4 ${i < comment.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`}
-                                  />
-                                ))}
-                              </div>
-
-                              <p className="mb-4">{comment.text}</p>
-
-                              {/* Replies */}
-                              {comment.replies.length > 0 && (
-                                <div className="space-y-3 mt-4 pt-4 border-t border-gray-300">
-                                  {comment.replies.map((reply) => (
-                                    <div key={reply.id} className={`pl-4 py-2 rounded ${isDark ? 'bg-gray-600' : 'bg-white'}`}>
-                                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                                        <div className="flex items-center gap-2">
-                                          <p className="font-bold text-sm text-orange-600">
-                                            {reply.adminDisplayName ?? reply.author}
-                                          </p>
-                                          {reply.status !== 'approved' && (
-                                            <span
-                                              className={`inline-flex items-center px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                                                reply.status === 'pending'
-                                                  ? 'bg-yellow-100 text-yellow-700'
-                                                  : 'bg-red-100 text-red-700'
-                                              }`}
-                                            >
-                                              {t.comments.status[reply.status]}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="flex flex-col text-xs text-gray-400">
-                                          {reply.adminId && (
-                                            <span className="text-[11px] font-mono">ID: {reply.adminId}</span>
-                                          )}
-                                          <span>{formatDate(reply.respondedAt ?? reply.createdAt)}</span>
-                                        </div>
-                                      </div>
-                                      <p className="text-sm mt-1">{reply.text}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Reply Form */}
-                              {hasAdminToken && (
-                                replyingTo !== comment.id ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setReplyingTo(comment.id)}
+                                    onClick={() => {
+                                      if (activeReplyCommentId !== comment.id) {
+                                        setReplyText('');
+                                      }
+                                      setActiveReplyCommentId(comment.id);
+                                    }}
                                     className="text-sm text-orange-500 font-bold hover:underline mt-3 flex items-center gap-1"
                                   >
                                     <Reply className="w-4 h-4" />
                                     {t.comments.reply}
                                   </button>
-                                ) : (
-                                  <div className="mt-4 space-y-2">
-                                    <textarea
-                                      placeholder={t.comments.replyPlaceholder}
-                                      value={replyText}
-                                      onChange={(e) => setReplyText(e.target.value)}
-                                      rows={3}
-                                      className={`w-full px-3 py-2 rounded-lg text-sm ${
-                                        isDark ? 'bg-gray-600 text-white' : 'bg-white'
-                                      } focus:outline-none focus:ring-2 focus:ring-orange-500`}
-                                    />
-                                    <div className="flex gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleReply(product.id, comment.id, replyText)}
-                                        disabled={replyLoading === comment.id}
-                                        className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
-                                          replyLoading === comment.id ? 'opacity-60 cursor-not-allowed' : 'hover:bg-orange-600'
-                                        }`}
-                                      >
-                                        {replyLoading === comment.id ? t.comments.sendingReply : t.comments.send}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setReplyingTo(null);
-                                          setReplyText('');
-                                        }}
-                                        className={`px-4 py-2 rounded-lg font-bold text-sm ${
-                                          isDark ? 'bg-gray-600 text-white' : 'bg-gray-300 text-gray-800'
-                                        }`}
-                                      >
-                                        {t.comments.cancel}
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+
+                    {hasAdminToken && activeReplyTarget && (
+                      <div className={`fixed bottom-4 left-4 right-4 z-50 ${cardBg} shadow-2xl rounded-2xl p-4 border ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex flex-col">
+                            <p className="text-xs font-semibold text-gray-500">
+                              {t.comments.reply}: {activeReplyTarget.author}
+                            </p>
+                            <p className="text-sm font-bold">{activeReplyTarget.text}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveReplyCommentId(null);
+                              setReplyText('');
+                            }}
+                            className={`px-3 py-1 rounded-lg text-sm font-bold ${isDark ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-800'}`}
+                          >
+                            {t.comments.cancel}
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          <textarea
+                            placeholder={t.comments.replyPlaceholder}
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            rows={6}
+                            className={`w-full px-3 py-2 rounded-lg text-sm ${
+                              isDark ? 'bg-gray-700 text-white' : 'bg-white'
+                            } focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                            style={{ minHeight: '120px' }}
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveReplyCommentId(null);
+                                setReplyText('');
+                              }}
+                              className={`px-4 py-2 rounded-lg font-bold text-sm ${
+                                isDark ? 'bg-gray-700 text-white' : 'bg-gray-300 text-gray-800'
+                              }`}
+                            >
+                              {t.comments.cancel}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (activeReplyCommentId) {
+                                  handleReply(product.id, activeReplyCommentId, replyText);
+                                }
+                              }}
+                              disabled={!replyText.trim() || replyLoading === activeReplyCommentId}
+                              className={`px-4 py-2 bg-orange-500 text-white rounded-lg font-bold text-sm transition-all ${
+                                !replyText.trim() || replyLoading === activeReplyCommentId
+                                  ? 'opacity-60 cursor-not-allowed'
+                                  : 'hover:bg-orange-600'
+                              }`}
+                            >
+                              {replyLoading === activeReplyCommentId ? t.comments.sendingReply : t.comments.send}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             ) : (
