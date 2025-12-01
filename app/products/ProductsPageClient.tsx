@@ -67,8 +67,26 @@ const isLikelySignedAdminToken = (token: string): boolean => {
     return false;
   }
 
+  const [headerSegment, payloadSegment] = segments;
   const base64urlPattern = /^[A-Za-z0-9_-]+$/;
-  return segments.every((segment) => base64urlPattern.test(segment));
+  if (!segments.every((segment) => base64urlPattern.test(segment))) {
+    return false;
+  }
+
+  try {
+    const decodeBase64Url = (value: string) => {
+      const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      return atob(padded);
+    };
+
+    const header = JSON.parse(decodeBase64Url(headerSegment)) as { typ?: string; alg?: string };
+    const payload = JSON.parse(decodeBase64Url(payloadSegment)) as { sub?: unknown };
+
+    return header.typ === 'JWT' && header.alg === 'HS256' && typeof payload.sub === 'string';
+  } catch {
+    return false;
+  }
 };
 
 const renderProductImage = (
@@ -76,13 +94,18 @@ const renderProductImage = (
   productName: string,
   className?: string,
 ) => {
+  const wrapperClassName = className ? `relative ${className}` : 'relative';
+  const fallback = (
+    <div className={className}>
+      <span className="sr-only">{productName}</span>
+    </div>
+  );
+
   if (!image) {
-    return <span className="sr-only">{productName}</span>;
+    return fallback;
   }
 
-  const wrapperClassName = className ? `relative ${className}` : 'relative';
-
-  if (image.type === 'emoji') {
+  if (image.type === 'emoji' && image.value?.trim()) {
     return (
       <div className={className}>
         <span aria-hidden="true">{image.value}</span>
@@ -91,18 +114,22 @@ const renderProductImage = (
     );
   }
 
-  return (
-    <div className={wrapperClassName}>
-      <Image
-        src={image.value}
-        alt={productName}
-        fill
-        sizes="(max-width: 768px) 100vw, 640px"
-        className="object-contain"
-        priority={false}
-      />
-    </div>
-  );
+  if (image.type === 'url' && image.value?.trim()) {
+    return (
+      <div className={wrapperClassName}>
+        <Image
+          src={image.value}
+          alt={productName}
+          fill
+          sizes="(max-width: 768px) 100vw, 640px"
+          className="object-contain"
+          priority={false}
+        />
+      </div>
+    );
+  }
+
+  return fallback;
 };
 
 type ApiCommentReply = {
@@ -167,8 +194,8 @@ export default function ProductsPageClient({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [comments, setComments] = useState<CommentsState>({});
   const [newComment, setNewComment] = useState<DraftComment>(() => createDefaultComment());
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [commentsLoadFailed, setCommentsLoadFailed] = useState(false);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [showPriceModal, setShowPriceModal] = useState(false);
@@ -230,8 +257,8 @@ export default function ProductsPageClient({
   const handleCloseProductModal = useCallback(() => {
     setReplyingTo(null);
     setReplyText('');
-    setCommentError(null);
-    setCommentsError(null);
+    setErrorMessage(null);
+    setCommentsLoadFailed(false);
     setCommentsLoading(false);
     setNewComment(createDefaultComment());
     setCurrentSlide(0);
@@ -342,7 +369,7 @@ export default function ProductsPageClient({
         console.warn('Unable to clear admin token from storage:', error);
       }
       setAdminToken('');
-      setCommentError(null);
+      setErrorMessage(null);
       return;
     }
 
@@ -358,7 +385,7 @@ export default function ProductsPageClient({
         console.warn('Unable to clear admin token from storage:', error);
       }
       setAdminToken('');
-      setCommentError(t.comments.adminTokenRequired);
+      setErrorMessage(t.comments.adminTokenRequired);
       return;
     }
 
@@ -368,7 +395,7 @@ export default function ProductsPageClient({
       console.warn('Unable to persist admin token:', error);
     }
     setAdminToken(tokens[0]);
-    setCommentError(null);
+    setErrorMessage(null);
   }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
   const handleClearAdminToken = useCallback(() => {
@@ -381,24 +408,27 @@ export default function ProductsPageClient({
     }
     setAdminToken('');
     setAdminTokenInput('');
-    setCommentError(null);
+    setErrorMessage(null);
   }, [commentsEnabled]);
 
   const handleAddComment = useCallback(
     async (productId: string) => {
       if (!commentsEnabled) {
-        setCommentError(t.comments.disabled);
+        setErrorMessage(t.comments.disabled);
+        return;
+      }
+      if (isSubmittingComment) {
         return;
       }
       const validationResult = validateComment(newComment);
       if (!validationResult.sanitized) {
-        setCommentError(validationResult.error ?? t.comments.validationError);
+        setErrorMessage(validationResult.error ?? t.comments.validationError);
         return;
       }
 
       const { author: trimmedAuthor, email: trimmedEmail, text: trimmedText } = validationResult.sanitized;
 
-      setCommentError(null);
+      setErrorMessage(null);
 
       const optimisticComment: ProductComment = {
         id: `temp-${Date.now()}`,
@@ -481,7 +511,7 @@ export default function ProductsPageClient({
           severity: 'error',
         });
 
-        setCommentError(message);
+        setErrorMessage(message);
       } finally {
         setIsSubmittingComment(false);
       }
@@ -490,6 +520,7 @@ export default function ProductsPageClient({
       commentsEnabled,
       mapApiComment,
       newComment,
+      isSubmittingComment,
       scrollToLatestComment,
       t.comments.disabled,
       t.comments.submitError,
@@ -504,7 +535,7 @@ export default function ProductsPageClient({
         return;
       }
 
-      setCommentError(null);
+      setErrorMessage(null);
 
       let previous: ProductComment[] = [];
 
@@ -533,7 +564,7 @@ export default function ProductsPageClient({
           ...prev,
           [productId]: [...previous]
         }));
-        setCommentError(error instanceof Error ? error.message : t.comments.deleteFailed);
+        setErrorMessage(error instanceof Error ? error.message : t.comments.deleteFailed);
       }
     },
     [adminToken, commentsEnabled, hasAdminToken, t.comments.deleteFailed]
@@ -546,13 +577,13 @@ export default function ProductsPageClient({
       }
       const replyValidation = validateReply(replyTxt);
       if (!replyValidation.sanitized) {
-        setCommentError(replyValidation.error ?? t.comments.replyFailed);
+        setErrorMessage(replyValidation.error ?? t.comments.replyFailed);
         return;
       }
 
       const trimmedReply = replyValidation.sanitized;
 
-      setCommentError(null);
+      setErrorMessage(null);
 
       const replyTimestamp = new Date().toISOString();
 
@@ -631,7 +662,7 @@ export default function ProductsPageClient({
               : comment
           )
         }));
-        setCommentError(error instanceof Error ? error.message : t.comments.replyFailed);
+        setErrorMessage(error instanceof Error ? error.message : t.comments.replyFailed);
       } finally {
         setReplyLoading(null);
       }
@@ -643,7 +674,8 @@ export default function ProductsPageClient({
     if (!commentsEnabled) {
       setComments({});
       setCommentsLoading(false);
-      setCommentsError(null);
+      setErrorMessage(null);
+      setCommentsLoadFailed(false);
       return;
     }
 
@@ -655,7 +687,8 @@ export default function ProductsPageClient({
     const productId = selectedProduct.id;
 
     setCommentsLoading(true);
-    setCommentsError(null);
+    setErrorMessage(null);
+    setCommentsLoadFailed(false);
 
     (async () => {
       try {
@@ -685,13 +718,14 @@ export default function ProductsPageClient({
         }));
 
         if (firstError) {
-          setCommentsError(firstError);
+          setErrorMessage(firstError);
         }
       } catch (error) {
         if (controller.signal.aborted) {
           return;
         }
-        setCommentsError(error instanceof Error ? error.message : t.comments.loadFailed);
+        setErrorMessage(error instanceof Error ? error.message : t.comments.loadFailed);
+        setCommentsLoadFailed(true);
       } finally {
         if (!controller.signal.aborted) {
           setCommentsLoading(false);
@@ -1142,8 +1176,8 @@ export default function ProductsPageClient({
                   </div>
                 )}
 
-                {!commentsLoading && commentsError && (
-                  <p className="mb-4 text-sm text-red-500">{commentsError}</p>
+                {!commentsLoading && errorMessage && (
+                  <p className="mb-4 text-sm text-red-500">{errorMessage}</p>
                 )}
 
                 {/* Add Comment Form */}
@@ -1215,18 +1249,14 @@ export default function ProductsPageClient({
                   </button>
                 </form>
 
-                {commentError && (
-                  <p className="mb-8 text-sm text-red-500">{commentError}</p>
-                )}
-
                 {/* Comments List */}
-                {!commentsLoading && !commentsError && productComments.length === 0 && (
+                {!commentsLoading && !commentsLoadFailed && productComments.length === 0 && (
                   <p className={`text-center py-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     {t.comments.noComments}
                   </p>
                 )}
 
-                {!commentsLoading && !commentsError && productComments.length > 0 && (
+                {!commentsLoading && !commentsLoadFailed && productComments.length > 0 && (
                   <div ref={commentsListRef} className="max-h-[600px] overflow-auto">
                     <div
                       style={{
