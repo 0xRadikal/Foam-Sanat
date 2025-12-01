@@ -21,8 +21,22 @@ export function sanitizeStringField(
 
   // Block bidirectional override and other invisible control characters that can
   // be abused to hide or reorder text content.
-  const forbiddenCharacters = /[\u202A-\u202E\u2066-\u2069\u200E\u200F\u061C]/;
-  if (forbiddenCharacters.test(trimmed)) {
+  const BIDI_OVERRIDES = [
+    '\u202A',
+    '\u202B',
+    '\u202C',
+    '\u202D',
+    '\u202E',
+    '\u2066',
+    '\u2067',
+    '\u2068',
+    '\u2069',
+    '\u200E',
+    '\u200F',
+    '\u061C',
+  ];
+
+  if (BIDI_OVERRIDES.some((char) => trimmed.includes(char))) {
     return { ok: false, error: `${fieldName} contains invalid characters.` };
   }
 
