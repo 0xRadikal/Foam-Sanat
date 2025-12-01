@@ -2,11 +2,9 @@
 
 import { ExternalLink } from 'lucide-react';
 import ContactInfo from '@/app/components/ContactInfo';
+import ContactForm from './ContactForm';
 import type { HomeMessages, Locale } from '@/app/lib/i18n';
-import dynamic from 'next/dynamic';
 import { contactConfig } from '@/app/config/contact';
-
-const ContactForm = dynamic(() => import('./ContactForm'));
 
 type ContactSectionProps = {
   contact: HomeMessages['contact'];

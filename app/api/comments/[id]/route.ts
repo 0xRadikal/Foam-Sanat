@@ -7,10 +7,14 @@ import type { CommentStatus } from '../lib/types';
 export const PATCH = withRequestLogging(
   async (
     request: NextRequest,
-    context: { params: { id: string } } | undefined,
+    context: { params: Promise<{ id: string }> } | undefined,
     { logger },
   ) => {
-    const commentId = context?.params?.id;
+    if (!context) {
+      return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
+    }
+
+    const { id: commentId } = await context.params;
     if (!commentId) {
       return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
     }
@@ -62,10 +66,14 @@ export const PATCH = withRequestLogging(
 export const DELETE = withRequestLogging(
   async (
     request: NextRequest,
-    context: { params: { id: string } } | undefined,
+    context: { params: Promise<{ id: string }> } | undefined,
     { logger },
   ) => {
-    const commentId = context?.params?.id;
+    if (!context) {
+      return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
+    }
+
+    const { id: commentId } = await context.params;
     if (!commentId) {
       return NextResponse.json({ error: 'Comment id is required.' }, { status: 400 });
     }
