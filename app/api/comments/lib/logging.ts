@@ -1,11 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { createRequestLogger, type RequestLoggingContext } from '../../lib/logging';
 
-type MetricTags = Record<string, string | number | boolean | null | undefined>;
-
 type MetricOptions = {
   value?: number;
-  tags?: MetricTags;
+  tags?: Record<string, string | number | boolean | null | undefined>;
   requestId?: string;
 };
 

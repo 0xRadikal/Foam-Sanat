@@ -155,7 +155,9 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       ];
 
       setErrorMessage(message);
-      if (captchaMessages.includes(message)) {
+      const isCaptchaMessage = captchaMessages.includes(message);
+
+      if (isCaptchaMessage) {
         setCaptchaError(message);
       }
       setStatus('error');
@@ -164,13 +166,17 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       // Auto-clear error after 10 seconds
       if (errorTimerRef.current) {
         clearTimeout(errorTimerRef.current);
-      }
-      errorTimerRef.current = setTimeout(() => {
-        setStatus('idle');
-        setErrorMessage('');
-        setCaptchaError(null);
         errorTimerRef.current = null;
-      }, 10000);
+      }
+
+      if (!isCaptchaMessage) {
+        errorTimerRef.current = setTimeout(() => {
+          setStatus('idle');
+          setErrorMessage('');
+          setCaptchaError(null);
+          errorTimerRef.current = null;
+        }, 10000);
+      }
     }
   };
 
