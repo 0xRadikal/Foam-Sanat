@@ -34,14 +34,13 @@ type NavigationLabelSets = {
 export type NavigationPage = keyof NavigationLabelSets;
 
 type NavigationRouteMap<L extends Record<string, string>> = Partial<
-  Record<keyof L, string | ((key: string, label: string) => string)>
-> &
-  Record<string, string | ((key: string, label: string) => string)>;
+  Record<keyof L, string | ((key: keyof L, label: string) => string)>
+>;
 
 type NavigationFactoryConfig<L extends Record<string, string>> = {
   routes: NavigationRouteMap<L>;
   overrides?: Record<string, NavigationItemOverride | undefined>;
-  defaultHref?: (key: string, label: string) => string;
+  defaultHref?: (key: keyof L, label: string) => string;
 };
 
 function createNavigationFactory<L extends Record<string, string>>({
@@ -49,13 +48,13 @@ function createNavigationFactory<L extends Record<string, string>>({
   overrides,
   defaultHref
 }: NavigationFactoryConfig<L>) {
-  const hrefResolver = (key: string, label: string) => {
+  const hrefResolver = (key: keyof L, label: string) => {
     const route = routes[key];
 
     if (typeof route === 'function') return route(key, label);
     if (typeof route === 'string') return route;
 
-    return defaultHref ? defaultHref(key, label) : `/${key}`;
+    return defaultHref ? defaultHref(key, label) : `/${String(key)}`;
   };
 
   return (labels: L): NavigationItem[] =>
