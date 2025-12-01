@@ -4,7 +4,7 @@ import type React from 'react';
 import { headers } from 'next/headers';
 import Script from 'next/script';
 import { AnalyticsManager } from '@/app/components/AnalyticsManager';
-import { FontConsentController, FALLBACK_FONT_STACK } from '@/app/components/FontConsentController';
+import { FontConsentController } from '@/app/components/FontConsentController';
 import { localeFontMap } from '@/app/lib/fonts';
 import { isLocale, localeSettings } from '@/app/lib/i18n';
 import { resolveLocale } from '@/app/lib/locale';
@@ -148,11 +148,6 @@ export default function RootLayout({
   const activeFont = localeFontMap[runtimeLocale];
   const bodyClassName = [activeFont.variable, 'antialiased'].filter(Boolean).join(' ');
 
-  const bodyStyle: React.CSSProperties & Record<string, string> = {
-    fontFamily: `var(--site-font-family, ${FALLBACK_FONT_STACK})`,
-    '--site-font-family': FALLBACK_FONT_STACK,
-  };
-
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
   const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
   const cspNonce = requestHeaders.get('x-csp-nonce') || generateNonce();
@@ -198,7 +193,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={bodyClassName} suppressHydrationWarning style={bodyStyle}>
+      <body className={`${bodyClassName} site-body`} suppressHydrationWarning>
         <FontConsentController
           fontClassName={activeFont.className}
           fontFamily={activeFont.style.fontFamily}

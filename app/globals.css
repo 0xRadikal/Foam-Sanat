@@ -10,10 +10,20 @@
   --radius: 1rem;
   --transition: all 0.3s ease-in-out;
   --site-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --rtl-heading-font: Vazirmatn, sans-serif;
+  --ltr-heading-font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-body {
+.site-body {
   font-family: var(--site-font-family, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+}
+
+.font-rtl {
+  font-family: var(--rtl-heading-font);
+}
+
+.font-ltr {
+  font-family: var(--ltr-heading-font);
 }
 
 /* Custom focus styles for accessibility */
