@@ -19,14 +19,7 @@ function NavLink({
   hoverClass: string;
   onClick?: () => void;
 }) {
-  const isHashLink = (() => {
-    try {
-      const parsed = new URL(item.href, 'http://localhost');
-      return Boolean(parsed.hash) && (!parsed.pathname || parsed.pathname === '/');
-    } catch {
-      return item.href.startsWith('#');
-    }
-  })();
+  const isHashLink = item.href.startsWith('#') || item.href.startsWith('/#');
   const mobileClasses = `block px-4 py-3 rounded-lg transition-colors ${hoverClass}`;
   const desktopClasses = `hover:text-orange-500 transition-colors font-medium focus:outline-none focus:ring-2 focus:ring-orange-500 rounded px-2 py-1${
     isActive ? ' text-orange-500 font-semibold' : ''
