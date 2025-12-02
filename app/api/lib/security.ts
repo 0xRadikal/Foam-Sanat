@@ -76,23 +76,35 @@ function addPreviewOrigins(allowed: Set<string>): void {
   addOriginList(allowed, process.env.COMMENTS_ALLOWED_PREVIEW_URLS);
   addOriginList(allowed, process.env.ALLOWED_PREVIEW_ORIGINS);
 }
-
 export function getAllowedOrigins(): Set<string> {
   const allowed = new Set<string>();
+  const isDev = process.env.NODE_ENV !== 'production';
 
+  // دامنه اصلی
   addOriginCandidate(allowed, parseOrigin(DEFAULT_SITE_URL));
 
+  // دامنه‌ی public سایت (مثلاً https://foam-sanat.com)
   addOriginCandidate(allowed, process.env.NEXT_PUBLIC_SITE_URL);
   addHostnameVariants(allowed, process.env.NEXT_PUBLIC_SITE_URL);
 
+  // Vercel previewها
   addHostnameVariants(allowed, process.env.VERCEL_URL);
 
+  // URLهای preview تعریف‌شده در env
   addPreviewOrigins(allowed);
 
-  addOriginList(allowed, process.env.COMMENTS_ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGINS);
+  // لیست‌های اضافه از env
+  addOriginList(
+    allowed,
+    process.env.COMMENTS_ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGINS,
+  );
 
-  addOriginCandidate(allowed, 'http://localhost:3000');
-  addOriginCandidate(allowed, 'http://localhost');
+  // ✅ فقط در dev/local، localhost باز باشد
+  if (isDev) {
+    addOriginCandidate(allowed, 'http://localhost:3000');
+    addOriginCandidate(allowed, 'http://localhost');
+    addOriginCandidate(allowed, 'http://127.0.0.1:3000');
+  }
 
   return allowed;
 }

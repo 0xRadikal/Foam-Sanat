@@ -10,15 +10,26 @@ import {
   Star, Send, Reply, MessageCircle, Trash2, Eye, EyeOff
 } from 'lucide-react';
 import Header from '@/app/components/Header';
+import dynamic from 'next/dynamic';
 import Footer from '@/app/components/Footer';
 import CallToAction from '@/app/components/CallToAction';
 import ContactInfo from '@/app/components/ContactInfo';
-import Modal from '@/app/components/Modal';
+/*import Modal from '@/app/components/Modal';*/
 import { createNavigation } from '@/app/lib/navigation-config';
 import { getAllMessages, type Locale, type MessagesByLocale, type ProductsNamespaceSchema } from '@/app/lib/i18n';
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
 import { useCommentValidation, useLocalizedDateFormatter } from '@/app/lib/hooks/useFormHelpers';
+const Modal = dynamic(() => import('@/app/components/Modal'), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="rounded-xl bg-black/70 px-4 py-2 text-sm text-white">
+        Loading...
+      </div>
+    </div>
+  ),
+});
 
 type Product = ProductsNamespaceSchema['products'][number];
 type ProductImage = Product['images'][number];
@@ -58,7 +69,7 @@ type DraftComment = {
   author: string;
   email: string;
 };
-
+const ADMIN_TOKEN_STORAGE_KEY = 'comments-admin-token';
 const createDefaultComment = (): DraftComment => ({ rating: 5, text: '', author: '', email: '' });
 const isLikelySignedAdminToken = (token: string): boolean => {
   const segments = token.split('.');
@@ -234,20 +245,23 @@ export default function ProductsPageClient({
     setNewComment(createDefaultComment());
   }, [selectedProduct]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+  if (!selectedProduct?.id) return;
 
-    const productId = selectedProduct?.id;
-    if (!productId) return;
+  const draftKey = `comment-draft-${selectedProduct.id}`;
 
-    const draftKey = `comment-draft-${productId}`;
-
+  const timeoutId = setTimeout(() => {
     if (newComment.text) {
       localStorage.setItem(draftKey, JSON.stringify(newComment));
     } else {
       localStorage.removeItem(draftKey);
     }
-  }, [newComment, selectedProduct?.id]);
+  }, 500);
+
+  return () => clearTimeout(timeoutId);
+}, [newComment, selectedProduct?.id]);
+
 
   useEffect(() => {
     if (!hasAdminToken) {
@@ -278,20 +292,21 @@ export default function ProductsPageClient({
   }, []);
 
   // Load stored admin token
-  useEffect(() => {
+    useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const storedToken = localStorage.getItem('comments-admin-token');
+      const storedToken = window.localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
       if (storedToken && isLikelySignedAdminToken(storedToken)) {
         setAdminToken(storedToken);
-        setAdminTokenInput(storedToken);
+        // امن‌تر: JWT رو تو input نمایش نمی‌دیم
       } else if (storedToken) {
-        localStorage.removeItem('comments-admin-token');
+        window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
       }
     } catch (error) {
       console.warn('Unable to read admin token from storage:', error);
     }
   }, []);
+
 
   // Scroll listener
   useEffect(() => {
@@ -405,13 +420,16 @@ export default function ProductsPageClient({
 
   const formatDate = useLocalizedDateFormatter(activeLocale);
   const { validateComment, validateReply } = useCommentValidation(t.comments);
-  const handleSaveAdminToken = useCallback(() => {
+    const handleSaveAdminToken = useCallback(() => {
     if (!commentsEnabled) return;
     if (typeof window === 'undefined') return;
+
     const trimmed = adminTokenInput.trim();
+
+    // اگر خالیه → عملاً logout
     if (!trimmed) {
       try {
-        localStorage.removeItem('comments-admin-token');
+        window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
       } catch (error) {
         console.warn('Unable to clear admin token from storage:', error);
       }
@@ -420,36 +438,62 @@ export default function ProductsPageClient({
       return;
     }
 
-    const tokens = adminTokenInput
-      .split(',')
-      .map((token) => token.trim())
-      .filter(Boolean);
-
-    if (tokens.length === 0 || !tokens.every(isLikelySignedAdminToken)) {
+    // تلاش برای ساخت session از طریق API
+    (async () => {
       try {
-        localStorage.removeItem('comments-admin-token');
-      } catch (error) {
-        console.warn('Unable to clear admin token from storage:', error);
-      }
-      setAdminToken('');
-      setErrorMessage(t.comments.adminTokenRequired);
-      return;
-    }
+        const response = await fetch('/api/comments/admin/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-comments-admin-session-key': trimmed,
+          },
+          body: JSON.stringify({}),
+        });
 
-    try {
-      localStorage.setItem('comments-admin-token', tokens[0]);
-    } catch (error) {
-      console.warn('Unable to persist admin token:', error);
-    }
-    setAdminToken(tokens[0]);
-    setErrorMessage(null);
+        const data = await response.json().catch(() => ({} as { token?: string; error?: string }));
+
+        if (!response.ok) {
+          const message =
+            typeof (data as { error?: string }).error === 'string'
+              ? (data as { error?: string }).error
+              : t.comments.adminTokenRequired;
+          throw new Error(message);
+        }
+
+        const token = (data as { token?: string }).token;
+
+        if (!token || !isLikelySignedAdminToken(token)) {
+          throw new Error(t.comments.adminTokenRequired);
+        }
+
+        try {
+          window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
+        } catch (error) {
+          console.warn('Unable to persist admin token:', error);
+        }
+
+        setAdminToken(token);
+        setAdminTokenInput(''); // secret بعد از login پاک شود
+        setErrorMessage(null);
+      } catch (error) {
+        try {
+          window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+        } catch (storageError) {
+          console.warn('Unable to clear admin token from storage:', storageError);
+        }
+        setAdminToken('');
+        const message = error instanceof Error ? error.message : t.comments.adminTokenRequired;
+        setErrorMessage(message);
+      }
+    })();
   }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
 
-  const handleClearAdminToken = useCallback(() => {
+
+    const handleClearAdminToken = useCallback(() => {
     if (!commentsEnabled) return;
     if (typeof window === 'undefined') return;
     try {
-      localStorage.removeItem('comments-admin-token');
+      window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
     } catch (error) {
       console.warn('Unable to clear admin token from storage:', error);
     }
@@ -457,6 +501,7 @@ export default function ProductsPageClient({
     setAdminTokenInput('');
     setErrorMessage(null);
   }, [commentsEnabled]);
+
 
   const handleAddComment = useCallback(
     async (productId: string) => {
@@ -1138,7 +1183,7 @@ export default function ProductsPageClient({
           </div>
 
           {/* Comments Section */}
-          <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-8`}>
+                    <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-8`}>
             {commentsEnabled ? (
               <>
                 <h3
@@ -1152,40 +1197,45 @@ export default function ProductsPageClient({
                   {t.comments.moderationNotice}
                 </p>
 
-                  <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-2xl mb-8`}>
-                    <p className="text-sm font-bold mb-3">{t.comments.adminControls}</p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="flex flex-1 items-center gap-2">
-                        <input
-                          type={showAdminToken ? 'text' : 'password'}
-                          id="adminToken"
-                          name="adminToken"
-                          value={adminTokenInput}
-                          onChange={(e) => setAdminTokenInput(e.target.value)}
-                          placeholder={t.comments.tokenPlaceholder}
-                          className={`flex-1 px-4 py-3 rounded-lg text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white'} focus:outline-none focus:ring-2 focus:ring-orange-500`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowAdminToken((prev) => !prev)}
-                          className={`px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-1 ${
-                            isDark ? 'bg-gray-800 text-white border-orange-500/40' : 'bg-white text-gray-700 border-orange-500/40'
-                          } hover:border-orange-500`}
-                          aria-label={`${
-                            showAdminToken ? t.comments.hideToken : t.comments.showToken
-                          } ${t.comments.tokenPlaceholder}`}
-                          aria-pressed={showAdminToken}
-                        >
-                          {showAdminToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                          <span className="hidden sm:inline">
-                            {showAdminToken ? t.comments.hideToken : t.comments.showToken}
-                          </span>
-                        </button>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSaveAdminToken}
+                {/* Admin token controls */}
+                <div className={`${isDark ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-2xl mb-8`}>
+                  <p className="text-sm font-bold mb-3">{t.comments.adminControls}</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-1 items-center gap-2">
+                      <input
+                        type={showAdminToken ? 'text' : 'password'}
+                        id="adminToken"
+                        name="adminToken"
+                        value={adminTokenInput}
+                        onChange={(e) => setAdminTokenInput(e.target.value)}
+                        placeholder={t.comments.tokenPlaceholder}
+                        className={`flex-1 px-4 py-3 rounded-lg text-sm ${
+                          isDark ? 'bg-gray-800 text-white' : 'bg-white'
+                        } focus:outline-none focus:ring-2 focus:ring-orange-500`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAdminToken((prev) => !prev)}
+                        className={`px-3 py-2 rounded-lg border text-xs font-bold flex items-center gap-1 ${
+                          isDark
+                            ? 'bg-gray-800 text-white border-orange-500/40'
+                            : 'bg-white text-gray-700 border-orange-500/40'
+                        } hover:border-orange-500`}
+                        aria-label={`${
+                          showAdminToken ? t.comments.hideToken : t.comments.showToken
+                        } ${t.comments.tokenPlaceholder}`}
+                        aria-pressed={showAdminToken}
+                      >
+                        {showAdminToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <span className="hidden sm:inline">
+                          {showAdminToken ? t.comments.hideToken : t.comments.showToken}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveAdminToken}
                         className={`px-4 py-2 rounded-lg font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-purple-600 hover:scale-105 transition-transform ${
                           adminTokenInput.trim() === '' ? 'opacity-80' : ''
                         }`}
@@ -1196,7 +1246,9 @@ export default function ProductsPageClient({
                         <button
                           type="button"
                           onClick={handleClearAdminToken}
-                          className={`px-4 py-2 rounded-lg font-bold text-sm ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'} border border-orange-500/40 hover:border-orange-500`}
+                          className={`px-4 py-2 rounded-lg font-bold text-sm ${
+                            isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-700'
+                          } border border-orange-500/40 hover:border-orange-500`}
                         >
                           {t.comments.clearToken}
                         </button>
@@ -1206,20 +1258,46 @@ export default function ProductsPageClient({
                 </div>
 
                 {commentsLoading && (
-                  <div
-                    className={`mb-6 flex items-center justify-center gap-3 rounded-xl border ${
-                      isDark ? 'border-gray-600 bg-gray-800/60 text-gray-200' : 'border-gray-200 bg-white text-gray-700'
-                    } p-4 shadow-sm`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span
-                      className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent"
-                      aria-hidden
-                    />
-                    <span className="font-semibold">{t.comments.loading}</span>
-                  </div>
-                )}
+  <div
+    className="mb-6 space-y-4"
+    role="status"
+    aria-live="polite"
+    aria-label={t.comments.loading}
+  >
+    {[1, 2, 3].map((i) => (
+      <div
+        key={i}
+        className={`animate-pulse rounded-2xl p-4 border ${
+          isDark ? 'bg-gray-800/60 border-gray-700' : 'bg-white border-gray-200'
+        }`}
+      >
+        {/* هدر کامنت: اسم + تاریخ */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="h-4 w-32 rounded bg-gray-300/70 dark:bg-gray-600/70" />
+          <div className="h-3 w-20 rounded bg-gray-200/80 dark:bg-gray-700/80" />
+        </div>
+
+        {/* ستاره‌ها */}
+        <div className="flex gap-1 mb-3">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <div
+              key={star}
+              className="h-3 w-3 rounded-full bg-gray-200/80 dark:bg-gray-700/80"
+            />
+          ))}
+        </div>
+
+        {/* متن کامنت */}
+        <div className="space-y-2">
+          <div className="h-3 w-full rounded bg-gray-200/80 dark:bg-gray-700/80" />
+          <div className="h-3 w-11/12 rounded bg-gray-200/80 dark:bg-gray-700/80" />
+          <div className="h-3 w-9/12 rounded bg-gray-200/80 dark:bg-gray-700/80" />
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+
 
                 {!commentsLoading && errorMessage && (
                   <p className="mb-4 text-sm text-red-500">{errorMessage}</p>
