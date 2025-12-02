@@ -130,9 +130,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const [messages, setMessages] = useState(initialMessages);
   const hasSyncedInitialLocale = useRef(false);
   const [activeTimeline, setActiveTimeline] = useState(0);
+  const timelineRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [showVideo, setShowVideo] = useState(false);
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [videoReloadKey, setVideoReloadKey] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const instanceId = useId();
@@ -155,7 +157,11 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
     () => generateBlobs(blobCount, seededRandom, blobBlur, !isMobile),
     [blobBlur, blobCount, isMobile, seededRandom]
   );
-
+const handleRetryVideo = () => {
+  setVideoError(false);
+  setVideoLoading(true);
+  setVideoReloadKey((prev) => prev + 1); // ویدیو رو مجبور به ریلود می‌کنه
+};
   useEffect(() => {
     if (!hasSyncedInitialLocale.current) {
       hasSyncedInitialLocale.current = true;
@@ -203,7 +209,6 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
   const primaryPhone = contactConfig.phones[0].value;
   const primaryEmail = contactConfig.emails[0].value;
   const mapUrl = contactConfig.mapUrl;
-
   const t = useMemo(() => messages.about, [messages]);
   const timelineItems = t.timeline.items;
   const timelineLength = Math.max(0, timelineItems.length);
@@ -233,17 +238,48 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
     [aboutNavLabel, contactNavLabel, homeNavLabel, productsNavLabel]
   );
 
-  useEffect(() => {
-    if (timelineLength === 0) return undefined;
+useEffect(() => {
+  if (timelineLength === 0) return;
 
-    setActiveTimeline((prev) => (prev < timelineLength ? prev : 0));
+  // مطمئن شو طول آرایه‌ی ref با تعداد آیتم‌ها یکیه
+  timelineRefs.current = timelineRefs.current.slice(0, timelineLength);
 
-    const interval = setInterval(() => {
-      setActiveTimeline((prev) => (prev + 1) % timelineLength);
-    }, 4000);
+  // اگر روی سرور یا مرورگر قدیمی هستیم، فقط آیتم اول رو active کن
+  if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
+    setActiveTimeline(0);
+    return;
+  }
 
-    return () => clearInterval(interval);
-  }, [timelineLength]);
+  const elements = timelineRefs.current.filter(
+    (el): el is HTMLLIElement => el !== null,
+  );
+  if (elements.length === 0) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+
+        const indexAttr = entry.target.getAttribute('data-timeline-index');
+        if (!indexAttr) return;
+
+        const index = Number(indexAttr);
+        if (!Number.isNaN(index)) {
+          // فقط وقتی عوض کن که واقعا تغییر کرده
+          setActiveTimeline((prev) => (prev === index ? prev : index));
+        }
+      });
+    },
+    {
+      root: null,      // viewport صفحه
+      threshold: 0.5,  // حداقل ۵۰٪ آیتم در دید باشد
+    },
+  );
+
+  elements.forEach((el) => observer.observe(el));
+
+  return () => observer.disconnect();
+}, [timelineLength]);
 
   useEffect(() => {
     if (showVideo) {
@@ -395,9 +431,13 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
                 return (
                   <li
-                    key={`${item.year}-${item.title}`}
-                    className={`relative mb-12 transition-all duration-500 ${isActive ? 'scale-105' : ''}`}
-                  >
+  key={`${item.year}-${item.title}`}
+  ref={(el) => {
+    timelineRefs.current[i] = el;
+  }}
+  data-timeline-index={i}
+  className={`relative mb-12 transition-all duration-500 ${isActive ? 'scale-105' : ''}`}
+>
                     <div className={`flex items-center ${i % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'}`}>
                       <div className={`w-full md:w-5/12 ${cardBg} rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all ${
                         isActive ? 'ring-4 ring-orange-500' : ''
@@ -684,12 +724,15 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
         email={primaryEmail}
         mapUrl={mapUrl}
       />
-
 {/* Video Modal */}
 {showVideo && (
   <div
     className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-    onClick={() => setShowVideo(false)}
+    onClick={() => {
+      setShowVideo(false);
+      setVideoError(false);
+      setVideoLoading(false);
+    }}
   >
     <div
       className="max-w-4xl w-full aspect-video bg-gray-800 rounded-2xl flex flex-col items-center justify-center"
@@ -701,10 +744,14 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
 
       <div className="w-full h-full flex flex-col gap-3 relative">
         <video
+          key={videoReloadKey}
           controls
           className="w-full h-full rounded-xl"
-          poster="./images/video-poster.jpg" // اگر پوستر داری، در غیر اینصورت حذفش کن
-          onLoadStart={() => setVideoLoading(true)}
+          poster="./images/video-poster.jpg"
+          onLoadStart={() => {
+            setVideoLoading(true);
+            setVideoError(false);
+          }}
           onCanPlay={() => setVideoLoading(false)}
           onError={() => {
             setVideoError(true);
@@ -714,16 +761,28 @@ export default function AboutPageClient({ initialLocale, initialMessages }: Abou
           <source src="./videos/Factory.mp4" type="video/mp4" />
           مرورگر شما از پخش این ویدیو پشتیبانی نمی‌کند.
         </video>
-        {videoLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-xl">
-            <div className="h-16 w-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+
+        {/* Overlay لودینگ */}
+        {videoLoading && !videoError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
           </div>
         )}
-        {videoError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
-            <p className="text-sm text-red-100 text-center px-4" role="alert">
+
+        {/* Overlay خطا + دکمه تلاش مجدد */}
+        {videoError && !videoLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+            <p className="mb-4 text-sm md:text-base">
               {t.videoModal.error}
             </p>
+            <button
+              type="button"
+              onClick={handleRetryVideo}
+              className="rounded-md bg-white/90 px-4 py-2 text-sm font-medium text-black hover:bg-white"
+            >
+              {/* اینجا دیگه از t.videoModal.retry استفاده نکردیم تا ارور TS نگیری */}
+              تلاش مجدد
+            </button>
           </div>
         )}
       </div>

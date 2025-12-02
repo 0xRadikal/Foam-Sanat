@@ -8,9 +8,6 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...array));
 }
 
-// CSP is enforced via HTTP headers (never via <meta http-equiv>) to ensure the
-// policy cannot be bypassed by markup. Update the allowlists below when adding
-// new script or iframe providers.
 function buildContentSecurityPolicy(nonce: string): string {
   const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -18,9 +15,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
-    // Next.js uses eval-based tooling in development. Adding 'unsafe-eval'
-    // here prevents CSP violations when running the dev server while keeping
-    // production as strict as possible.
+
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
     'https://www.googletagmanager.com',
     'https://www.google-analytics.com',
@@ -45,17 +40,13 @@ function buildContentSecurityPolicy(nonce: string): string {
 
   const frameSrc = [
     "'self'",
-    // Cloudflare Turnstile challenge iframe
     'https://challenges.cloudflare.com',
-    // Google Maps embeds used in ContactSection map URL
     'https://maps.app.goo.gl',
     'https://www.google.com',
     'https://maps.google.com',
     'https://maps.googleapis.com',
   ];
 
-  // Restrict which origins can frame this site. Expand only if there is a
-  // demonstrated embedding requirement.
   const frameAncestors = ["'self'"];
 
   const styleSrc = ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"];

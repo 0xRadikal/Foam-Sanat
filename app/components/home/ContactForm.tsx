@@ -32,12 +32,13 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
   const [captchaRefresh, setCaptchaRefresh] = useState(0);
   const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    return () => {
-      if (errorTimerRef.current) {
-        clearTimeout(errorTimerRef.current);
-      }
-    };
+useEffect(() => {
+  return () => {
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = null;
+    }
+  };
   }, []);
   const labelAlignment = isRTL ? 'text-right' : 'text-left';
   const hasError = status === 'error';
@@ -80,7 +81,11 @@ export default function ContactForm({ contact, isRTL, isDark, locale }: ContactF
       errorTimerRef.current = null;
     }
 
-    const validationResult = validateContactForm(formState, { captchaEnabled, captchaToken });
+    const validationResult = validateContactForm(formState, {
+  captchaEnabled: captchaEnabled && Boolean(captchaToken),
+  captchaToken,
+});
+
     if (!validationResult.sanitized) {
       const message = validationResult.error ?? contact.form.errorGeneric;
       setStatus('error');
