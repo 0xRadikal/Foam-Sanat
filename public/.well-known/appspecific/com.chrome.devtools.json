@@ -1,0 +1,7 @@
+{
+  "name": "Foam Sanat devtools config",
+  "version": 1,
+  "environment": "development",
+  "description": "App-specific config placeholder for Chrome DevTools. Safe to ignore.",
+  "settings": {}
+}
