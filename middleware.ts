@@ -81,6 +81,7 @@ function buildContentSecurityPolicy(nonce: string): string {
 export function middleware(request: NextRequest) {
   const nonce = generateNonce();
   const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-url', request.url);
   requestHeaders.set('x-csp-nonce', nonce);
 
   const response = NextResponse.next({
