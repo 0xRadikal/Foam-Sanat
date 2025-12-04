@@ -60,5 +60,7 @@ export async function deleteStoredReply(
   return storage.deleteReply(commentId, replyId);
 }
 
-// NOTE: Removed redundant toPublicComment wrapper.
-// Call storage.toPublicComment(comment) directly in API routes instead.
+export async function toPublicComment(comment: StoredComment) {
+  const storage = await getCommentStorage();
+  return storage.toPublicComment(comment);
+}
