@@ -94,8 +94,16 @@ export function SiteChromeProvider({
   initialLocale?: Locale;
 }) {
   const [lang, setLangState] = useState<Locale>(() => readStoredLang(initialLocale));
-  const [theme, setThemeState] = useState<Theme>(() => readStoredTheme(DEFAULT_THEME));
+  // Hydrate with the server default theme to prevent SSR/CSR mismatches, then sync the stored preference on the client.
+  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
   const [mobileMenuOpen, setMobileMenuOpenState] = useState(false);
+
+  useEffect(() => {
+    const stored = readStoredTheme(DEFAULT_THEME);
+    if (stored !== theme) {
+      setThemeState(stored);
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
