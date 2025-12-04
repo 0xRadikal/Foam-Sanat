@@ -97,13 +97,10 @@ export function SiteChromeProvider({
   // Hydrate with the server default theme to prevent SSR/CSR mismatches, then sync the stored preference on the client.
   const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
   const [mobileMenuOpen, setMobileMenuOpenState] = useState(false);
-
   useEffect(() => {
-    const stored = readStoredTheme(DEFAULT_THEME);
-    if (stored !== theme) {
-      setThemeState(stored);
-    }
-  }, [theme]);
+  const stored = readStoredTheme(DEFAULT_THEME);
+  setThemeState(stored);
+}, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
