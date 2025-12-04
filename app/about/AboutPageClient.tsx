@@ -17,7 +17,7 @@ import { getAllMessages, type Locale, type MessagesByLocale } from '@/app/lib/i1
 import { useSiteChrome } from '@/app/lib/useSiteChrome';
 import { contactConfig } from '@/app/config/contact';
 import { getThemeToken, type Theme } from '@/app/lib/theme-tokens';
-import { trackEvent, trackPageView } from '@/app/lib/analytics';
+import { trackEvent } from '@/app/lib/analytics';
 
 type BlobStyle = CSSProperties;
 
@@ -195,9 +195,6 @@ const handleRetryVideo = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    trackPageView('/about');
-  }, []);
   const {
     pageBackground,
     pageText,
