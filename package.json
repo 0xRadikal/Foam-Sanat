@@ -43,7 +43,7 @@
     "autoprefixer": "^10.4.21",
     "chromedriver": "^142.0.3",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^16.0.7",
+    "eslint-config-next": "^14.2.13",
     "lighthouse": "^12.0.0",
     "next-sitemap": "^4.2.3",
     "postcss": "^8.5.6",
