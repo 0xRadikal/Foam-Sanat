@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import type React from 'react';
 import { headers } from 'next/headers';
 import Script from 'next/script';
-import { AnalyticsManager } from '@/app/components/AnalyticsManager';
+import { AnalyticsProvider } from '@/app/AnalyticsProvider';
 import { FontConsentController } from '@/app/components/FontConsentController';
 import { localeFontMap } from '@/app/lib/fonts';
 import { isLocale, localeSettings } from '@/app/lib/i18n';
@@ -148,8 +148,9 @@ export default function RootLayout({
 
   const permissionsPolicy =
     'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()';
-  const analyticsIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GA_ID : undefined;
-  const gtmIdForLocale = localeSettings[runtimeLocale].analyticsEnabled ? GTM_ID : undefined;
+  const analyticsEnabledForLocale = process.env.NODE_ENV === 'production'
+    ? localeSettings[runtimeLocale].analyticsEnabled
+    : false;
   const organizationSchema = getOrganizationSchema(runtimeLocale as 'fa' | 'en');
   const faqSchema = getFaqSchema(runtimeLocale as 'fa' | 'en');
 
@@ -195,10 +196,10 @@ export default function RootLayout({
           fontFamily={activeFont.style.fontFamily}
         />
         <SiteChromeProvider initialLocale={runtimeLocale}>{children}</SiteChromeProvider>
-        <AnalyticsManager
-          gaTrackingId={analyticsIdForLocale}
-          gtmId={gtmIdForLocale}
-          locale={runtimeLocale}
+        <AnalyticsProvider
+          gaTrackingId={GA_ID}
+          gtmId={GTM_ID}
+          enableAnalytics={analyticsEnabledForLocale}
           nonce={cspNonce}
         />
         <Script
