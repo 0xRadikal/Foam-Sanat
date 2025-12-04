@@ -15,7 +15,6 @@ function buildContentSecurityPolicy(nonce: string): string {
     "'self'",
     `'nonce-${nonce}'`,
     "'strict-dynamic'",
-
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
     'https://www.googletagmanager.com',
     'https://www.google-analytics.com',
@@ -49,7 +48,16 @@ function buildContentSecurityPolicy(nonce: string): string {
 
   const frameAncestors = ["'self'"];
 
-  const styleSrc = ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"];
+  // ✅ این‌جا فقط تغییر واقعی اتفاق افتاده
+  const styleSrc = isDevelopment
+    ? [
+        "'self'",
+        "'unsafe-inline'",
+      ]
+    : [
+        "'self'",
+        `'nonce-${nonce}'`,
+      ];
 
   const fontSrc = ["'self'", 'data:'];
 
@@ -84,7 +92,7 @@ export function middleware(request: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()'
+    'camera=(), microphone=(), geolocation=(), browsing-topics=(), interest-cohort=()',
   );
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
