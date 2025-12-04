@@ -61,7 +61,7 @@ export function AnalyticsProvider({
   useEffect(() => {
     if (!analyticsReady) return;
 
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let timeoutId: number | undefined;
 
     const pushPageView = () => {
       const hasGtag = typeof window.gtag === 'function';
@@ -73,7 +73,7 @@ export function AnalyticsProvider({
       }
 
       if (hasGtag) {
-        window.gtag('consent', 'update', { analytics_storage: 'granted' });
+        window.gtag?.('consent', 'update', { analytics_storage: 'granted' });
       }
 
       trackPageView(pagePath);
@@ -83,7 +83,7 @@ export function AnalyticsProvider({
 
     return () => {
       if (timeoutId) {
-        clearTimeout(timeoutId);
+        window.clearTimeout(timeoutId);
       }
     };
   }, [analyticsReady, pagePath]);

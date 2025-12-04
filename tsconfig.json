@@ -22,6 +22,10 @@
         "./*"
       ]
     },
+    "types": [
+      "node",
+      "react"
+    ],
     "esModuleInterop": true,
     "plugins": [
       {
