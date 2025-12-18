@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: 'Admin Panel | Foam Sanat',
 };
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
 const navItems = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/products', label: 'Products' },
@@ -21,7 +25,7 @@ const navItems = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = (await getServerSession(authOptions as any)) as AdminSession | null;
+  const session = (await getServerSession(authOptions)) as AdminSession | null;
   if (!session) {
     redirect('/admin/login');
   }

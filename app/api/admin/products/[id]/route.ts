@@ -23,6 +23,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ data: product });
   } catch (error) {
+    console.error('product.detail.failed', error);
     return NextResponse.json({ error: 'Unable to fetch product.' }, { status: 500 });
   }
 }
@@ -104,6 +105,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: product });
   } catch (error) {
+    console.error('product.update.failed', error);
     return NextResponse.json({ error: 'Unable to update product.' }, { status: 500 });
   }
 }
@@ -150,6 +152,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('product.delete.failed', error);
     return NextResponse.json({ error: 'Unable to delete product.' }, { status: 500 });
   }
 }

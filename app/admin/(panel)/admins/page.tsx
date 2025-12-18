@@ -7,7 +7,7 @@ import { authOptions } from '@/app/lib/auth/options';
 import type { AdminSession } from '@/app/api/admin/lib/session';
 
 export default async function AdminsPage() {
-  const session = (await getServerSession(authOptions as any)) as AdminSession | null;
+  const session = (await getServerSession(authOptions)) as AdminSession | null;
   if (!session || session.user?.role !== Role.SUPERADMIN) {
     redirect('/admin');
   }

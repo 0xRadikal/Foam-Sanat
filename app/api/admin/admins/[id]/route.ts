@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import { prisma } from '@/app/lib/prisma';
 import { adminSchema } from '@/app/admin/validation';
 import { requireSession } from '../../lib/session';
@@ -10,7 +10,7 @@ import { recordAuditLog } from '@/app/lib/audit';
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    if (!session.user?.role || !canManageAdmins(session.user.role as any)) {
+    if (!session.user?.role || !canManageAdmins(session.user.role as Role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -43,6 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: updated });
   } catch (error) {
+    console.error('admin.update.failed', error);
     return NextResponse.json({ error: 'Unable to update admin.' }, { status: 500 });
   }
 }
@@ -50,7 +51,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await requireSession();
-    if (!session.user?.role || !canManageAdmins(session.user.role as any)) {
+    if (!session.user?.role || !canManageAdmins(session.user.role as Role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -67,6 +68,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('admin.delete.failed', error);
     return NextResponse.json({ error: 'Unable to delete admin.' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { Role } from '@prisma/client';
 import { prisma } from '@/app/lib/prisma';
 import { adminSchema } from '@/app/admin/validation';
 import { requireSession } from '../lib/session';
@@ -20,6 +21,7 @@ export async function GET() {
     });
     return NextResponse.json({ data: admins });
   } catch (error) {
+    console.error('admin.list.failed', error);
     return NextResponse.json({ error: 'Unable to load admins.' }, { status: 500 });
   }
 }
@@ -27,7 +29,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession();
-    if (!session.user?.role || !canManageAdmins(session.user.role as any)) {
+    if (!session.user?.role || !canManageAdmins(session.user.role as Role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     const raw = await request.json();
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: user }, { status: 201 });
   } catch (error) {
+    console.error('admin.create.failed', error);
     return NextResponse.json({ error: 'Unable to create admin.' }, { status: 500 });
   }
 }

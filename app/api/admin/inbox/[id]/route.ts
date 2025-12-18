@@ -25,6 +25,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ data: item });
   } catch (error) {
+    console.error('inbox.detail.failed', error);
     return NextResponse.json({ error: 'Unable to fetch inbox item.' }, { status: 500 });
   }
 }
@@ -55,6 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: item });
   } catch (error) {
+    console.error('inbox.status.failed', error);
     return NextResponse.json({ error: 'Unable to update inbox item.' }, { status: 500 });
   }
 }
@@ -99,6 +101,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ data: reply }, { status: 201 });
   } catch (error) {
+    console.error('inbox.reply.failed', error);
     return NextResponse.json({ error: 'Unable to reply.' }, { status: 500 });
   }
 }

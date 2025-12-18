@@ -44,6 +44,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: category });
   } catch (error) {
+    console.error('category.update.failed', error);
     return NextResponse.json({ error: 'Unable to update category.' }, { status: 500 });
   }
 }
@@ -67,6 +68,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('category.delete.failed', error);
     return NextResponse.json({ error: 'Unable to delete category.' }, { status: 500 });
   }
 }

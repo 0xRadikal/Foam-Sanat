@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
       role: session.user?.role,
     });
   } catch (error) {
+    console.error('product.list.failed', error);
     return NextResponse.json({ error: 'Unable to fetch products.' }, { status: 500 });
   }
 }
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: product }, { status: 201 });
   } catch (error) {
+    console.error('product.create.failed', error);
     return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 });
   }
 }

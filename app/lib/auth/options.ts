@@ -1,5 +1,6 @@
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import type { Session } from 'next-auth';
+import type { Adapter } from 'next-auth/adapters';
 import type { JWT } from 'next-auth/jwt';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
@@ -7,11 +8,17 @@ import { prisma } from '../prisma';
 import { recordAuditLog } from '../audit';
 import { consumeRateLimit } from '../rate-limit';
 
-type AuthOptionsType = {
-  adapter: unknown;
-  session: { strategy: 'jwt'; maxAge?: number };
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
+type AppAuthOptions = {
+  adapter: Adapter;
+  session: {
+    strategy: 'jwt';
+    maxAge: number;
+  };
   pages: { signIn: string };
-  providers: unknown[];
+  providers: ReturnType<typeof Credentials>[];
   callbacks: {
     jwt: (params: { token: JWT; user?: { role?: string } }) => Promise<JWT>;
     session: (params: { session: Session; token: JWT }) => Promise<Session>;
@@ -20,13 +27,10 @@ type AuthOptionsType = {
   secret?: string;
 };
 
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
-
-export const authOptions: AuthOptionsType = {
+export const authOptions: AppAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: 'jwt',
+    strategy: 'jwt' as const,
     maxAge: 60 * 60 * 8,
   },
   pages: {

@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error('inbox.list.failed', error);
     return NextResponse.json({ error: 'Unable to load inbox.' }, { status: 500 });
   }
 }
@@ -88,6 +89,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('inbox.bulk_update.failed', error);
     return NextResponse.json({ error: 'Unable to update inbox items.' }, { status: 500 });
   }
 }

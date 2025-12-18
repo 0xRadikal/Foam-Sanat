@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/app/lib/prisma';
 import { requireSession } from '../lib/session';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     await requireSession();
@@ -21,6 +23,7 @@ export async function GET() {
       unresolved,
     });
   } catch (error) {
+    console.error('metrics.load.failed', error);
     return NextResponse.json({ error: 'Unable to load metrics.' }, { status: 500 });
   }
 }
