@@ -6,7 +6,7 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "moduleDetection": "force",
-    "types": ["node"]
+    "types": ["node", "vitest"]
   },
   "include": [
     "next-env.d.ts",

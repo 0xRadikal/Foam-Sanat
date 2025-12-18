@@ -9,6 +9,8 @@ import {
   VALIDATION_RULES,
 } from '../../lib/validation';
 import { getEnvValue } from '../../lib/env';
+import { prisma } from '@/app/lib/prisma';
+import { recordAuditLog } from '@/app/lib/audit';
 
 const CONTACT_EMAIL = getEnvValue(['CONTACT_EMAIL', 'NEXT_PUBLIC_CONTACT_EMAIL'], {
   visibility: 'server',
@@ -116,6 +118,7 @@ export const POST = withRequestLogging(async (request: Request, _context, { logg
     });
 
     await forwardContactSubmission(contactPayload, logger, requestId);
+    await persistInboxMessage(contactPayload, request);
 
     return NextResponse.json({
       success: true,
@@ -161,6 +164,42 @@ export const POST = withRequestLogging(async (request: Request, _context, { logg
     );
   }
 });
+
+async function persistInboxMessage(contactPayload: ContactPayload, request: Request): Promise<void> {
+  try {
+    const ip =
+      request.headers.get('cf-connecting-ip') ??
+      request.headers.get('x-forwarded-for') ??
+      request.headers.get('x-real-ip') ??
+      undefined;
+
+    const userAgent = request.headers.get('user-agent') ?? undefined;
+    const item = await prisma.inboxItem.create({
+      data: {
+        type: 'MESSAGE',
+        name: contactPayload.name,
+        email: contactPayload.email,
+        body: contactPayload.message,
+        isRead: false,
+        isResolved: false,
+        ip,
+        userAgent,
+      },
+    });
+
+    await recordAuditLog({
+      actorId: null,
+      action: 'inbox.message.create',
+      entityType: 'inbox',
+      entityId: item.id,
+      ip,
+      userAgent,
+      diff: { source: 'contact-form' },
+    });
+  } catch (error) {
+    console.error('contact.inbox.persistence_failed', error);
+  }
+}
 
 function parseContactPayload(payload: unknown): ContactPayload {
   if (!payload || typeof payload !== 'object') {

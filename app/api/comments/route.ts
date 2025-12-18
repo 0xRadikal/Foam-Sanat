@@ -10,6 +10,8 @@ import {
 import { buildAvailabilityHeaders, ensureCommentsAvailable } from './lib/status';
 import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
+import { prisma } from '@/app/lib/prisma';
+import { recordAuditLog } from '@/app/lib/audit';
 
 export const GET = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
   const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
@@ -108,6 +110,7 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
   }
 
   const publicComment = await toPublicComment(newComment);
+  await persistInboxComment(newComment, request);
 
   logger.info('comments.post.created', { productId: sanitized.productId });
 
@@ -119,3 +122,43 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
     },
   );
 });
+
+async function persistInboxComment(
+  comment: { id: string; productId: string; author: string; email: string; text: string },
+  request: NextRequest,
+): Promise<void> {
+  try {
+    const ip =
+      request.headers.get('cf-connecting-ip') ??
+      request.headers.get('x-forwarded-for') ??
+      request.headers.get('x-real-ip') ??
+      undefined;
+    const userAgent = request.headers.get('user-agent') ?? undefined;
+
+    const inboxItem = await prisma.inboxItem.create({
+      data: {
+        type: 'COMMENT',
+        productId: comment.productId,
+        name: comment.author,
+        email: comment.email,
+        body: comment.text,
+        isRead: false,
+        isResolved: false,
+        ip,
+        userAgent,
+      },
+    });
+
+    await recordAuditLog({
+      actorId: null,
+      action: 'inbox.comment.create',
+      entityType: 'inbox',
+      entityId: inboxItem.id,
+      diff: { commentId: comment.id },
+      ip,
+      userAgent,
+    });
+  } catch (error) {
+    console.error('comments.inbox.persist_failed', error);
+  }
+}
