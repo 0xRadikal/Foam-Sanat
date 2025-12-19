@@ -9,6 +9,7 @@ import { recordAuditLog } from '@/app/lib/audit';
 
 export async function GET() {
   try {
+    await requireSession();
     const admins = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
@@ -21,6 +22,9 @@ export async function GET() {
     });
     return NextResponse.json({ data: admins });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('admin.list.failed', error);
     return NextResponse.json({ error: 'Unable to load admins.' }, { status: 500 });
   }
@@ -65,6 +69,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: user }, { status: 201 });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('admin.create.failed', error);
     return NextResponse.json({ error: 'Unable to create admin.' }, { status: 500 });
   }

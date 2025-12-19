@@ -25,18 +25,19 @@ enum InboxType {
 }
 
 model User {
-  id                 String    @id @default(uuid())
-  email              String    @unique
-  name               String?
-  passwordHash       String
-  role               Role      @default(ADMIN)
-  failedLoginAttempts Int      @default(0)
-  lockedUntil        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  sessions           Session[]
-  auditLogs          AuditLog[]
-  replies            AdminReply[]
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  name                String?
+  passwordHash        String
+  role                Role      @default(ADMIN)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  accounts            Account[]
+  sessions            Session[]
+  auditLogs           AuditLog[]
+  replies             AdminReply[]
 }
 
 model Session {
@@ -55,6 +56,24 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
 
 model Category {
@@ -106,43 +125,43 @@ model ProductImage {
 }
 
 model InboxItem {
-  id          String     @id @default(uuid())
-  type        InboxType
-  productId   String?
-  product     Product?   @relation(fields: [productId], references: [id])
-  name        String?
-  email       String?
-  body        String
-  isRead      Boolean    @default(false)
-  isResolved  Boolean    @default(false)
-  isSpam      Boolean    @default(false)
-  ip          String?
-  userAgent   String?
+  id           String      @id @default(uuid())
+  type         InboxType
+  productId    String?
+  product      Product?    @relation(fields: [productId], references: [id])
+  name         String?
+  email        String?
+  body         String
+  isRead       Boolean     @default(false)
+  isResolved   Boolean     @default(false)
+  isSpam       Boolean     @default(false)
+  ip           String?
+  userAgent    String?
   adminReplies AdminReply[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
 model AdminReply {
-  id         String   @id @default(uuid())
-  inboxId    String
-  adminId    String
-  body       String
-  createdAt  DateTime @default(now())
-  inbox      InboxItem @relation(fields: [inboxId], references: [id], onDelete: Cascade)
-  admin      User      @relation(fields: [adminId], references: [id])
-  sentEmail  Boolean  @default(false)
+  id        String    @id @default(uuid())
+  inboxId   String
+  adminId   String
+  body      String
+  createdAt DateTime @default(now())
+  inbox     InboxItem @relation(fields: [inboxId], references: [id], onDelete: Cascade)
+  admin     User      @relation(fields: [adminId], references: [id])
+  sentEmail Boolean   @default(false)
 }
 
 model AuditLog {
-  id           String   @id @default(uuid())
-  actorId      String?
-  action       String
-  entityType   String
-  entityId     String?
-  diff         Json?
-  ip           String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
-  actor        User?    @relation(fields: [actorId], references: [id])
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  diff       Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
 }

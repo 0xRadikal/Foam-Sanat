@@ -6,6 +6,7 @@ import { recordAuditLog } from '@/app/lib/audit';
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await requireSession();
     const item = await prisma.inboxItem.findUnique({
       where: { id: params.id },
       include: {
@@ -25,6 +26,9 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ data: item });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('inbox.detail.failed', error);
     return NextResponse.json({ error: 'Unable to fetch inbox item.' }, { status: 500 });
   }
@@ -56,6 +60,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: item });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('inbox.status.failed', error);
     return NextResponse.json({ error: 'Unable to update inbox item.' }, { status: 500 });
   }
@@ -101,6 +108,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ data: reply }, { status: 201 });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('inbox.reply.failed', error);
     return NextResponse.json({ error: 'Unable to reply.' }, { status: 500 });
   }

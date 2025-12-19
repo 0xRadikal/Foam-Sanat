@@ -23,6 +23,9 @@ export async function GET() {
       unresolved,
     });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('metrics.load.failed', error);
     return NextResponse.json({ error: 'Unable to load metrics.' }, { status: 500 });
   }

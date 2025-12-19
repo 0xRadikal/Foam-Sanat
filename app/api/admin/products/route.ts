@@ -9,6 +9,10 @@ import { canEditProducts } from '@/app/lib/rbac';
 
 const DEFAULT_PAGE_SIZE = 10;
 
+function isUnauthorized(error: unknown): boolean {
+  return (error as Error | undefined)?.message === 'UNAUTHORIZED';
+}
+
 function parsePagination(searchParams: URLSearchParams) {
   const page = Number(searchParams.get('page') ?? '1');
   const pageSize = Number(searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE);
@@ -66,6 +70,9 @@ export async function GET(request: NextRequest) {
       role: session.user?.role,
     });
   } catch (error) {
+    if (isUnauthorized(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('product.list.failed', error);
     return NextResponse.json({ error: 'Unable to fetch products.' }, { status: 500 });
   }
@@ -116,7 +123,7 @@ export async function POST(request: NextRequest) {
         seoDescEn: payload.seoDescEn ?? undefined,
         publishedAt: payload.status === ProductStatus.PUBLISHED ? new Date() : null,
         images: {
-          create: payload.images?.map((img) => ({
+          create: (payload.images ?? []).map((img) => ({
             url: img.url,
             altFa: img.altFa ?? undefined,
             altEn: img.altEn ?? undefined,
@@ -139,6 +146,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: product }, { status: 201 });
   } catch (error) {
+    if (isUnauthorized(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('product.create.failed', error);
     return NextResponse.json({ error: 'Unable to create product.' }, { status: 500 });
   }

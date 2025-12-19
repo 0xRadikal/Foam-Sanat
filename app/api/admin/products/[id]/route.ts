@@ -7,8 +7,13 @@ import { requireSession } from '../../lib/session';
 import { slugify } from '@/app/lib/slug';
 import { canDeleteProducts, canEditProducts, canHardDelete } from '@/app/lib/rbac';
 
+function isUnauthorized(error: unknown): boolean {
+  return (error as Error | undefined)?.message === 'UNAUTHORIZED';
+}
+
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    await requireSession();
     const product = await prisma.product.findUnique({
       where: { id: params.id },
       include: {
@@ -23,6 +28,9 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 
     return NextResponse.json({ data: product });
   } catch (error) {
+    if (isUnauthorized(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('product.detail.failed', error);
     return NextResponse.json({ error: 'Unable to fetch product.' }, { status: 500 });
   }
@@ -47,6 +55,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const payload = parsed.data;
+    const existing = await prisma.product.findUnique({ where: { id: params.id } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
     const slug = payload.slug || slugify(payload.titleEn || payload.titleFa);
 
     const duplicate = await prisma.product.findFirst({
@@ -59,6 +71,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (duplicate) {
       return NextResponse.json({ error: 'Slug already exists.' }, { status: 409 });
     }
+
+    const newPublishedAt =
+      existing.status !== ProductStatus.PUBLISHED && payload.status === ProductStatus.PUBLISHED
+        ? new Date()
+        : existing.publishedAt;
 
     const product = await prisma.product.update({
       where: { id: params.id },
@@ -78,11 +95,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         seoTitleEn: payload.seoTitleEn ?? undefined,
         seoDescFa: payload.seoDescFa ?? undefined,
         seoDescEn: payload.seoDescEn ?? undefined,
-        publishedAt: payload.status === ProductStatus.PUBLISHED ? new Date() : null,
-        deletedAt: payload.deletedAt ?? null,
+        publishedAt: newPublishedAt ?? undefined,
         images: {
           deleteMany: {},
-          create: payload.images?.map((img) => ({
+          create: (payload.images ?? []).map((img) => ({
             url: img.url,
             altFa: img.altFa ?? undefined,
             altEn: img.altEn ?? undefined,
@@ -105,6 +121,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: product });
   } catch (error) {
+    if (isUnauthorized(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('product.update.failed', error);
     return NextResponse.json({ error: 'Unable to update product.' }, { status: 500 });
   }
@@ -152,6 +171,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (isUnauthorized(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('product.delete.failed', error);
     return NextResponse.json({ error: 'Unable to delete product.' }, { status: 500 });
   }

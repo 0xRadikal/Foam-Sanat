@@ -14,30 +14,30 @@ export const productImageSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
 });
 
-export const productSchema = z.object({
-  slug: z.string().min(2).max(128).optional(),
-  status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
-  categoryId: z.string().uuid().nullable().optional(),
-  titleFa: z.string().min(1),
-  titleEn: z.string().min(1),
-  shortFa: z.string().min(1),
-  shortEn: z.string().min(1),
-  descFa: z.string().min(1),
-  descEn: z.string().min(1),
-  price: z
-    .number()
-    .nonnegative()
-    .optional()
-    .nullable(),
-  specs: z.record(z.string(), z.any()).optional().nullable(),
-  seoTitleFa: z.string().max(180).optional().nullable(),
-  seoTitleEn: z.string().max(180).optional().nullable(),
-  seoDescFa: z.string().max(240).optional().nullable(),
-  seoDescEn: z.string().max(240).optional().nullable(),
-  images: z.array(productImageSchema).default([]),
-  publishedAt: z.date().optional().nullable(),
-  deletedAt: z.date().optional().nullable(),
-});
+export const productSchema = z
+  .object({
+    slug: z.string().min(2).max(128).optional(),
+    status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
+    categoryId: z.string().uuid().nullable().optional(),
+    titleFa: z.string().min(1),
+    titleEn: z.string().min(1),
+    shortFa: z.string().min(1),
+    shortEn: z.string().min(1),
+    descFa: z.string().min(1),
+    descEn: z.string().min(1),
+    price: z
+      .number()
+      .nonnegative()
+      .optional()
+      .nullable(),
+    specs: z.record(z.string(), z.any()).optional().nullable(),
+    seoTitleFa: z.string().max(180).optional().nullable(),
+    seoTitleEn: z.string().max(180).optional().nullable(),
+    seoDescFa: z.string().max(240).optional().nullable(),
+    seoDescEn: z.string().max(240).optional().nullable(),
+    images: z.array(productImageSchema).default([]),
+  })
+  .strict();
 
 export const inboxStatusSchema = z.object({
   isRead: z.boolean().optional(),

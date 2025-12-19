@@ -7,32 +7,36 @@ import { recordAuditLog } from '@/app/lib/audit';
 
 const PAGE_SIZE = 15;
 
+export function buildInboxWhere(params: URLSearchParams) {
+  const type = params.get('type') as InboxType | null;
+  const productId = params.get('productId');
+  const spam = params.get('spam');
+  const unresolved = params.get('unresolved');
+  const unread = params.get('unread');
+  const dateFrom = params.get('from');
+  const dateTo = params.get('to');
+
+  return {
+    ...(type ? { type } : {}),
+    ...(productId ? { productId } : {}),
+    ...(spam === 'true' ? { isSpam: true } : spam === 'false' ? { isSpam: false } : {}),
+    ...(unread === 'true' ? { isRead: false } : unread === 'false' ? { isRead: true } : {}),
+    ...(unresolved === 'true' ? { isResolved: false } : unresolved === 'false' ? { isResolved: true } : {}),
+    ...(dateFrom || dateTo
+      ? {
+          createdAt: {
+            gte: dateFrom ? new Date(dateFrom) : undefined,
+            lte: dateTo ? new Date(dateTo) : undefined,
+          },
+        }
+      : {}),
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const type = request.nextUrl.searchParams.get('type') as InboxType | null;
-    const productId = request.nextUrl.searchParams.get('productId');
-    const spam = request.nextUrl.searchParams.get('spam');
-    const unresolved = request.nextUrl.searchParams.get('unresolved');
-    const unread = request.nextUrl.searchParams.get('unread');
-    const dateFrom = request.nextUrl.searchParams.get('from');
-    const dateTo = request.nextUrl.searchParams.get('to');
     const page = Number(request.nextUrl.searchParams.get('page') ?? '1');
-
-    const where = {
-      ...(type ? { type } : {}),
-      ...(productId ? { productId } : {}),
-      ...(spam ? { isSpam: spam === 'true' } : {}),
-      ...(unresolved ? { isResolved: unresolved !== 'true' } : {}),
-      ...(unread ? { isRead: unread !== 'false' } : {}),
-      ...(dateFrom || dateTo
-        ? {
-            createdAt: {
-              gte: dateFrom ? new Date(dateFrom) : undefined,
-              lte: dateTo ? new Date(dateTo) : undefined,
-            },
-          }
-        : {}),
-    };
+    const where = buildInboxWhere(request.nextUrl.searchParams);
 
     const [items, total] = await Promise.all([
       prisma.inboxItem.findMany({
@@ -54,7 +58,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('inbox.list.failed', error);
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'Unable to load inbox.' }, { status: 500 });
   }
 }
@@ -89,6 +95,9 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('inbox.bulk_update.failed', error);
     return NextResponse.json({ error: 'Unable to update inbox items.' }, { status: 500 });
   }

@@ -35,6 +35,23 @@ describe('productSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects attempts to set deletedAt or other unknown fields', () => {
+    expect(() =>
+      productSchema.parse({
+        slug: 'deleted-attempt',
+        status: ProductStatus.DRAFT,
+        titleFa: 'fa',
+        titleEn: 'en',
+        shortFa: 'a',
+        shortEn: 'b',
+        descFa: 'c',
+        descEn: 'd',
+        images: [],
+        deletedAt: new Date().toISOString(),
+      }),
+    ).toThrow();
+  });
 });
 
 describe('adminSchema', () => {

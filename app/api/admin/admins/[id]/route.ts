@@ -43,6 +43,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ data: updated });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('admin.update.failed', error);
     return NextResponse.json({ error: 'Unable to update admin.' }, { status: 500 });
   }
@@ -68,6 +71,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('admin.delete.failed', error);
     return NextResponse.json({ error: 'Unable to delete admin.' }, { status: 500 });
   }

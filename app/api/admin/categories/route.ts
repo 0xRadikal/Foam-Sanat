@@ -7,12 +7,16 @@ import { slugify } from '@/app/lib/slug';
 
 export async function GET() {
   try {
+    await requireSession();
     const categories = await prisma.category.findMany({
       where: { deletedAt: null },
       orderBy: { nameFa: 'asc' },
     });
     return NextResponse.json({ data: categories });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('category.list.failed', error);
     return NextResponse.json({ error: 'Unable to load categories.' }, { status: 500 });
   }
@@ -54,6 +58,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: category }, { status: 201 });
   } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error('category.create.failed', error);
     return NextResponse.json({ error: 'Unable to create category.' }, { status: 500 });
   }
