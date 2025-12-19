@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { InboxType } from '@prisma/client';
-import { buildInboxWhere } from './route';
+import { buildInboxWhere } from './lib';
 
 describe('buildInboxWhere', () => {
   it('builds filters for type, product, and status flags', () => {
@@ -28,8 +28,9 @@ describe('buildInboxWhere', () => {
     });
 
     const where = buildInboxWhere(params);
-    expect(where.createdAt?.gte?.toISOString()).toBe('2024-01-01T00:00:00.000Z');
-    expect(where.createdAt?.lte?.toISOString()).toBe('2024-01-31T23:59:59.000Z');
+    const createdAt = where.createdAt as { gte?: Date; lte?: Date } | undefined;
+    expect(createdAt?.gte?.toISOString()).toBe('2024-01-01T00:00:00.000Z');
+    expect(createdAt?.lte?.toISOString()).toBe('2024-01-31T23:59:59.000Z');
   });
 
   it('ignores empty filters', () => {

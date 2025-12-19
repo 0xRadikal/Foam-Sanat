@@ -4,7 +4,7 @@ import { getCommentsStorageError, getCommentsStorageStatus } from './db';
 
 export type StorageStatus = Awaited<ReturnType<typeof getCommentsStorageStatus>>;
 
-type AvailabilityState = 'ready' | 'offline';
+type AvailabilityState = 'ready' | 'offline' | 'disabled';
 
 type UnavailableResponseOptions = {
   logger?: RequestLogger;
@@ -97,17 +97,36 @@ export async function ensureCommentsAvailable(
 }
 
 export async function getCommentsAvailability() {
-  const status = await getCommentsStorageStatus();
+  try {
+    const { getSiteSettings } = await import('@/app/lib/settings');
+    const settings = await getSiteSettings();
 
-  return {
-    enabled: status.ready,
-    reason:
-      status.ready
-        ? null
-        : status.error?.message ??
-          (status.errorCode === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT'
-            ? 'Comments are disabled due to missing persistent database configuration.'
-            : status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE'),
-    status,
-  } as const;
+    if (!settings.commentsEnabled) {
+      return {
+        enabled: false,
+        reason: 'COMMENTS_DISABLED_BY_ADMIN',
+        status: null,
+      } as const;
+    }
+
+    const status = await getCommentsStorageStatus();
+
+    return {
+      enabled: status.ready,
+      reason:
+        status.ready
+          ? null
+          : status.error?.message ??
+            (status.errorCode === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT'
+              ? 'COMMENTS_DB_READ_ONLY_ENVIRONMENT'
+              : status.errorCode ?? 'COMMENTS_STORAGE_UNAVAILABLE'),
+      status,
+    } as const;
+  } catch (error) {
+    return {
+      enabled: false,
+      reason: (error as Error | undefined)?.message ?? 'COMMENTS_STORAGE_UNAVAILABLE',
+      status: null,
+    } as const;
+  }
 }

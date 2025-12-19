@@ -23,6 +23,8 @@ export type ProductsNamespaceSchema = {
     name: string;
     images: ProductImage[];
     price: string;
+    priceMode?: 'FIXED' | 'CONTACT' | 'NEGOTIABLE' | 'FREE' | 'UNAVAILABLE';
+    priceNote?: string | null;
     badge?: string;
     shortDesc: string;
     description: string;
@@ -37,6 +39,7 @@ export type ProductsNamespaceSchema = {
     };
     applications: string[];
     hasPrice: boolean;
+    commentsEnabled?: boolean;
   }>;
   features: {
     title: string;
@@ -96,6 +99,19 @@ export type ProductsNamespaceSchema = {
     priceIncludes: string;
     variablePrice: string;
     variablePriceDescription: string;
+    priceModes: {
+      fixed: string;
+      contact: string;
+      negotiable: string;
+      free: string;
+      unavailable: string;
+    };
+    priceModeDescriptions: {
+      contact: string;
+      negotiable: string;
+      free: string;
+      unavailable: string;
+    };
     clickForInfo: string;
     searchPlaceholder: string;
     resultsSuffix: string;
@@ -392,6 +408,19 @@ export const productsMessages = {
       priceIncludes: 'قیمت شامل نصب و راه‌اندازی',
       variablePrice: 'قیمت متغیر',
       variablePriceDescription: 'برای دریافت قیمت دقیق لطفا با تیم تماس بگیرید',
+      priceModes: {
+        fixed: 'قیمت ثابت',
+        contact: 'تماس بگیرید',
+        negotiable: 'قابل مذاکره',
+        free: 'رایگان',
+        unavailable: 'نامشخص'
+      },
+      priceModeDescriptions: {
+        contact: 'برای دریافت قیمت دقیق لطفا با تیم تماس بگیرید.',
+        negotiable: 'قیمت نهایی پس از گفتگو تعیین می‌شود.',
+        free: 'این محصول به صورت رایگان ارائه می‌شود.',
+        unavailable: 'قیمت هنوز تعیین نشده است.'
+      },
       clickForInfo: 'کلیک برای اطلاع',
       searchPlaceholder: 'جستجو...',
       resultsSuffix: 'محصول',
@@ -691,6 +720,19 @@ Foam filter benefits:
       priceIncludes: 'Includes installation',
       variablePrice: 'Variable Price',
       variablePriceDescription: 'Please contact for exact pricing',
+      priceModes: {
+        fixed: 'Fixed price',
+        contact: 'Contact for price',
+        negotiable: 'Negotiable',
+        free: 'Free',
+        unavailable: 'Unavailable'
+      },
+      priceModeDescriptions: {
+        contact: 'Contact us for an accurate quote.',
+        negotiable: 'Final pricing is determined after discussion.',
+        free: 'This product is offered free of charge.',
+        unavailable: 'Pricing has not been set yet.'
+      },
       clickForInfo: 'Click for info',
       searchPlaceholder: 'Search...',
       resultsSuffix: 'products',

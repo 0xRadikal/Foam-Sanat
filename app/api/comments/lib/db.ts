@@ -35,11 +35,30 @@ function resolveBackend(): StorageBackend {
   return backend === 'postgres' ? 'postgres' : 'sqlite';
 }
 
+function normalizeSqliteConnectionString(connectionString: string): string {
+  if (!connectionString.startsWith('file:')) {
+    return connectionString;
+  }
+
+  const relativePath = connectionString.slice('file:'.length);
+  const resolvedPath = path.isAbsolute(relativePath)
+    ? relativePath
+    : path.join(process.cwd(), relativePath || '.');
+
+  if (path.extname(resolvedPath)) {
+    return resolvedPath;
+  }
+
+  return path.join(resolvedPath, 'comments.db');
+}
+
 function resolveConnectionString(backend: StorageBackend, explicit?: string): string {
   if (explicit) return explicit;
 
   const envUrl = process.env.COMMENTS_DATABASE_URL || process.env.DATABASE_URL;
-  if (envUrl) return envUrl;
+  if (envUrl) {
+    return backend === 'sqlite' ? normalizeSqliteConnectionString(envUrl) : envUrl;
+  }
 
   if (backend === 'postgres') {
     throw new Error('COMMENTS_DATABASE_URL or DATABASE_URL is required for postgres storage.');
@@ -59,7 +78,10 @@ async function initializeStorage(logger: Logger = defaultLogger, options: Initia
   initializationMetrics.lastAttemptAt = new Date();
 
   backendUsed = resolveBackend();
-  const connectionString = resolveConnectionString(backendUsed, options.connectionString);
+  const connectionString =
+    backendUsed === 'sqlite' && options.connectionString
+      ? normalizeSqliteConnectionString(options.connectionString)
+      : resolveConnectionString(backendUsed, options.connectionString);
   const allowDefaultDirCreation =
     backendUsed === 'sqlite' && connectionString === path.join(dataDir, 'comments.db');
   const allowDirCreation = options.allowDirCreation ?? allowDefaultDirCreation;
