@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 import '@/app/lib/server-bootstrap';
 
@@ -48,7 +49,6 @@ function buildContentSecurityPolicy(nonce: string): string {
 
   const frameAncestors = ["'self'"];
 
-  // ✅ این‌جا فقط تغییر واقعی اتفاق افتاده
   const styleSrc = isDevelopment
     ? [
         "'self'",
@@ -77,18 +77,7 @@ function buildContentSecurityPolicy(nonce: string): string {
   ].join(' ');
 }
 
-export function middleware(request: NextRequest) {
-  const nonce = generateNonce();
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-url', request.url);
-  requestHeaders.set('x-csp-nonce', nonce);
-
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-
+function setSecurityHeaders(response: NextResponse, nonce: string) {
   response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(nonce));
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
@@ -99,6 +88,75 @@ export function middleware(request: NextRequest) {
   response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   response.headers.set('X-DNS-Prefetch-Control', 'on');
+}
 
+async function ensureAdminAuth(request: NextRequest): Promise<{ token: Awaited<ReturnType<typeof getToken>> | null; redirect?: NextResponse }> {
+  const pathname = request.nextUrl.pathname;
+  const requiresAuth =
+    (pathname.startsWith('/admin') && pathname !== '/admin/login') || pathname.startsWith('/api/admin');
+
+  if (!requiresAuth) {
+    return { token: null };
+  }
+
+  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  if (!token) {
+    const loginUrl = new URL('/admin/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', request.url);
+    return { token: null, redirect: NextResponse.redirect(loginUrl) };
+  }
+
+  if ((pathname.startsWith('/admin/admins') || pathname.startsWith('/api/admin/admins')) && token.role !== 'SUPERADMIN') {
+    const root = new URL('/admin', request.url);
+    return { token, redirect: NextResponse.redirect(root) };
+  }
+
+  return { token };
+}
+
+export async function middleware(request: NextRequest) {
+  const nonce = generateNonce();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-url', request.url);
+  requestHeaders.set('x-csp-nonce', nonce);
+
+  const authResult = await ensureAdminAuth(request);
+  if (authResult.redirect) {
+    setSecurityHeaders(authResult.redirect, nonce);
+    return authResult.redirect;
+  }
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  const isAdminContext =
+    (request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login') ||
+    request.nextUrl.pathname.startsWith('/api/admin');
+
+  if (isAdminContext) {
+    const existingCsrf = request.cookies.get('admin-csrf')?.value ?? crypto.randomUUID();
+    response.cookies.set({
+      name: 'admin-csrf',
+      value: existingCsrf,
+      httpOnly: false,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+
+    if (request.nextUrl.pathname.startsWith('/api/admin') && request.method !== 'GET') {
+      const headerToken = request.headers.get('x-csrf-token');
+      if (!headerToken || headerToken !== existingCsrf) {
+        const forbidden = NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 });
+        setSecurityHeaders(forbidden, nonce);
+        return forbidden;
+      }
+    }
+  }
+
+  setSecurityHeaders(response, nonce);
   return response;
 }

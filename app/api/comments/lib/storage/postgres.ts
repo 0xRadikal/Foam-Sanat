@@ -200,6 +200,11 @@ export class PostgresCommentStorage implements CommentStorage {
     return result.rowCount > 0;
   }
 
+  async deleteCommentsByProduct(productId: string): Promise<number> {
+    const result = await this.pool.query(`DELETE FROM comments WHERE productId = $1`, [productId]);
+    return result.rowCount ?? 0;
+  }
+
   async toPublicComment(comment: StoredComment): Promise<PublicComment> {
     const repliesResult = await this.pool.query<StoredCommentReply>(
       `SELECT id, commentId, author, text, to_char(createdAt AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "createdAt", isAdmin, adminId, adminDisplayName, respondedAt, status

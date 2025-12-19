@@ -1,0 +1,32 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/app/lib/prisma';
+import { requireSession } from '../lib/session';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    await requireSession();
+    const [products, published, drafts, inboxUnread, unresolved] = await Promise.all([
+      prisma.product.count({ where: { deletedAt: null } }),
+      prisma.product.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+      prisma.product.count({ where: { status: 'DRAFT', deletedAt: null } }),
+      prisma.inboxItem.count({ where: { isRead: false } }),
+      prisma.inboxItem.count({ where: { isResolved: false, isSpam: false } }),
+    ]);
+
+    return NextResponse.json({
+      products,
+      published,
+      drafts,
+      inboxUnread,
+      unresolved,
+    });
+  } catch (error) {
+    if ((error as Error).message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    console.error('metrics.load.failed', error);
+    return NextResponse.json({ error: 'Unable to load metrics.' }, { status: 500 });
+  }
+}

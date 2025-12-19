@@ -70,6 +70,55 @@ Then open 👉 [http://localhost:3000](http://localhost:3000)
 
 ---
 
+### 🛡️ Admin Panel & Database
+
+The `/admin` panel is a protected Next.js App Router experience for internal admins (superadmin/admin/editor) to manage products, categories, inbox (comments + contact messages), and admin accounts.
+
+- **Auth:** NextAuth credentials with bcrypt hashing and JWT sessions. Middleware enforces RBAC and sets a per-session CSRF cookie (`admin-csrf`) required on all `/api/admin` mutations.
+- **Database:** Prisma + PostgreSQL (prod) with optional SQLite for local development. Schema lives in `prisma/schema.prisma` with SQL migration in `prisma/migrations/0001_init/migration.sql`.
+- **Seed:** Create the first superadmin via env vars and the seed script.
+
+#### Environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Postgres connection string (or SQLite file for local dev) |
+| `AUTH_SECRET` | NextAuth secret for signing/encrypting JWT cookies |
+| `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` | Credentials for the initial superadmin |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `ADMIN_EMAIL_SENDER` | Optional email delivery for inbox replies |
+
+Existing public-site variables (GA, GTM, Turnstile, etc.) remain unchanged; see `env.config.js` for the full matrix.
+
+#### Database & seed
+
+```bash
+# generate Prisma client
+npm run db:generate
+
+# apply SQL migration (deploy safe for prod)
+npm run db:migrate
+
+# seed first superadmin (reads ADMIN_SEED_EMAIL/PASSWORD)
+npm run db:seed
+```
+
+#### Running the admin panel locally
+
+```bash
+# start dev server
+npm run dev
+
+# sign in at
+open http://localhost:3000/admin/login
+```
+
+Access control:
+- **superadmin:** full permissions + manage admins + hard delete products
+- **admin:** manage content/inbox (no admin management, no hard delete)
+- **editor:** create/edit products, reply to inbox, cannot hard delete or manage admins
+
+---
+
 ### 🚀 Deployment
 
 This project is optimized for **Vercel**:
@@ -123,6 +172,16 @@ Use the same token in the product modal's moderation panel to delete comments or
 - Verified metadata for Google, Yandex, and social previews
 
 All schemas injected dynamically via `<Script type="application/ld+json">`.
+
+---
+
+### 🧪 Tests
+
+Minimal validation and RBAC checks run via **Vitest**:
+
+```bash
+npm test
+```
 
 ---
 
