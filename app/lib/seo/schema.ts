@@ -59,8 +59,10 @@ export function getFaqSchema(locale: SupportedSchemaLocale) {
   };
 }
 
-export function getProductSchemas(locale: SupportedSchemaLocale) {
-  const { products } = productsMessages[locale];
+export function getProductSchemas(
+  locale: SupportedSchemaLocale,
+  products: ProductsNamespaceSchema['products'] = productsMessages[locale].products,
+) {
   const brandName = commonMessages[locale].companyName;
 
   return products.map((product: ProductsNamespaceSchema['products'][number]) => {

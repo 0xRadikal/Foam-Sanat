@@ -23,3 +23,7 @@ export function canDeleteProducts(role: Role): boolean {
 export function canReply(role: Role): boolean {
   return role === Role.EDITOR || role === Role.ADMIN || role === Role.SUPERADMIN;
 }
+
+export function canModerateComments(role: Role): boolean {
+  return role === Role.ADMIN || role === Role.SUPERADMIN;
+}

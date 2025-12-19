@@ -171,6 +171,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 interface ProductsPageClientProps {
   initialLocale: Locale;
   initialMessages: MessagesByLocale<Locale>;
+  productsByLocale: Record<Locale, Product[]>;
+  categoriesByLocale: Record<Locale, ProductsNamespaceSchema['categories']>;
   commentsEnabled: boolean;
   commentsDisabledReason?: string | null;
 }
@@ -178,6 +180,8 @@ interface ProductsPageClientProps {
 export default function ProductsPageClient({
   initialLocale,
   initialMessages,
+  productsByLocale,
+  categoriesByLocale,
   commentsEnabled,
   commentsDisabledReason,
 }: ProductsPageClientProps) {
@@ -870,7 +874,14 @@ useEffect(() => {
       }),
     [aboutNavLabel, contactNavLabel, homeNavLabel, productsNavLabel]
   );
-  const products = t.products as Product[];
+  const products = useMemo(
+    () => productsByLocale[activeLocale] ?? productsByLocale[initialLocale] ?? [],
+    [activeLocale, initialLocale, productsByLocale]
+  );
+  const categories = useMemo(
+    () => categoriesByLocale[activeLocale] ?? categoriesByLocale[initialLocale] ?? [],
+    [activeLocale, initialLocale, categoriesByLocale]
+  );
 
   // Filtered products
   const filteredProducts = useMemo(() => {
@@ -1643,7 +1654,7 @@ useEffect(() => {
                 />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {t.categories.map((cat) => {
+                {categories.map((cat) => {
                   const Icon = categoryIconMap[cat.id as keyof typeof categoryIconMap] ?? Factory;
                   return (
                     <button

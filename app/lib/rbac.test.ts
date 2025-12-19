@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Role } from '@prisma/client';
-import { canDeleteProducts, canEditProducts, canHardDelete, canManageAdmins } from './rbac';
+import {
+  canDeleteProducts,
+  canEditProducts,
+  canHardDelete,
+  canManageAdmins,
+  canModerateComments,
+} from './rbac';
 
 describe('rbac', () => {
   it('allows editors to edit but not delete products', () => {
@@ -16,5 +22,11 @@ describe('rbac', () => {
   it('only superadmins can manage admins and hard delete', () => {
     expect(canManageAdmins(Role.SUPERADMIN)).toBe(true);
     expect(canHardDelete(Role.SUPERADMIN)).toBe(true);
+  });
+
+  it('only admins can moderate comments', () => {
+    expect(canModerateComments(Role.EDITOR)).toBe(false);
+    expect(canModerateComments(Role.ADMIN)).toBe(true);
+    expect(canModerateComments(Role.SUPERADMIN)).toBe(true);
   });
 });

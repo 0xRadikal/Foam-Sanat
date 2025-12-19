@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { Role } from '@prisma/client';
 import { withRequestLogging } from '../../../lib/logging';
 import { createSignedAdminSession } from '../../lib/auth';
+import { requireSession } from '@/app/api/admin/lib/session';
+import { canModerateComments } from '@/app/lib/rbac';
 
 interface AdminSessionBody {
   adminId?: string;
@@ -39,6 +42,17 @@ export const POST = withRequestLogging(
       );
     }
 
+    let session;
+    try {
+      session = await requireSession();
+    } catch {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!canModerateComments(session.user.role as Role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     let body: AdminSessionBody;
     try {
       body = (await request.json()) as AdminSessionBody;
@@ -50,7 +64,10 @@ export const POST = withRequestLogging(
     }
 
     const tokenResult = createSignedAdminSession(
-      { id: body.adminId, displayName: body.displayName },
+      {
+        id: session.user.id,
+        displayName: session.user.name ?? session.user.email ?? 'Comments Admin',
+      },
       { ttlMinutes: body.ttlMinutes },
     );
 
@@ -62,7 +79,7 @@ export const POST = withRequestLogging(
     }
 
     logger.info('comments.admin.session.issued', {
-      adminId: body.adminId ?? 'comments-admin',
+      adminId: session.user.id ?? 'comments-admin',
       ttlMinutes:
         body.ttlMinutes ??
         process.env.COMMENTS_ADMIN_TOKEN_TTL_MINUTES ??
@@ -72,8 +89,8 @@ export const POST = withRequestLogging(
 
     return NextResponse.json({
       token: tokenResult.token,
-      adminId: body.adminId ?? 'comments-admin',
-      displayName: body.displayName ?? 'Comments Admin',
+      adminId: session.user.id ?? 'comments-admin',
+      displayName: session.user.name ?? session.user.email ?? 'Comments Admin',
       issuedAt: tokenResult.issuedAt,
       expiresAt: tokenResult.expiresAt,
       tokenId: tokenResult.tokenId,
