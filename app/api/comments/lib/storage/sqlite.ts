@@ -19,6 +19,7 @@ export class SqliteCommentStorage implements CommentStorage {
     updateCommentStatusStmt?: Database.Statement;
     deleteCommentStmt?: Database.Statement;
     deleteReplyStmt?: Database.Statement;
+    deleteCommentsByProductStmt?: Database.Statement;
     insertCommentStmt?: Database.Statement;
     insertReplyStmt?: Database.Statement;
   } = {};
@@ -103,6 +104,7 @@ export class SqliteCommentStorage implements CommentStorage {
       ),
       deleteCommentStmt: this.db.prepare(`DELETE FROM comments WHERE id = ?`),
       deleteReplyStmt: this.db.prepare(`DELETE FROM comment_replies WHERE id = @replyId AND commentId = @commentId`),
+      deleteCommentsByProductStmt: this.db.prepare(`DELETE FROM comments WHERE productId = ?`),
       insertCommentStmt: this.db.prepare(
         `INSERT INTO comments (id, productId, rating, author, email, text, status, createdAt, moderatedAt, moderatedById, moderatedByDisplayName)
          VALUES (@id, @productId, @rating, @author, @email, @text, @status, @createdAt, @moderatedAt, @moderatedById, @moderatedByDisplayName)`,
@@ -265,6 +267,12 @@ export class SqliteCommentStorage implements CommentStorage {
     if (!this.prepared.deleteReplyStmt) throw new Error('Database not initialized');
     const result = this.prepared.deleteReplyStmt.run({ commentId, replyId });
     return result.changes > 0;
+  }
+
+  async deleteCommentsByProduct(productId: string): Promise<number> {
+    if (!this.prepared.deleteCommentsByProductStmt) throw new Error('Database not initialized');
+    const result = this.prepared.deleteCommentsByProductStmt.run(productId);
+    return result.changes ?? 0;
   }
 
   async toPublicComment(comment: StoredComment): Promise<PublicComment> {

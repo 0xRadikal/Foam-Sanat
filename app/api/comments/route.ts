@@ -12,17 +12,54 @@ import { checkRateLimitOrSpam, validateCommentPayload } from './lib/validation';
 import type { CommentPayload } from './lib/validation';
 import { prisma } from '@/app/lib/prisma';
 import { recordAuditLog } from '@/app/lib/audit';
+import { getSiteSettings } from '@/app/lib/settings';
 
-export const GET = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
-  const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
-  if (availabilityResponse) {
-    return availabilityResponse;
+async function buildDisabledResponse(code: string, message: string) {
+  return NextResponse.json(
+    { error: message, code, status: 'disabled' },
+    { status: 403, headers: buildAvailabilityHeaders('disabled', code) },
+  );
+}
+
+async function ensureCommentsEnabled(productId: string | null) {
+  const settings = await getSiteSettings();
+  if (!settings.commentsEnabled) {
+    return buildDisabledResponse('COMMENTS_DISABLED_BY_ADMIN', 'Comments are currently disabled.');
   }
 
+  if (!productId) return null;
+
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { commentsEnabled: true, deletedAt: true, status: true },
+  });
+
+  if (!product || product.deletedAt) {
+    return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+  }
+
+  if (!product.commentsEnabled) {
+    return buildDisabledResponse('COMMENTS_DISABLED_FOR_PRODUCT', 'Comments are disabled for this product.');
+  }
+
+  return null;
+}
+
+export const GET = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
   const productId = request.nextUrl.searchParams.get('productId');
   if (!productId) {
     logger.warn('comments.fetch.missing-product-id');
     return NextResponse.json({ error: 'productId query parameter is required.' }, { status: 400 });
+  }
+
+  const disabledResponse = await ensureCommentsEnabled(productId);
+  if (disabledResponse) {
+    return disabledResponse;
+  }
+
+  const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
+  if (availabilityResponse) {
+    return availabilityResponse;
   }
 
   const comments = await getApprovedComments(productId);
@@ -32,11 +69,6 @@ export const GET = withRequestLogging(async (request: NextRequest, _context, { l
 });
 
 export const POST = withRequestLogging(async (request: NextRequest, _context, { logger, requestId }) => {
-  const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
-  if (availabilityResponse) {
-    return availabilityResponse;
-  }
-
   const originError = validateRequestOrigin(request);
   if (originError) {
     logger.warn('comments.post.invalid-origin');
@@ -55,6 +87,16 @@ export const POST = withRequestLogging(async (request: NextRequest, _context, { 
   if (validationError || !sanitized) {
     logger.warn('comments.post.validation-error', { validationError });
     return NextResponse.json({ error: validationError ?? 'Invalid payload.' }, { status: 400 });
+  }
+
+  const disabledResponse = await ensureCommentsEnabled(sanitized.productId);
+  if (disabledResponse) {
+    return disabledResponse;
+  }
+
+  const availabilityResponse = await ensureCommentsAvailable(requestId, logger);
+  if (availabilityResponse) {
+    return availabilityResponse;
   }
 
   const captchaError = await verifyTurnstileToken(

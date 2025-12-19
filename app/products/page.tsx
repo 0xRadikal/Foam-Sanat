@@ -20,7 +20,7 @@ type UiProduct = ProductsNamespaceSchema['products'][number];
 type UiCategory = ProductsNamespaceSchema['categories'][number];
 
 type PrismaProduct = Prisma.ProductGetPayload<{
-  include: { category: true; images: true };
+  include: { category: true; media: true };
 }>;
 
 const LOCALE_MAP: Record<Locale, { localeTag: string; currency: string }> = {
@@ -37,20 +37,47 @@ const toStringValue = (value: unknown): string =>
 const toStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.map(toStringValue).filter(Boolean) : [];
 
-const formatPrice = (price: unknown, locale: Locale, fallback: string): { priceLabel: string; hasPrice: boolean } => {
-  if (price === null || price === undefined) {
-    return { priceLabel: fallback, hasPrice: false };
+const formatPrice = (
+  product: PrismaProduct,
+  locale: Locale,
+  messages: MessagesByLocale<Locale>,
+): { priceLabel: string; hasPrice: boolean; priceMode: UiProduct['priceMode']; priceNote: string | null } => {
+  const priceMode = product.priceMode ?? 'UNAVAILABLE';
+  const priceNote = locale === 'fa' ? product.priceNoteFa ?? null : product.priceNoteEn ?? null;
+
+  if (priceMode !== 'FIXED') {
+    const priceModes = messages.products.ui.priceModes;
+    const labelMap = {
+      CONTACT: priceModes.contact,
+      NEGOTIABLE: priceModes.negotiable,
+      FREE: priceModes.free,
+      UNAVAILABLE: priceModes.unavailable,
+      FIXED: priceModes.fixed,
+    } as const;
+    const resolvedMode = (priceMode ?? 'UNAVAILABLE') as keyof typeof labelMap;
+    return {
+      priceLabel: priceNote || labelMap[resolvedMode],
+      hasPrice: false,
+      priceMode,
+      priceNote,
+    };
   }
-  const numeric = typeof price === 'number' ? price : Number(price);
+
+  const numeric = product.priceAmount ? Number(product.priceAmount) : NaN;
   if (Number.isNaN(numeric)) {
-    return { priceLabel: fallback, hasPrice: false };
+    return {
+      priceLabel: messages.products.ui.priceModes.unavailable,
+      hasPrice: false,
+      priceMode: 'UNAVAILABLE',
+      priceNote,
+    };
   }
   const formatter = new Intl.NumberFormat(LOCALE_MAP[locale].localeTag, {
     style: 'currency',
     currency: LOCALE_MAP[locale].currency,
     maximumFractionDigits: 0,
   });
-  return { priceLabel: formatter.format(numeric), hasPrice: true };
+  return { priceLabel: formatter.format(numeric), hasPrice: true, priceMode, priceNote };
 };
 
 const buildCategoriesByLocale = (
@@ -81,7 +108,7 @@ const mapProductToUi = (product: PrismaProduct, locale: Locale, messages: Messag
   const localizedName = locale === 'fa' ? product.titleFa : product.titleEn;
   const localizedShort = locale === 'fa' ? product.shortFa : product.shortEn;
   const localizedDesc = locale === 'fa' ? product.descFa : product.descEn;
-  const { priceLabel, hasPrice } = formatPrice(product.price, locale, messages.products.ui.variablePrice);
+  const { priceLabel, hasPrice, priceMode, priceNote } = formatPrice(product, locale, messages);
 
   const badge = toStringValue(specsRecord.badge) || undefined;
 
@@ -89,8 +116,16 @@ const mapProductToUi = (product: PrismaProduct, locale: Locale, messages: Messag
     id: product.id,
     category: product.category?.slug ?? 'all',
     name: localizedName,
-    images: (product.images ?? []).map((image) => ({ type: 'url', value: image.url })),
+    images: (product.media ?? [])
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((media) =>
+        media.type === 'EMOJI'
+          ? { type: 'emoji', value: media.emoji ?? '' }
+          : { type: 'url', value: media.url ?? '' },
+      ),
     price: priceLabel,
+    priceMode,
+    priceNote,
     badge,
     shortDesc: localizedShort,
     description: localizedDesc,
@@ -105,6 +140,7 @@ const mapProductToUi = (product: PrismaProduct, locale: Locale, messages: Messag
     },
     applications: toStringArray(specsRecord.applications),
     hasPrice,
+    commentsEnabled: product.commentsEnabled ?? true,
   };
 };
 
@@ -117,7 +153,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       where: { status: ProductStatus.PUBLISHED, deletedAt: null },
       include: {
         category: true,
-        images: { orderBy: { sortOrder: 'asc' } },
+        media: { orderBy: { sortOrder: 'asc' } },
       },
       orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
     }),
@@ -130,6 +166,15 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       }
     })(),
   ]);
+
+  const commentsDisabledReason =
+    commentsAvailability.enabled
+      ? null
+      : commentsAvailability.reason === 'COMMENTS_DISABLED_BY_ADMIN'
+        ? messages.products.comments.disabled
+        : commentsAvailability.reason === 'COMMENTS_DB_READ_ONLY_ENVIRONMENT'
+          ? messages.products.comments.disabled
+          : commentsAvailability.reason ?? messages.products.comments.disabled;
   const productsByLocale = {
     fa: products.map((product) => mapProductToUi(product, 'fa', getAllMessages('fa'))),
     en: products.map((product) => mapProductToUi(product, 'en', getAllMessages('en'))),
@@ -170,7 +215,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
         productsByLocale={productsByLocale}
         categoriesByLocale={categoriesByLocale}
         commentsEnabled={commentsAvailability.enabled}
-        commentsDisabledReason={commentsAvailability.reason}
+        commentsDisabledReason={commentsDisabledReason}
       />
     </>
   );

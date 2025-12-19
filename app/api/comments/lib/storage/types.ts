@@ -40,5 +40,6 @@ export interface CommentStorage {
   ): Promise<PublicComment | null>;
   deleteComment(id: string): Promise<boolean>;
   deleteReply(commentId: string, replyId: string): Promise<boolean>;
+  deleteCommentsByProduct(productId: string): Promise<number>;
   toPublicComment(comment: StoredComment): Promise<PublicComment>;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ProductStatus, Role } from '@prisma/client';
+import { PriceMode, ProductMediaType, ProductStatus, Role } from '@prisma/client';
 import { adminSchema, productSchema } from './validation';
 
 describe('productSchema', () => {
@@ -13,11 +13,16 @@ describe('productSchema', () => {
       shortEn: 'Short',
       descFa: 'توضیح',
       descEn: 'Description',
-      images: [{ url: 'https://example.com/img.jpg', sortOrder: 0 }],
+      priceMode: PriceMode.FIXED,
+      priceAmount: 1200,
+      media: [
+        { type: ProductMediaType.IMAGE, url: 'https://example.com/img.jpg', sortOrder: 0 },
+        { type: ProductMediaType.EMOJI, emoji: '🔥', sortOrder: 1 },
+      ],
     });
 
     expect(result.status).toBe(ProductStatus.DRAFT);
-    expect(result.images).toHaveLength(1);
+    expect(result.media).toHaveLength(2);
   });
 
   it('rejects empty titles', () => {
@@ -31,7 +36,8 @@ describe('productSchema', () => {
         shortEn: 'b',
         descFa: 'c',
         descEn: 'd',
-        images: [],
+        priceMode: PriceMode.UNAVAILABLE,
+        media: [],
       }),
     ).toThrow();
   });
@@ -47,8 +53,27 @@ describe('productSchema', () => {
         shortEn: 'b',
         descFa: 'c',
         descEn: 'd',
-        images: [],
+        priceMode: PriceMode.UNAVAILABLE,
+        media: [],
         deletedAt: new Date().toISOString(),
+      }),
+    ).toThrow();
+  });
+
+  it('rejects price amounts for non-fixed pricing', () => {
+    expect(() =>
+      productSchema.parse({
+        slug: 'invalid-price',
+        status: ProductStatus.DRAFT,
+        titleFa: 'fa',
+        titleEn: 'en',
+        shortFa: 'a',
+        shortEn: 'b',
+        descFa: 'c',
+        descEn: 'd',
+        priceMode: PriceMode.CONTACT,
+        priceAmount: 500,
+        media: [],
       }),
     ).toThrow();
   });

@@ -32,7 +32,7 @@ const Modal = dynamic(() => import('@/app/components/Modal'), {
 });
 
 type Product = ProductsNamespaceSchema['products'][number];
-type ProductImage = Product['images'][number];
+type ProductMedia = Product['images'][number];
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -100,7 +100,7 @@ const isLikelySignedAdminToken = (token: string): boolean => {
 };
 
 const renderProductImage = (
-  image: ProductImage | undefined,
+  image: ProductMedia | undefined,
   productName: string,
   className?: string,
 ) => {
@@ -140,6 +140,41 @@ const renderProductImage = (
   }
 
   return fallback;
+};
+
+const getPriceDisplay = (product: Product, ui: ProductsNamespaceSchema['ui']) => {
+  const resolvedMode = product.priceMode ?? (product.hasPrice ? 'FIXED' : 'UNAVAILABLE');
+
+  if (resolvedMode === 'FIXED') {
+    return {
+      label: product.price,
+      modeLabel: ui.priceModes.fixed,
+      description: ui.priceIncludes,
+    };
+  }
+
+  const mode = resolvedMode;
+  const labels = {
+    CONTACT: ui.priceModes.contact,
+    NEGOTIABLE: ui.priceModes.negotiable,
+    FREE: ui.priceModes.free,
+    UNAVAILABLE: ui.priceModes.unavailable,
+    FIXED: ui.priceModes.fixed,
+  } as const;
+
+  const descriptions = {
+    CONTACT: ui.priceModeDescriptions.contact,
+    NEGOTIABLE: ui.priceModeDescriptions.negotiable,
+    FREE: ui.priceModeDescriptions.free,
+    UNAVAILABLE: ui.priceModeDescriptions.unavailable,
+    FIXED: ui.priceIncludes,
+  } as const;
+
+  return {
+    label: product.priceNote || labels[mode],
+    modeLabel: labels[mode],
+    description: descriptions[mode],
+  };
 };
 
 type ApiCommentReply = {
@@ -221,6 +256,7 @@ export default function ProductsPageClient({
   const [adminTokenInput, setAdminTokenInput] = useState('');
   const [showAdminToken, setShowAdminToken] = useState(false);
   const hasAdminToken = Boolean(adminToken);
+  const commentsAllowed = commentsEnabled && (selectedProduct?.commentsEnabled ?? true);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -424,8 +460,8 @@ useEffect(() => {
 
   const formatDate = useLocalizedDateFormatter(activeLocale);
   const { validateComment, validateReply } = useCommentValidation(t.comments);
-    const handleSaveAdminToken = useCallback(() => {
-    if (!commentsEnabled) return;
+  const handleSaveAdminToken = useCallback(() => {
+    if (!commentsAllowed) return;
     if (typeof window === 'undefined') return;
 
     const trimmed = adminTokenInput.trim();
@@ -490,11 +526,11 @@ useEffect(() => {
         setErrorMessage(message);
       }
     })();
-  }, [adminTokenInput, commentsEnabled, t.comments.adminTokenRequired]);
+  }, [adminTokenInput, commentsAllowed, t.comments.adminTokenRequired]);
 
 
-    const handleClearAdminToken = useCallback(() => {
-    if (!commentsEnabled) return;
+  const handleClearAdminToken = useCallback(() => {
+    if (!commentsAllowed) return;
     if (typeof window === 'undefined') return;
     try {
       window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
@@ -504,12 +540,12 @@ useEffect(() => {
     setAdminToken('');
     setAdminTokenInput('');
     setErrorMessage(null);
-  }, [commentsEnabled]);
+  }, [commentsAllowed]);
 
 
   const handleAddComment = useCallback(
     async (productId: string) => {
-      if (!commentsEnabled) {
+      if (!commentsAllowed) {
         setErrorMessage(t.comments.disabled);
         return;
       }
@@ -613,7 +649,7 @@ useEffect(() => {
       }
     },
     [
-      commentsEnabled,
+      commentsAllowed,
       mapApiComment,
       newComment,
       isSubmittingComment,
@@ -627,7 +663,7 @@ useEffect(() => {
 
   const handleDeleteComment = useCallback(
     async (productId: string, commentId: string) => {
-      if (!commentsEnabled || !hasAdminToken) {
+      if (!commentsAllowed || !hasAdminToken) {
         return;
       }
 
@@ -663,12 +699,12 @@ useEffect(() => {
         setErrorMessage(error instanceof Error ? error.message : t.comments.deleteFailed);
       }
     },
-    [adminToken, commentsEnabled, hasAdminToken, t.comments.deleteFailed]
+    [adminToken, commentsAllowed, hasAdminToken, t.comments.deleteFailed]
   );
 
   const handleReply = useCallback(
     async (productId: string, commentId: string, replyTxt: string) => {
-      if (!commentsEnabled || !hasAdminToken) {
+      if (!commentsAllowed || !hasAdminToken) {
         return;
       }
       const replyValidation = validateReply(replyTxt);
@@ -763,11 +799,11 @@ useEffect(() => {
         setReplyLoading(null);
     }
   },
-    [adminToken, commentsEnabled, hasAdminToken, t.comments.admin, t.comments.replyFailed, validateReply]
+    [adminToken, commentsAllowed, hasAdminToken, t.comments.admin, t.comments.replyFailed, validateReply]
   );
 
   useEffect(() => {
-    if (!commentsEnabled) {
+    if (!commentsAllowed) {
       setComments({});
       setCommentsLoading(false);
       setErrorMessage(null);
@@ -832,7 +868,7 @@ useEffect(() => {
     return () => {
       controller.abort();
     };
-  }, [commentsEnabled, mapApiComment, selectedProduct, t.comments.loadFailed]);
+  }, [commentsAllowed, mapApiComment, selectedProduct, t.comments.loadFailed]);
 
   // Styles
   const {
@@ -914,20 +950,23 @@ useEffect(() => {
 
   const productCards = useMemo(
     () =>
-      searchedProducts.map((product) => (
-        <div
-          key={product.id}
-          className={`${cardBg} rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group border border-orange-500/20 cursor-pointer flex flex-col`}
-        >
-          <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
-            <div className="absolute inset-0 flex items-center justify-center">
-              {renderProductImage(
-                product.images[0],
-                product.name,
-                'text-5xl sm:text-7xl h-full w-full flex items-center justify-center',
-              )}
+      searchedProducts.map((product) => {
+        const resolvedPriceMode =
+          product.priceMode ?? (product.hasPrice ? 'FIXED' : 'UNAVAILABLE');
+        return (
+          <div
+            key={product.id}
+            className={`${cardBg} rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all hover:-translate-y-2 group border border-orange-500/20 cursor-pointer flex flex-col`}
+          >
+            <div className="relative h-40 sm:h-48 bg-gradient-to-br from-orange-400 to-purple-600 flex items-center justify-center text-5xl sm:text-7xl group-hover:scale-110 transition-transform overflow-hidden flex-shrink-0">
+              <div className="absolute inset-0 flex items-center justify-center">
+                {renderProductImage(
+                  product.images[0],
+                  product.name,
+                  'text-5xl sm:text-7xl h-full w-full flex items-center justify-center',
+                )}
+              </div>
             </div>
-          </div>
 
           {product.badge && (
             <div className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-purple-600 text-white px-4 py-1 rounded-full text-xs font-black shadow-lg z-10">
@@ -953,6 +992,11 @@ useEffect(() => {
             <div className="text-center mb-4 p-3 rounded-lg border-2 border-orange-500/30 bg-gradient-to-r from-orange-500/5 to-purple-600/5">
               <p className="text-xs font-bold text-orange-600 mb-0.5">{priceLabel}</p>
               <p className="text-sm md:text-base font-black text-orange-600 line-clamp-1">{product.price}</p>
+              {resolvedPriceMode !== 'FIXED' ? (
+                <p className="text-[11px] text-orange-500 mt-1">
+                  {product.priceNote ?? t.ui.priceModes.contact}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -972,8 +1016,9 @@ useEffect(() => {
               </a>
             </div>
           </div>
-        </div>
-      )),
+          </div>
+        );
+      }),
     [
       cardBg,
       handleSelectProduct,
@@ -982,12 +1027,14 @@ useEffect(() => {
       callLabel,
       detailsLabel,
       priceLabel,
+      t.ui.priceModes.contact,
     ]
   );
 
   // Modal Components
   const PriceModal = ({ product, onClose }: { product: Product | null; onClose: () => void }) => {
     if (!product) return null;
+    const resolvedPriceMode = product.priceMode ?? (product.hasPrice ? 'FIXED' : 'UNAVAILABLE');
 
     return (
       <Modal
@@ -999,7 +1046,7 @@ useEffect(() => {
         overlayClassName="items-center"
       >
         <div className="space-y-6">
-          {product.hasPrice ? (
+          {resolvedPriceMode === 'FIXED' ? (
             <div className="space-y-2">
               <p className="text-sm font-bold text-orange-500">{t.ui.currentPrice}</p>
               <p className="text-4xl font-black text-orange-600">{product.price}</p>
@@ -1007,8 +1054,8 @@ useEffect(() => {
             </div>
           ) : (
             <div className="p-4 bg-gradient-to-r from-orange-500/10 to-purple-600/10 rounded-xl">
-              <p className="text-lg font-bold mb-3">{t.ui.variablePrice}</p>
-              <p className="text-sm">{t.ui.variablePriceDescription}</p>
+              <p className="text-lg font-bold mb-3">{getPriceDisplay(product, t.ui).modeLabel}</p>
+              <p className="text-sm">{getPriceDisplay(product, t.ui).description}</p>
             </div>
           )}
 
@@ -1040,6 +1087,9 @@ useEffect(() => {
       : null;
 
     if (!product) return null;
+
+    const commentsAllowed = commentsEnabled && product.commentsEnabled !== false;
+    const resolvedPriceMode = product.priceMode ?? (product.hasPrice ? 'FIXED' : 'UNAVAILABLE');
 
     return (
       <Modal
@@ -1117,7 +1167,7 @@ useEffect(() => {
             <div className={`p-6 rounded-2xl mb-6 ${isDark ? 'bg-gray-700' : 'bg-orange-50'}`}>
               <p className="text-sm font-bold text-orange-600 mb-2">{t.ui.price}</p>
               <p className="text-2xl md:text-3xl font-black text-orange-600">{product.price}</p>
-              {!product.hasPrice && (
+              {resolvedPriceMode !== 'FIXED' && (
                 <button
                   onClick={() => {
                     setPriceProduct(product);
@@ -1195,7 +1245,7 @@ useEffect(() => {
 
           {/* Comments Section */}
                     <div className={`border-t ${isDark ? 'border-gray-700' : 'border-gray-200'} pt-8`}>
-            {commentsEnabled ? (
+            {commentsAllowed ? (
               <>
                 <h3
                   className={`text-xl md:text-2xl font-black mb-6 flex items-center gap-2 ${localeFontClass}`}
@@ -1562,7 +1612,9 @@ useEffect(() => {
               </>
             ) : (
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                {commentsDisabledReason ?? t.comments.disabled}
+                {product.commentsEnabled === false
+                  ? t.comments.disabled
+                  : commentsDisabledReason ?? t.comments.disabled}
               </p>
             )}
           </div>

@@ -1,12 +1,18 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/app/lib/prisma';
 import { ProductForm } from '@/app/admin/components/ProductForm';
+import { ProductDangerZone } from '@/app/admin/components/ProductDangerZone';
+import { requireSession } from '@/app/api/admin/lib/session';
+import { isHardDeleteAllowed } from '@/app/api/admin/products/lib';
+import { Role } from '@prisma/client';
 
 export default async function EditProductPage({ params }: { params: { id: string } }) {
+  const session = await requireSession();
+  const hardDeleteAllowed = isHardDeleteAllowed(session.user?.role as Role);
   const [product, categories] = await Promise.all([
     prisma.product.findUnique({
       where: { id: params.id },
-      include: { images: true },
+      include: { media: true },
     }),
     prisma.category.findMany({ where: { deletedAt: null }, orderBy: { nameFa: 'asc' } }),
   ]);
@@ -19,9 +25,17 @@ export default async function EditProductPage({ params }: { params: { id: string
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Edit product</h1>
-        <p className="text-sm text-slate-600">Update status, content, images, and SEO.</p>
+        <p className="text-sm text-slate-600">Update status, content, media, and SEO.</p>
       </div>
-      <ProductForm mode="edit" product={product} categories={categories} />
+      <ProductForm
+        mode="edit"
+        product={{
+          ...product,
+          priceAmount: product.priceAmount ? Number(product.priceAmount) : null,
+        }}
+        categories={categories}
+      />
+      <ProductDangerZone productId={product.id} hardDeleteAllowed={hardDeleteAllowed} />
     </div>
   );
 }

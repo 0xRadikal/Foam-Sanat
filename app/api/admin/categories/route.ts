@@ -4,6 +4,8 @@ import { categorySchema } from '@/app/admin/validation';
 import { requireSession } from '../lib/session';
 import { recordAuditLog } from '@/app/lib/audit';
 import { slugify } from '@/app/lib/slug';
+import { enforceRateLimit } from '../lib/rate-limit';
+import { revalidatePath } from 'next/cache';
 
 export async function GET() {
   try {
@@ -25,6 +27,13 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const session = await requireSession();
+    const rateLimit = enforceRateLimit(`admin:categories:create:${session.user?.id ?? 'unknown'}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests.' },
+        { status: 429, headers: rateLimit.retryAfterSeconds ? { 'Retry-After': rateLimit.retryAfterSeconds.toString() } : undefined },
+      );
+    }
     const raw = await request.json();
     const parsed = categorySchema.safeParse(raw);
     if (!parsed.success) {
@@ -55,6 +64,9 @@ export async function POST(request: NextRequest) {
       ip: request.ip ?? undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
+
+    revalidatePath('/products');
+    revalidatePath('/fa/products');
 
     return NextResponse.json({ data: category }, { status: 201 });
   } catch (error) {

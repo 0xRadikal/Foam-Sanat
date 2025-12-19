@@ -1,13 +1,18 @@
 "use client";
 
-import type { Category, Product, ProductImage } from "@prisma/client";
+import type { Category, PriceMode, Product, ProductMedia } from "@prisma/client";
+import { ProductMediaType } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 const statuses = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 type ProductStatus = (typeof statuses)[number];
 
-type FormProduct = Omit<Product, "createdAt" | "updatedAt" | "status"> & { images: ProductImage[]; status: ProductStatus };
+type FormProduct = Omit<Product, "createdAt" | "updatedAt" | "status" | "priceAmount"> & {
+  media: ProductMedia[];
+  status: ProductStatus;
+  priceAmount: number | null;
+};
 
 type Props = {
   mode: "create" | "edit";
@@ -31,20 +36,26 @@ export function ProductForm({ mode, product, categories }: Props) {
   const [shortEn, setShortEn] = useState(product?.shortEn ?? "");
   const [descFa, setDescFa] = useState(product?.descFa ?? "");
   const [descEn, setDescEn] = useState(product?.descEn ?? "");
-  const [price, setPrice] = useState<number | undefined>(product?.price ? Number(product.price) : undefined);
+  const [priceMode, setPriceMode] = useState<PriceMode>(product?.priceMode ?? "UNAVAILABLE");
+  const [priceAmount, setPriceAmount] = useState<number | undefined>(
+    product?.priceAmount ? Number(product.priceAmount) : undefined,
+  );
+  const [priceNoteFa, setPriceNoteFa] = useState(product?.priceNoteFa ?? "");
+  const [priceNoteEn, setPriceNoteEn] = useState(product?.priceNoteEn ?? "");
+  const [commentsEnabled, setCommentsEnabled] = useState(product?.commentsEnabled ?? true);
   const [seoTitleFa, setSeoTitleFa] = useState(product?.seoTitleFa ?? "");
   const [seoTitleEn, setSeoTitleEn] = useState(product?.seoTitleEn ?? "");
   const [seoDescFa, setSeoDescFa] = useState(product?.seoDescFa ?? "");
   const [seoDescEn, setSeoDescEn] = useState(product?.seoDescEn ?? "");
-  const [images, setImages] = useState<ProductImage[]>(product?.images ?? []);
+  const [media, setMedia] = useState<ProductMedia[]>(product?.media ?? []);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const endpoint = mode === "create" ? "/api/admin/products" : `/api/admin/products/${product?.id}`;
 
-  const sortedImages = useMemo(
-    () => [...images].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
-    [images],
+  const sortedMedia = useMemo(
+    () => [...media].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    [media],
   );
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -69,8 +80,12 @@ export function ProductForm({ mode, product, categories }: Props) {
         shortEn,
         descFa,
         descEn,
-        price,
-        images: sortedImages,
+        priceMode,
+        priceAmount,
+        priceNoteFa,
+        priceNoteEn,
+        commentsEnabled,
+        media: sortedMedia,
         seoTitleFa,
         seoTitleEn,
         seoDescFa,
@@ -90,8 +105,12 @@ export function ProductForm({ mode, product, categories }: Props) {
     router.refresh();
   };
 
-  const updateImage = (index: number, key: keyof ProductImage, value: string | number) => {
-    setImages((prev) => {
+  const updateMedia = (
+    index: number,
+    key: keyof ProductMedia,
+    value: string | number | null,
+  ) => {
+    setMedia((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [key]: value };
       return next;
@@ -136,13 +155,35 @@ export function ProductForm({ mode, product, categories }: Props) {
           </select>
         </label>
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-          Price
+          Price Mode
+          <select
+            value={priceMode}
+            onChange={(e) => {
+              const nextMode = e.target.value as PriceMode;
+              setPriceMode(nextMode);
+              if (nextMode !== "FIXED") {
+                setPriceAmount(undefined);
+              }
+            }}
+            className="rounded border px-3 py-2 text-sm"
+          >
+            <option value="FIXED">Fixed</option>
+            <option value="CONTACT">Contact</option>
+            <option value="NEGOTIABLE">Negotiable</option>
+            <option value="FREE">Free</option>
+            <option value="UNAVAILABLE">Unavailable</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Price Amount
           <input
             type="number"
             step="0.01"
-            value={price ?? ""}
-            onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : undefined)}
-            className="rounded border px-3 py-2 text-sm"
+            disabled={priceMode !== "FIXED"}
+            required={priceMode === "FIXED"}
+            value={priceAmount ?? ""}
+            onChange={(e) => setPriceAmount(e.target.value ? Number(e.target.value) : undefined)}
+            className="rounded border px-3 py-2 text-sm disabled:bg-slate-100"
           />
         </label>
       </div>
@@ -208,6 +249,22 @@ export function ProductForm({ mode, product, categories }: Props) {
 
       <div className="grid gap-4 rounded-lg border bg-white p-4 shadow-sm md:grid-cols-2">
         <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Price Note (FA)
+          <input
+            value={priceNoteFa}
+            onChange={(e) => setPriceNoteFa(e.target.value)}
+            className="rounded border px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
+          Price Note (EN)
+          <input
+            value={priceNoteEn}
+            onChange={(e) => setPriceNoteEn(e.target.value)}
+            className="rounded border px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
           SEO Title (FA)
           <input value={seoTitleFa} onChange={(e) => setSeoTitleFa(e.target.value)} className="rounded border px-3 py-2 text-sm" />
         </label>
@@ -223,24 +280,35 @@ export function ProductForm({ mode, product, categories }: Props) {
           SEO Description (EN)
           <textarea value={seoDescEn} onChange={(e) => setSeoDescEn(e.target.value)} className="rounded border px-3 py-2 text-sm" />
         </label>
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 md:col-span-2">
+          <input
+            type="checkbox"
+            checked={commentsEnabled}
+            onChange={(e) => setCommentsEnabled(e.target.checked)}
+            className="h-4 w-4 rounded border"
+          />
+          Enable comments for this product
+        </label>
       </div>
 
       <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Images</h2>
-            <p className="text-sm text-slate-600">Manage URLs, alt text, and ordering.</p>
+            <h2 className="text-base font-semibold text-slate-900">Media</h2>
+            <p className="text-sm text-slate-600">Mix image URLs and emojis in order.</p>
           </div>
           <button
             type="button"
             className="rounded bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
             onClick={() =>
-              setImages((prev) => [
+              setMedia((prev) => [
                 ...prev,
                 {
                   id: crypto.randomUUID(),
                   productId: product?.id ?? "",
+                  type: ProductMediaType.IMAGE,
                   url: "",
+                  emoji: null,
                   altFa: "",
                   altEn: "",
                   sortOrder: prev.length,
@@ -249,18 +317,53 @@ export function ProductForm({ mode, product, categories }: Props) {
               ])
             }
           >
-            Add image
+            Add media
           </button>
         </div>
         <div className="space-y-3">
-          {sortedImages.map((image, index) => (
-            <div key={image.id} className="grid gap-3 rounded border p-3 text-sm md:grid-cols-2">
+          {sortedMedia.map((item, index) => (
+            <div key={item.id} className="grid gap-3 rounded border p-3 text-sm md:grid-cols-2">
+              <label className="flex flex-col gap-2 text-slate-700">
+                Type
+                <select
+                  value={item.type}
+                  onChange={(e) => {
+                    const nextType = e.target.value as ProductMediaType;
+                    setMedia((prev) => {
+                      const next = [...prev];
+                      const current = next[index];
+                      next[index] = {
+                        ...current,
+                        type: nextType,
+                        url: nextType === ProductMediaType.IMAGE ? current.url ?? "" : null,
+                        emoji: nextType === ProductMediaType.EMOJI ? current.emoji ?? "" : null,
+                      };
+                      return next;
+                    });
+                  }}
+                  className="rounded border px-3 py-2 text-sm"
+                >
+                  <option value={ProductMediaType.IMAGE}>Image</option>
+                  <option value={ProductMediaType.EMOJI}>Emoji</option>
+                </select>
+              </label>
               <label className="flex flex-col gap-2 text-slate-700">
                 URL
                 <input
-                  required
-                  value={image.url}
-                  onChange={(e) => updateImage(index, "url", e.target.value)}
+                  required={item.type === ProductMediaType.IMAGE}
+                  value={item.url ?? ""}
+                  onChange={(e) => updateMedia(index, "url", e.target.value)}
+                  disabled={item.type !== ProductMediaType.IMAGE}
+                  className="rounded border px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-slate-700">
+                Emoji
+                <input
+                  value={item.emoji ?? ""}
+                  onChange={(e) => updateMedia(index, "emoji", e.target.value)}
+                  disabled={item.type !== ProductMediaType.EMOJI}
+                  placeholder="🔥"
                   className="rounded border px-3 py-2 text-sm"
                 />
               </label>
@@ -268,24 +371,24 @@ export function ProductForm({ mode, product, categories }: Props) {
                 Sort Order
                 <input
                   type="number"
-                  value={image.sortOrder ?? 0}
-                  onChange={(e) => updateImage(index, "sortOrder", Number(e.target.value))}
+                  value={item.sortOrder ?? 0}
+                  onChange={(e) => updateMedia(index, "sortOrder", Number(e.target.value))}
                   className="rounded border px-3 py-2 text-sm"
                 />
               </label>
               <label className="flex flex-col gap-2 text-slate-700">
                 Alt (FA)
                 <input
-                  value={image.altFa ?? ""}
-                  onChange={(e) => updateImage(index, "altFa", e.target.value)}
+                  value={item.altFa ?? ""}
+                  onChange={(e) => updateMedia(index, "altFa", e.target.value)}
                   className="rounded border px-3 py-2 text-sm"
                 />
               </label>
               <label className="flex flex-col gap-2 text-slate-700">
                 Alt (EN)
                 <input
-                  value={image.altEn ?? ""}
-                  onChange={(e) => updateImage(index, "altEn", e.target.value)}
+                  value={item.altEn ?? ""}
+                  onChange={(e) => updateMedia(index, "altEn", e.target.value)}
                   className="rounded border px-3 py-2 text-sm"
                 />
               </label>
@@ -293,14 +396,14 @@ export function ProductForm({ mode, product, categories }: Props) {
                 <button
                   type="button"
                   className="text-xs font-semibold text-red-600 hover:underline"
-                  onClick={() => setImages((prev) => prev.filter((_, i) => i !== index))}
+                  onClick={() => setMedia((prev) => prev.filter((_, i) => i !== index))}
                 >
                   Remove
                 </button>
               </div>
             </div>
           ))}
-          {!images.length && <p className="text-sm text-slate-600">No images yet. Add at least one URL.</p>}
+          {!media.length && <p className="text-sm text-slate-600">No media yet. Add at least one item.</p>}
         </div>
       </div>
 

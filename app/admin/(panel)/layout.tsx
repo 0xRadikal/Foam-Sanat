@@ -21,6 +21,7 @@ const navItems = [
   { href: '/admin/products/new', label: 'New Product' },
   { href: '/admin/categories', label: 'Categories' },
   { href: '/admin/inbox', label: 'Inbox' },
+  { href: '/admin/settings', label: 'Settings' },
   { href: '/admin/admins', label: 'Admins', roles: ['SUPERADMIN'] },
 ];
 
