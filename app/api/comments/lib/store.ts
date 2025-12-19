@@ -60,6 +60,11 @@ export async function deleteStoredReply(
   return storage.deleteReply(commentId, replyId);
 }
 
+export async function deleteCommentsByProduct(productId: string): Promise<number> {
+  const storage = await getCommentStorage();
+  return storage.deleteCommentsByProduct(productId);
+}
+
 export async function toPublicComment(comment: StoredComment) {
   const storage = await getCommentStorage();
   return storage.toPublicComment(comment);

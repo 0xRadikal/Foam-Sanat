@@ -6,51 +6,26 @@ import { productSchema } from '@/app/admin/validation';
 import { requireSession } from '../lib/session';
 import { slugify } from '@/app/lib/slug';
 import { canEditProducts } from '@/app/lib/rbac';
-
-const DEFAULT_PAGE_SIZE = 10;
+import { enforceRateLimit } from '../lib/rate-limit';
+import { revalidatePath } from 'next/cache';
+import { buildProductWhere, parsePagination } from './lib';
 
 function isUnauthorized(error: unknown): boolean {
   return (error as Error | undefined)?.message === 'UNAUTHORIZED';
 }
 
-function parsePagination(searchParams: URLSearchParams) {
-  const page = Number(searchParams.get('page') ?? '1');
-  const pageSize = Number(searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE);
-  return {
-    page: Number.isNaN(page) || page < 1 ? 1 : page,
-    pageSize: Number.isNaN(pageSize) || pageSize < 1 ? DEFAULT_PAGE_SIZE : Math.min(pageSize, 50),
-  };
-}
-
 export async function GET(request: NextRequest) {
   try {
     const session = await requireSession();
-    const search = request.nextUrl.searchParams.get('q') ?? '';
-    const status = request.nextUrl.searchParams.get('status') as ProductStatus | null;
-    const categoryId = request.nextUrl.searchParams.get('categoryId');
     const { page, pageSize } = parsePagination(request.nextUrl.searchParams);
-
-    const where = {
-      deletedAt: null,
-      ...(status ? { status } : {}),
-      ...(categoryId ? { categoryId } : {}),
-      ...(search
-        ? {
-            OR: [
-              { titleFa: { contains: search, mode: 'insensitive' as const } },
-              { titleEn: { contains: search, mode: 'insensitive' as const } },
-              { slug: { contains: search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
-    };
+    const where = buildProductWhere(request.nextUrl.searchParams);
 
     const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
         include: {
           category: true,
-          images: { orderBy: { sortOrder: 'asc' } },
+          media: { orderBy: { sortOrder: 'asc' } },
         },
         orderBy: [{ updatedAt: 'desc' }],
         skip: (page - 1) * pageSize,
@@ -84,12 +59,22 @@ export async function POST(request: NextRequest) {
     if (!canEditProducts(session.user?.role as Role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    const rateLimit = enforceRateLimit(`admin:products:create:${session.user?.id ?? 'unknown'}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests.' },
+        { status: 429, headers: rateLimit.retryAfterSeconds ? { 'Retry-After': rateLimit.retryAfterSeconds.toString() } : undefined },
+      );
+    }
 
     const raw = await request.json();
     const parsed = productSchema.safeParse({
       ...raw,
       slug: raw.slug || undefined,
-      price: raw.price ? Number(raw.price) : undefined,
+      priceAmount:
+        raw.priceAmount === null || raw.priceAmount === undefined || raw.priceAmount === ''
+          ? undefined
+          : Number(raw.priceAmount),
     });
 
     if (!parsed.success) {
@@ -115,23 +100,29 @@ export async function POST(request: NextRequest) {
         shortEn: payload.shortEn,
         descFa: payload.descFa,
         descEn: payload.descEn,
-        price: payload.price ?? undefined,
+        priceMode: payload.priceMode,
+        priceAmount: payload.priceAmount ?? undefined,
+        priceNoteFa: payload.priceNoteFa ?? undefined,
+        priceNoteEn: payload.priceNoteEn ?? undefined,
+        commentsEnabled: payload.commentsEnabled ?? true,
         specs: payload.specs as Prisma.InputJsonValue,
         seoTitleFa: payload.seoTitleFa ?? undefined,
         seoTitleEn: payload.seoTitleEn ?? undefined,
         seoDescFa: payload.seoDescFa ?? undefined,
         seoDescEn: payload.seoDescEn ?? undefined,
         publishedAt: payload.status === ProductStatus.PUBLISHED ? new Date() : null,
-        images: {
-          create: (payload.images ?? []).map((img) => ({
-            url: img.url,
-            altFa: img.altFa ?? undefined,
-            altEn: img.altEn ?? undefined,
-            sortOrder: img.sortOrder ?? 0,
+        media: {
+          create: (payload.media ?? []).map((item) => ({
+            type: item.type,
+            url: item.url ?? undefined,
+            emoji: item.emoji ?? undefined,
+            altFa: item.altFa ?? undefined,
+            altEn: item.altEn ?? undefined,
+            sortOrder: item.sortOrder ?? 0,
           })),
         },
       },
-      include: { images: true, category: true },
+      include: { media: true, category: true },
     });
 
     await recordAuditLog({
@@ -143,6 +134,9 @@ export async function POST(request: NextRequest) {
       ip: request.ip ?? undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
+
+    revalidatePath('/products');
+    revalidatePath('/fa/products');
 
     return NextResponse.json({ data: product }, { status: 201 });
   } catch (error) {

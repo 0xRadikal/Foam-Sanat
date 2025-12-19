@@ -1,37 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { InboxType } from '@prisma/client';
 import { prisma } from '@/app/lib/prisma';
 import { inboxStatusSchema } from '@/app/admin/validation';
 import { requireSession } from '../lib/session';
 import { recordAuditLog } from '@/app/lib/audit';
+import { buildInboxWhere } from './lib';
 
 const PAGE_SIZE = 15;
-
-export function buildInboxWhere(params: URLSearchParams) {
-  const type = params.get('type') as InboxType | null;
-  const productId = params.get('productId');
-  const spam = params.get('spam');
-  const unresolved = params.get('unresolved');
-  const unread = params.get('unread');
-  const dateFrom = params.get('from');
-  const dateTo = params.get('to');
-
-  return {
-    ...(type ? { type } : {}),
-    ...(productId ? { productId } : {}),
-    ...(spam === 'true' ? { isSpam: true } : spam === 'false' ? { isSpam: false } : {}),
-    ...(unread === 'true' ? { isRead: false } : unread === 'false' ? { isRead: true } : {}),
-    ...(unresolved === 'true' ? { isResolved: false } : unresolved === 'false' ? { isResolved: true } : {}),
-    ...(dateFrom || dateTo
-      ? {
-          createdAt: {
-            gte: dateFrom ? new Date(dateFrom) : undefined,
-            lte: dateTo ? new Date(dateTo) : undefined,
-          },
-        }
-      : {}),
-  };
-}
 
 export async function GET(request: NextRequest) {
   try {

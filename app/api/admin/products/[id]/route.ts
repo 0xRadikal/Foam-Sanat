@@ -5,7 +5,11 @@ import { recordAuditLog } from '@/app/lib/audit';
 import { productSchema } from '@/app/admin/validation';
 import { requireSession } from '../../lib/session';
 import { slugify } from '@/app/lib/slug';
-import { canDeleteProducts, canEditProducts, canHardDelete } from '@/app/lib/rbac';
+import { canDeleteProducts, canEditProducts } from '@/app/lib/rbac';
+import { enforceRateLimit } from '../../lib/rate-limit';
+import { revalidatePath } from 'next/cache';
+import { deleteCommentsByProduct } from '@/app/api/comments/lib/store';
+import { hardDeleteProduct, isHardDeleteAllowed } from '../lib';
 
 function isUnauthorized(error: unknown): boolean {
   return (error as Error | undefined)?.message === 'UNAUTHORIZED';
@@ -18,7 +22,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       where: { id: params.id },
       include: {
         category: true,
-        images: { orderBy: { sortOrder: 'asc' } },
+        media: { orderBy: { sortOrder: 'asc' } },
       },
     });
 
@@ -42,12 +46,22 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (!canEditProducts(session.user?.role as Role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    const rateLimit = enforceRateLimit(`admin:products:update:${session.user?.id ?? 'unknown'}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests.' },
+        { status: 429, headers: rateLimit.retryAfterSeconds ? { 'Retry-After': rateLimit.retryAfterSeconds.toString() } : undefined },
+      );
+    }
 
     const raw = await request.json();
     const parsed = productSchema.safeParse({
       ...raw,
       slug: raw.slug || undefined,
-      price: raw.price ? Number(raw.price) : undefined,
+      priceAmount:
+        raw.priceAmount === null || raw.priceAmount === undefined || raw.priceAmount === ''
+          ? undefined
+          : Number(raw.priceAmount),
     });
 
     if (!parsed.success) {
@@ -73,9 +87,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     const newPublishedAt =
-      existing.status !== ProductStatus.PUBLISHED && payload.status === ProductStatus.PUBLISHED
-        ? new Date()
-        : existing.publishedAt;
+      payload.status === ProductStatus.PUBLISHED
+        ? existing.publishedAt ?? new Date()
+        : null;
 
     const product = await prisma.product.update({
       where: { id: params.id },
@@ -89,24 +103,30 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         shortEn: payload.shortEn,
         descFa: payload.descFa,
         descEn: payload.descEn,
-        price: payload.price ?? undefined,
+        priceMode: payload.priceMode,
+        priceAmount: payload.priceAmount ?? undefined,
+        priceNoteFa: payload.priceNoteFa ?? undefined,
+        priceNoteEn: payload.priceNoteEn ?? undefined,
+        commentsEnabled: payload.commentsEnabled ?? true,
         specs: payload.specs as Prisma.InputJsonValue,
         seoTitleFa: payload.seoTitleFa ?? undefined,
         seoTitleEn: payload.seoTitleEn ?? undefined,
         seoDescFa: payload.seoDescFa ?? undefined,
         seoDescEn: payload.seoDescEn ?? undefined,
-        publishedAt: newPublishedAt ?? undefined,
-        images: {
+        publishedAt: newPublishedAt,
+        media: {
           deleteMany: {},
-          create: (payload.images ?? []).map((img) => ({
-            url: img.url,
-            altFa: img.altFa ?? undefined,
-            altEn: img.altEn ?? undefined,
-            sortOrder: img.sortOrder ?? 0,
+          create: (payload.media ?? []).map((item) => ({
+            type: item.type,
+            url: item.url ?? undefined,
+            emoji: item.emoji ?? undefined,
+            altFa: item.altFa ?? undefined,
+            altEn: item.altEn ?? undefined,
+            sortOrder: item.sortOrder ?? 0,
           })),
         },
       },
-      include: { images: true, category: true },
+      include: { media: true, category: true },
     });
 
     await recordAuditLog({
@@ -118,6 +138,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       ip: request.ip ?? undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
+
+    revalidatePath('/products');
+    revalidatePath('/fa/products');
 
     return NextResponse.json({ data: product });
   } catch (error) {
@@ -136,23 +159,51 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (!canDeleteProducts(role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+    const rateLimit = enforceRateLimit(`admin:products:delete:${session.user?.id ?? 'unknown'}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests.' },
+        { status: 429, headers: rateLimit.retryAfterSeconds ? { 'Retry-After': rateLimit.retryAfterSeconds.toString() } : undefined },
+      );
+    }
 
     const product = await prisma.product.findUnique({ where: { id: params.id } });
     if (!product) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    if (canHardDelete(role)) {
-      await prisma.product.delete({ where: { id: params.id } });
+    const hardDeleteRequested = request.nextUrl.searchParams.get('hard') === 'true';
+    if (hardDeleteRequested) {
+      if (!isHardDeleteAllowed(role)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      const { confirmation } = (await request.json().catch(() => ({}))) as { confirmation?: string };
+      if (confirmation !== 'DELETE') {
+        return NextResponse.json({ error: 'Confirmation required.' }, { status: 400 });
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await hardDeleteProduct(tx, params.id);
+      });
+      try {
+        await deleteCommentsByProduct(params.id);
+      } catch (error) {
+        console.warn('comments.delete_by_product.failed', error);
+      }
+
       await recordAuditLog({
         actorId: session.user?.id ?? null,
         action: 'product.hard_delete',
         entityType: 'product',
         entityId: params.id,
+        diff: { id: params.id },
         ip: request.ip ?? undefined,
         userAgent: request.headers.get('user-agent') ?? undefined,
       });
-      return NextResponse.json({ success: true });
+
+      revalidatePath('/products');
+      revalidatePath('/fa/products');
+      return new NextResponse(null, { status: 204 });
     }
 
     await prisma.product.update({
@@ -168,6 +219,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       ip: request.ip ?? undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
+
+    revalidatePath('/products');
+    revalidatePath('/fa/products');
 
     return NextResponse.json({ success: true });
   } catch (error) {
