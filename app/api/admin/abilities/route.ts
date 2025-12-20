@@ -9,19 +9,21 @@ function isUnauthorized(error: unknown): boolean {
   return (error as Error | undefined)?.message === 'UNAUTHORIZED';
 }
 
+type ValuePayload = Omit<Prisma.ProductAbilityValueUncheckedCreateInput, 'productId' | 'abilityId' | 'notes'>;
+
 function buildValuePayload(
   abilityType: AbilityType,
   body: Record<string, unknown>,
   options: { id: string; value: string }[],
-): Prisma.ProductAbilityValueUncheckedCreateInput {
-  const base = {
+): ValuePayload {
+  const base: ValuePayload = {
     valueNumber: null,
     valueText: null,
     valueBoolean: null,
     rangeStart: null,
     rangeEnd: null,
     abilityOptionId: null,
-  } satisfies Partial<Prisma.ProductAbilityValueUncheckedCreateInput>;
+  };
 
   switch (abilityType) {
     case AbilityType.NUMBER:
