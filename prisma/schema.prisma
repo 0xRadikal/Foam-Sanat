@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AbilityType {
+  NUMBER
+  TEXT
+  BOOLEAN
+  ENUM
+  RANGE
+}
+
 enum Role {
   SUPERADMIN
   ADMIN
@@ -38,15 +46,15 @@ enum InboxType {
 }
 
 model User {
-  id                  String    @id @default(uuid())
-  email               String    @unique
+  id                  String       @id @default(uuid())
+  email               String       @unique
   name                String?
   passwordHash        String
-  role                Role      @default(ADMIN)
-  failedLoginAttempts Int       @default(0)
+  role                Role         @default(ADMIN)
+  failedLoginAttempts Int          @default(0)
   lockedUntil         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
   accounts            Account[]
   sessions            Session[]
   auditLogs           AuditLog[]
@@ -101,31 +109,32 @@ model Category {
 }
 
 model Product {
-  id              String         @id @default(uuid())
-  slug            String         @unique
-  status          ProductStatus  @default(DRAFT)
+  id              String                @id @default(uuid())
+  slug            String                @unique
+  status          ProductStatus         @default(DRAFT)
   categoryId      String?
-  category        Category?      @relation(fields: [categoryId], references: [id])
+  category        Category?             @relation(fields: [categoryId], references: [id])
   titleFa         String
   titleEn         String
   shortFa         String
   shortEn         String
   descFa          String
   descEn          String
-  priceMode       PriceMode      @default(UNAVAILABLE)
+  priceMode       PriceMode             @default(UNAVAILABLE)
   priceAmount     Decimal?
   priceNoteFa     String?
   priceNoteEn     String?
-  commentsEnabled Boolean        @default(true)
+  commentsEnabled Boolean               @default(true)
   specs           Json?
   seoTitleFa      String?
   seoTitleEn      String?
   seoDescFa       String?
   seoDescEn       String?
   media           ProductMedia[]
+  abilityValues   ProductAbilityValue[]
   comments        InboxItem[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
   deletedAt       DateTime?
   publishedAt     DateTime?
 }
@@ -144,21 +153,21 @@ model ProductMedia {
 }
 
 model InboxItem {
-  id           String      @id @default(uuid())
+  id           String       @id @default(uuid())
   type         InboxType
   productId    String?
-  product      Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
   name         String?
   email        String?
   body         String
-  isRead       Boolean     @default(false)
-  isResolved   Boolean     @default(false)
-  isSpam       Boolean     @default(false)
+  isRead       Boolean      @default(false)
+  isResolved   Boolean      @default(false)
+  isSpam       Boolean      @default(false)
   ip           String?
   userAgent    String?
   adminReplies AdminReply[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model AdminReply {
@@ -166,7 +175,7 @@ model AdminReply {
   inboxId   String
   adminId   String
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   inbox     InboxItem @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   admin     User      @relation(fields: [adminId], references: [id])
   sentEmail Boolean   @default(false)
@@ -190,4 +199,72 @@ model SiteSetting {
   commentsEnabled Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model AbilityGroup {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  titleFa     String
+  titleEn     String?
+  description String?
+  abilities   Ability[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Ability {
+  id            String                @id @default(uuid())
+  key           String                @unique
+  titleFa       String
+  titleEn       String?
+  descriptionFa String?
+  descriptionEn String?
+  unit          String?
+  type          AbilityType
+  groupId       String?
+  group         AbilityGroup?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  options       AbilityOption[]
+  productValues ProductAbilityValue[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([groupId], map: "idx_ability_group")
+}
+
+model AbilityOption {
+  id        String                @id @default(uuid())
+  abilityId String
+  value     String
+  labelFa   String
+  labelEn   String?
+  sortOrder Int                   @default(0)
+  ability   Ability               @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+  values    ProductAbilityValue[]
+
+  @@unique([abilityId, value], map: "uq_abilityoption_value")
+  @@index([abilityId, sortOrder], map: "idx_abilityoption_order")
+}
+
+model ProductAbilityValue {
+  id              String         @id @default(uuid())
+  productId       String
+  abilityId       String
+  abilityOptionId String?
+  valueNumber     Decimal?
+  valueText       String?
+  valueBoolean    Boolean?
+  rangeStart      Decimal?
+  rangeEnd        Decimal?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ability         Ability        @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+  abilityOption   AbilityOption? @relation(fields: [abilityOptionId], references: [id], onDelete: SetNull)
+
+  @@unique([productId, abilityId], map: "uq_product_ability_once")
+  @@index([abilityId, valueNumber], map: "idx_pav_number")
+  @@index([abilityId, rangeStart, rangeEnd], map: "idx_pav_range")
+  @@index([abilityId, valueText], map: "idx_pav_text")
+  @@index([abilityId, abilityOptionId], map: "idx_pav_option")
 }
