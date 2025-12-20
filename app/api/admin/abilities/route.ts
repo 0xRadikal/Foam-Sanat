@@ -1,108 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AbilityType, Prisma, Role } from '@prisma/client';
+import { AbilityType, Role } from '@prisma/client';
 import { prisma } from '@/app/lib/prisma';
 import { requireSession } from '../lib/session';
 import { enforceRateLimit } from '../lib/rate-limit';
-import { canEditProducts } from '@/app/lib/rbac';
-import { z } from 'zod';
+import { canEditProducts, isRoleAtLeast } from '@/app/lib/rbac';
+import { abilityCreateSchema, abilityUpdateSchema, abilityValueSchema, buildValuePayload } from './utils';
 
 function isUnauthorized(error: unknown): boolean {
   return (error as Error | undefined)?.message === 'UNAUTHORIZED';
-}
-
-type ValuePayload = Omit<Prisma.ProductAbilityValueUncheckedCreateInput, 'productId' | 'abilityId' | 'notes'>;
-
-const toDecimalOrNull = (value: unknown) => (typeof value === 'number' ? new Prisma.Decimal(value) : null);
-
-const abilityCreateSchema = z
-  .object({
-    key: z
-      .string()
-      .min(2)
-      .max(64)
-      .regex(/^[a-z0-9_-]+$/i, { message: 'Key must be URL-safe.' }),
-    titleFa: z.string().min(1),
-    titleEn: z.string().optional().nullable(),
-    descriptionFa: z.string().optional().nullable(),
-    descriptionEn: z.string().optional().nullable(),
-    unit: z.string().optional().nullable(),
-    type: z.nativeEnum(AbilityType),
-    isFilterable: z.boolean().optional(),
-    isPrivate: z.boolean().optional(),
-    displayOrder: z.number().int().nonnegative().optional(),
-    groupSlug: z.string().optional().nullable(),
-    options: z
-      .array(
-        z.object({
-          value: z.string().min(1),
-          labelFa: z.string().min(1),
-          labelEn: z.string().optional().nullable(),
-        }),
-      )
-      .optional(),
-  })
-  .strict();
-
-const abilityValueSchema = z
-  .object({
-    productId: z.string().uuid(),
-    abilityId: z.string().uuid(),
-    valueNumber: z.number().optional(),
-    valueText: z.string().optional(),
-    valueBoolean: z.boolean().optional(),
-    rangeStart: z.number().optional(),
-    rangeEnd: z.number().optional(),
-    abilityOptionId: z.string().uuid().optional(),
-    abilityOptionValue: z.string().optional(),
-    notes: z.string().max(1024).optional().nullable(),
-    scoreNormalized: z.number().optional(),
-    presetItemId: z.string().uuid().optional(),
-  })
-  .strict();
-
-function buildValuePayload(
-  abilityType: AbilityType,
-  body: Record<string, unknown>,
-  options: { id: string; value: string }[],
-): ValuePayload {
-  const base: ValuePayload = {
-    valueNumber: null,
-    valueText: null,
-    valueBoolean: null,
-    rangeStart: null,
-    rangeEnd: null,
-    abilityOptionId: null,
-    scoreNormalized: toDecimalOrNull(body.scoreNormalized),
-    presetItemId: typeof body.presetItemId === 'string' ? (body.presetItemId as string) : null,
-  };
-
-  switch (abilityType) {
-    case AbilityType.NUMBER:
-      if (typeof body.valueNumber !== 'number') throw new Error('INVALID_VALUE');
-      return { ...base, valueNumber: new Prisma.Decimal(body.valueNumber as number) };
-    case AbilityType.TEXT:
-      if (typeof body.valueText !== 'string') throw new Error('INVALID_VALUE');
-      return { ...base, valueText: body.valueText as string };
-    case AbilityType.BOOLEAN:
-      if (typeof body.valueBoolean !== 'boolean') throw new Error('INVALID_VALUE');
-      return { ...base, valueBoolean: body.valueBoolean as boolean };
-    case AbilityType.RANGE: {
-      const start = body.rangeStart as number | undefined;
-      const end = body.rangeEnd as number | undefined;
-      if (typeof start !== 'number' || typeof end !== 'number') throw new Error('INVALID_VALUE');
-      if (start > end) throw new Error('INVALID_VALUE');
-      return { ...base, rangeStart: new Prisma.Decimal(start), rangeEnd: new Prisma.Decimal(end) };
-    }
-    case AbilityType.ENUM: {
-      const optionValue = (body.abilityOptionValue as string | undefined) ?? undefined;
-      const optionId = (body.abilityOptionId as string | undefined) ?? undefined;
-      const match = options.find((opt) => opt.id === optionId || opt.value === optionValue);
-      if (!match) throw new Error('INVALID_VALUE');
-      return { ...base, abilityOptionId: match.id };
-    }
-    default:
-      throw new Error('INVALID_VALUE');
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -137,6 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const group = body.groupSlug ? await prisma.abilityGroup.findUnique({ where: { slug: body.groupSlug } }) : null;
+    const minViewRole = body.isPrivate ? body.minViewRole ?? Role.ADMIN : null;
 
     const ability = await prisma.ability.create({
       data: {
@@ -149,6 +55,7 @@ export async function POST(request: NextRequest) {
         type: body.type,
         isFilterable: body.isFilterable ?? true,
         isPrivate: body.isPrivate ?? false,
+        minViewRole,
         displayOrder: body.displayOrder ?? 0,
         groupId: group?.id,
         options:
@@ -218,6 +125,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Ability is not assignable.' }, { status: 400 });
     }
 
+    if (ability.isPrivate && !isRoleAtLeast(session.user?.role as Role | null | undefined, ability.minViewRole ?? Role.ADMIN)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const valuePayload = buildValuePayload(ability.type, body, ability.options ?? []);
 
     const saved = await prisma.productAbilityValue.upsert({
@@ -271,7 +182,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const parsed = z.object({ abilityId: z.string().uuid() }).safeParse(await request.json());
+    const parsed = abilityValueSchema.pick({ abilityId: true }).safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
@@ -299,5 +210,66 @@ export async function DELETE(request: NextRequest) {
     }
     console.error('ability.delete.failed', error);
     return NextResponse.json({ error: 'Unable to delete ability.' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await requireSession();
+    if (!canEditProducts(session.user?.role as Role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const rateLimit = enforceRateLimit(`admin:abilities:update:${session.user?.id ?? 'unknown'}`);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests.' },
+        { status: 429, headers: rateLimit.retryAfterSeconds ? { 'Retry-After': rateLimit.retryAfterSeconds.toString() } : undefined },
+      );
+    }
+
+    const parsed = abilityUpdateSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const ability = await prisma.ability.findUnique({ where: { id: parsed.data.abilityId } });
+    if (!ability || ability.deletedAt) {
+      return NextResponse.json({ error: 'Ability not found.' }, { status: 404 });
+    }
+
+    if (
+      parsed.data.type &&
+      parsed.data.type !== ability.type &&
+      (await prisma.productAbilityValue.count({ where: { abilityId: ability.id } })) > 0
+    ) {
+      return NextResponse.json({ error: 'Cannot change type while values exist.' }, { status: 409 });
+    }
+
+    const minViewRole = parsed.data.isPrivate ?? ability.isPrivate ? parsed.data.minViewRole ?? Role.ADMIN : null;
+
+    const updated = await prisma.ability.update({
+      where: { id: ability.id },
+      data: {
+        ...('titleFa' in parsed.data ? { titleFa: parsed.data.titleFa ?? ability.titleFa } : {}),
+        ...('titleEn' in parsed.data ? { titleEn: parsed.data.titleEn ?? null } : {}),
+        ...('descriptionFa' in parsed.data ? { descriptionFa: parsed.data.descriptionFa ?? null } : {}),
+        ...('descriptionEn' in parsed.data ? { descriptionEn: parsed.data.descriptionEn ?? null } : {}),
+        ...('unit' in parsed.data ? { unit: parsed.data.unit ?? null } : {}),
+        ...('isFilterable' in parsed.data ? { isFilterable: parsed.data.isFilterable } : {}),
+        ...('isPrivate' in parsed.data ? { isPrivate: parsed.data.isPrivate } : {}),
+        ...('displayOrder' in parsed.data ? { displayOrder: parsed.data.displayOrder } : {}),
+        ...('type' in parsed.data ? { type: parsed.data.type } : {}),
+        minViewRole,
+      },
+    });
+
+    return NextResponse.json({ data: updated });
+  } catch (error) {
+    if (isUnauthorized(error)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    console.error('ability.update.failed', error);
+    return NextResponse.json({ error: 'Unable to update ability.' }, { status: 500 });
   }
 }

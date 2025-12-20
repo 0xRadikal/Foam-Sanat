@@ -228,6 +228,7 @@ model Ability {
   type                       AbilityType
   isFilterable               Boolean                      @default(true)
   isPrivate                  Boolean                      @default(false)
+  minViewRole                Role?
   deletedAt                  DateTime?
   displayOrder               Int                          @default(0)
   groupId                    String?
@@ -246,6 +247,7 @@ model Ability {
   @@index([displayOrder], map: "idx_ability_display")
   @@index([deletedAt], map: "idx_ability_deleted")
   @@index([isPrivate], map: "idx_ability_privacy")
+  @@index([minViewRole], map: "idx_ability_view_role")
 }
 
 model AbilityOption {

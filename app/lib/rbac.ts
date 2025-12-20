@@ -1,5 +1,17 @@
 import { Role } from '@prisma/client';
 
+const roleRank: Record<Role, number> = {
+  [Role.EDITOR]: 1,
+  [Role.ADMIN]: 2,
+  [Role.SUPERADMIN]: 3,
+};
+
+export function isRoleAtLeast(role: Role | null | undefined, minimum?: Role | null): boolean {
+  if (!minimum) return true;
+  if (!role) return false;
+  return roleRank[role] >= roleRank[minimum];
+}
+
 export function canManageAdmins(role: Role): boolean {
   return role === Role.SUPERADMIN;
 }
