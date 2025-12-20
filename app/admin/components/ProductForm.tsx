@@ -1,7 +1,7 @@
 "use client";
 
-import type { Category, PriceMode, Product, ProductMedia } from "@prisma/client";
-import { ProductMediaType } from "@prisma/client";
+import type { Ability, AbilityOption, Category, PriceMode, Product, ProductAbilityValue, ProductMedia } from "@prisma/client";
+import { AbilityType, ProductMediaType } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -14,10 +14,24 @@ type FormProduct = Omit<Product, "createdAt" | "updatedAt" | "status" | "priceAm
   priceAmount: number | null;
 };
 
+type AbilityWithOptions = Ability & { options: AbilityOption[] };
+type AbilityValueWithAbility = ProductAbilityValue & { ability: AbilityWithOptions; abilityOption?: AbilityOption | null };
+
+type AbilityDraftState = {
+  valueNumber?: string;
+  valueText?: string;
+  valueBoolean?: boolean;
+  rangeStart?: string;
+  rangeEnd?: string;
+  abilityOptionId?: string;
+};
+
 type Props = {
   mode: "create" | "edit";
   product?: FormProduct;
   categories: Category[];
+  abilities: AbilityWithOptions[];
+  abilityValues?: AbilityValueWithAbility[];
 };
 
 function getCsrf(): string | null {
@@ -25,7 +39,7 @@ function getCsrf(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-export function ProductForm({ mode, product, categories }: Props) {
+export function ProductForm({ mode, product, categories, abilities, abilityValues }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState<ProductStatus>(product?.status ?? "DRAFT");
   const [slug, setSlug] = useState(product?.slug ?? "");
@@ -51,12 +65,98 @@ export function ProductForm({ mode, product, categories }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const initialAbilityDrafts: Record<string, AbilityDraftState> = useMemo(() => {
+    const mapped: Record<string, AbilityDraftState> = {};
+    abilityValues?.forEach((item) => {
+      const ability = abilities.find((a) => a.id === item.abilityId);
+      if (!ability) return;
+      switch (ability.type) {
+        case "NUMBER":
+          mapped[ability.id] = { valueNumber: item.valueNumber ? String(item.valueNumber) : undefined };
+          break;
+        case "TEXT":
+          mapped[ability.id] = { valueText: item.valueText ?? "" };
+          break;
+        case "BOOLEAN":
+          mapped[ability.id] = { valueBoolean: item.valueBoolean ?? false };
+          break;
+        case "RANGE":
+          mapped[ability.id] = {
+            rangeStart: item.rangeStart ? String(item.rangeStart) : undefined,
+            rangeEnd: item.rangeEnd ? String(item.rangeEnd) : undefined,
+          };
+          break;
+        case "ENUM":
+          mapped[ability.id] = { abilityOptionId: item.abilityOptionId ?? undefined };
+          break;
+        default:
+          break;
+      }
+    });
+    return mapped;
+  }, [abilities, abilityValues]);
+
+  const [abilityDrafts, setAbilityDrafts] = useState<Record<string, AbilityDraftState>>(initialAbilityDrafts);
+
   const endpoint = mode === "create" ? "/api/admin/products" : `/api/admin/products/${product?.id}`;
 
   const sortedMedia = useMemo(
     () => [...media].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
     [media],
   );
+
+  const updateAbilityDraft = (abilityId: string, patch: AbilityDraftState) => {
+    setAbilityDrafts((prev) => ({ ...prev, [abilityId]: { ...prev[abilityId], ...patch } }));
+  };
+
+  const buildAbilityPayloads = (productId: string) => {
+    const payloads: Record<string, unknown>[] = [];
+    for (const ability of abilities) {
+      if (ability.deletedAt || ability.isPrivate) continue;
+      const draft = abilityDrafts[ability.id];
+      if (!draft) continue;
+
+      switch (ability.type) {
+        case AbilityType.NUMBER: {
+          if (draft.valueNumber === undefined || draft.valueNumber === "") break;
+          const numberValue = Number(draft.valueNumber);
+          if (Number.isNaN(numberValue)) throw new Error("Invalid numeric ability value");
+          payloads.push({ productId, abilityId: ability.id, valueNumber: numberValue });
+          break;
+        }
+        case AbilityType.TEXT: {
+          if (!draft.valueText) break;
+          payloads.push({ productId, abilityId: ability.id, valueText: draft.valueText });
+          break;
+        }
+        case AbilityType.BOOLEAN: {
+          if (draft.valueBoolean === undefined) break;
+          payloads.push({ productId, abilityId: ability.id, valueBoolean: draft.valueBoolean });
+          break;
+        }
+        case AbilityType.RANGE: {
+          if (draft.rangeStart === undefined || draft.rangeEnd === undefined || draft.rangeStart === "" || draft.rangeEnd === "") break;
+          const start = Number(draft.rangeStart);
+          const end = Number(draft.rangeEnd);
+          if (Number.isNaN(start) || Number.isNaN(end) || start > end) {
+            throw new Error("Invalid range value");
+          }
+          payloads.push({ productId, abilityId: ability.id, rangeStart: start, rangeEnd: end });
+          break;
+        }
+        case AbilityType.ENUM: {
+          if (!draft.abilityOptionId) break;
+          const optionExists = ability.options.some((opt) => opt.id === draft.abilityOptionId);
+          if (!optionExists) throw new Error("Invalid enum option");
+          payloads.push({ productId, abilityId: ability.id, abilityOptionId: draft.abilityOptionId });
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    return payloads;
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -101,6 +201,26 @@ export function ProductForm({ mode, product, categories }: Props) {
     }
 
     const data = await res.json();
+    const abilityPayloads = buildAbilityPayloads(data.data.id);
+
+    for (const payload of abilityPayloads) {
+      const abilityRes = await fetch("/api/admin/abilities", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrf ?? "",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!abilityRes.ok) {
+        const message = await abilityRes.text();
+        setError(message || "Failed to assign ability value.");
+        setSaving(false);
+        return;
+      }
+    }
+
     router.push(`/admin/products/${data.data.id}`);
     router.refresh();
   };
@@ -404,6 +524,104 @@ export function ProductForm({ mode, product, categories }: Props) {
             </div>
           ))}
           {!media.length && <p className="text-sm text-slate-600">No media yet. Add at least one item.</p>}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Attributes</h2>
+            <p className="text-sm text-slate-600">Values are validated per type before saving.</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {abilities.map((ability) => {
+            const draft = abilityDrafts[ability.id] ?? {};
+            return (
+              <div key={ability.id} className="grid gap-3 rounded border p-3 text-sm md:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="font-semibold text-slate-900">{ability.titleFa}</p>
+                  <p className="text-xs text-slate-600">{ability.titleEn}</p>
+                  {ability.unit ? <p className="text-xs text-slate-500">Unit: {ability.unit}</p> : null}
+                </div>
+                {ability.type === AbilityType.NUMBER && (
+                  <label className="flex flex-col gap-2 text-slate-700">
+                    Value
+                    <input
+                      type="number"
+                      value={draft.valueNumber ?? ""}
+                      onChange={(e) => updateAbilityDraft(ability.id, { valueNumber: e.target.value })}
+                      className="rounded border px-3 py-2 text-sm"
+                    />
+                  </label>
+                )}
+                {ability.type === AbilityType.TEXT && (
+                  <label className="flex flex-col gap-2 text-slate-700 md:col-span-1">
+                    Text
+                    <textarea
+                      value={draft.valueText ?? ""}
+                      onChange={(e) => updateAbilityDraft(ability.id, { valueText: e.target.value })}
+                      className="rounded border px-3 py-2 text-sm"
+                    />
+                  </label>
+                )}
+                {ability.type === AbilityType.BOOLEAN && (
+                  <label className="flex items-center gap-2 text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={draft.valueBoolean ?? false}
+                      onChange={(e) => updateAbilityDraft(ability.id, { valueBoolean: e.target.checked })}
+                      className="h-4 w-4 rounded border"
+                    />
+                    Enabled
+                  </label>
+                )}
+                {ability.type === AbilityType.RANGE && (
+                  <div className="grid grid-cols-2 gap-3 md:col-span-1">
+                    <label className="flex flex-col gap-2 text-slate-700">
+                      Min
+                      <input
+                        type="number"
+                        value={draft.rangeStart ?? ""}
+                        onChange={(e) => updateAbilityDraft(ability.id, { rangeStart: e.target.value })}
+                        className="rounded border px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-slate-700">
+                      Max
+                      <input
+                        type="number"
+                        value={draft.rangeEnd ?? ""}
+                        onChange={(e) => updateAbilityDraft(ability.id, { rangeEnd: e.target.value })}
+                        className="rounded border px-3 py-2 text-sm"
+                      />
+                    </label>
+                  </div>
+                )}
+                {ability.type === AbilityType.ENUM && (
+                  <label className="flex flex-col gap-2 text-slate-700">
+                    Option
+                    <select
+                      value={draft.abilityOptionId ?? ""}
+                      onChange={(e) => updateAbilityDraft(ability.id, { abilityOptionId: e.target.value || undefined })}
+                      className="rounded border px-3 py-2 text-sm"
+                    >
+                      <option value="">Unassigned</option>
+                      {ability.options
+                        .filter((opt) => !opt.sortOrder || opt.sortOrder >= 0)
+                        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                        .map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.labelFa} / {option.labelEn ?? option.value}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            );
+          })}
+          {!abilities.length && <p className="text-sm text-slate-600">No attributes configured.</p>}
         </div>
       </div>
 

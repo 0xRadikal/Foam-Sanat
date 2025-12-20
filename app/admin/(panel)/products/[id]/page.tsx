@@ -9,12 +9,21 @@ import { Role } from '@prisma/client';
 export default async function EditProductPage({ params }: { params: { id: string } }) {
   const session = await requireSession();
   const hardDeleteAllowed = isHardDeleteAllowed(session.user?.role as Role);
-  const [product, categories] = await Promise.all([
+  const [product, categories, abilityValues, abilities] = await Promise.all([
     prisma.product.findUnique({
       where: { id: params.id },
       include: { media: true },
     }),
     prisma.category.findMany({ where: { deletedAt: null }, orderBy: { nameFa: 'asc' } }),
+    prisma.productAbilityValue.findMany({
+      where: { productId: params.id },
+      include: { ability: { include: { options: true } }, abilityOption: true },
+    }),
+    prisma.ability.findMany({
+      where: { deletedAt: null, isFilterable: true, isPrivate: false },
+      include: { options: true },
+      orderBy: { displayOrder: 'asc' },
+    }),
   ]);
 
   if (!product) {
@@ -34,6 +43,8 @@ export default async function EditProductPage({ params }: { params: { id: string
           priceAmount: product.priceAmount ? Number(product.priceAmount) : null,
         }}
         categories={categories}
+        abilities={abilities}
+        abilityValues={abilityValues}
       />
       <ProductDangerZone productId={product.id} hardDeleteAllowed={hardDeleteAllowed} />
     </div>

@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AbilityType {
+  NUMBER
+  TEXT
+  BOOLEAN
+  ENUM
+  RANGE
+}
+
 enum Role {
   SUPERADMIN
   ADMIN
@@ -38,15 +46,15 @@ enum InboxType {
 }
 
 model User {
-  id                  String    @id @default(uuid())
-  email               String    @unique
+  id                  String       @id @default(uuid())
+  email               String       @unique
   name                String?
   passwordHash        String
-  role                Role      @default(ADMIN)
-  failedLoginAttempts Int       @default(0)
+  role                Role         @default(ADMIN)
+  failedLoginAttempts Int          @default(0)
   lockedUntil         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
   accounts            Account[]
   sessions            Session[]
   auditLogs           AuditLog[]
@@ -90,44 +98,50 @@ model Account {
 }
 
 model Category {
-  id        String    @id @default(uuid())
-  slug      String    @unique
-  nameFa    String
-  nameEn    String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  products  Product[]
+  id            String          @id @default(uuid())
+  slug          String          @unique
+  nameFa        String
+  nameEn        String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+  products      Product[]
+  AbilityPreset AbilityPreset[]
 }
 
 model Product {
-  id              String         @id @default(uuid())
-  slug            String         @unique
-  status          ProductStatus  @default(DRAFT)
-  categoryId      String?
-  category        Category?      @relation(fields: [categoryId], references: [id])
-  titleFa         String
-  titleEn         String
-  shortFa         String
-  shortEn         String
-  descFa          String
-  descEn          String
-  priceMode       PriceMode      @default(UNAVAILABLE)
-  priceAmount     Decimal?
-  priceNoteFa     String?
-  priceNoteEn     String?
-  commentsEnabled Boolean        @default(true)
-  specs           Json?
-  seoTitleFa      String?
-  seoTitleEn      String?
-  seoDescFa       String?
-  seoDescEn       String?
-  media           ProductMedia[]
-  comments        InboxItem[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  deletedAt       DateTime?
-  publishedAt     DateTime?
+  id                         String                       @id @default(uuid())
+  slug                       String                       @unique
+  status                     ProductStatus                @default(DRAFT)
+  categoryId                 String?
+  category                   Category?                    @relation(fields: [categoryId], references: [id])
+  titleFa                    String
+  titleEn                    String
+  shortFa                    String
+  shortEn                    String
+  descFa                     String
+  descEn                     String
+  priceMode                  PriceMode                    @default(UNAVAILABLE)
+  priceAmount                Decimal?
+  priceNoteFa                String?
+  priceNoteEn                String?
+  commentsEnabled            Boolean                      @default(true)
+  specs                      Json?
+  seoTitleFa                 String?
+  seoTitleEn                 String?
+  seoDescFa                  String?
+  seoDescEn                  String?
+  media                      ProductMedia[]
+  abilityValues              ProductAbilityValue[]
+  comments                   InboxItem[]
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  deletedAt                  DateTime?
+  publishedAt                DateTime?
+  ProductAbilityValueHistory ProductAbilityValueHistory[]
+  ProductPresetApplication   ProductPresetApplication[]
+
+  @@index([deletedAt, status, updatedAt], map: "idx_product_visibility")
 }
 
 model ProductMedia {
@@ -144,21 +158,21 @@ model ProductMedia {
 }
 
 model InboxItem {
-  id           String      @id @default(uuid())
+  id           String       @id @default(uuid())
   type         InboxType
   productId    String?
-  product      Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
   name         String?
   email        String?
   body         String
-  isRead       Boolean     @default(false)
-  isResolved   Boolean     @default(false)
-  isSpam       Boolean     @default(false)
+  isRead       Boolean      @default(false)
+  isResolved   Boolean      @default(false)
+  isSpam       Boolean      @default(false)
   ip           String?
   userAgent    String?
   adminReplies AdminReply[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model AdminReply {
@@ -166,7 +180,7 @@ model AdminReply {
   inboxId   String
   adminId   String
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   inbox     InboxItem @relation(fields: [inboxId], references: [id], onDelete: Cascade)
   admin     User      @relation(fields: [adminId], references: [id])
   sentEmail Boolean   @default(false)
@@ -190,4 +204,177 @@ model SiteSetting {
   commentsEnabled Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model AbilityGroup {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  titleFa     String
+  titleEn     String?
+  description String?
+  abilities   Ability[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Ability {
+  id                         String                       @id @default(uuid())
+  key                        String                       @unique
+  titleFa                    String
+  titleEn                    String?
+  descriptionFa              String?
+  descriptionEn              String?
+  unit                       String?
+  type                       AbilityType
+  isFilterable               Boolean                      @default(true)
+  isPrivate                  Boolean                      @default(false)
+  deletedAt                  DateTime?
+  displayOrder               Int                          @default(0)
+  groupId                    String?
+  group                      AbilityGroup?                @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  options                    AbilityOption[]
+  productValues              ProductAbilityValue[]
+  presetItems                AbilityPresetItem[]
+  conditions                 AbilityCondition[]           @relation("AbilityConditions")
+  requiredBy                 AbilityCondition[]           @relation("AbilityRequirements")
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  ProductAbilityValueHistory ProductAbilityValueHistory[]
+
+  @@index([groupId], map: "idx_ability_group")
+  @@index([isFilterable], map: "idx_ability_filterable")
+  @@index([displayOrder], map: "idx_ability_display")
+  @@index([deletedAt], map: "idx_ability_deleted")
+  @@index([isPrivate], map: "idx_ability_privacy")
+}
+
+model AbilityOption {
+  id                         String                       @id @default(uuid())
+  abilityId                  String
+  value                      String
+  labelFa                    String
+  labelEn                    String?
+  sortOrder                  Int                          @default(0)
+  ability                    Ability                      @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+  values                     ProductAbilityValue[]
+  presetFor                  AbilityPresetItem[]
+  conditions                 AbilityCondition[]
+  ProductAbilityValueHistory ProductAbilityValueHistory[]
+
+  @@unique([abilityId, value], map: "uq_abilityoption_value")
+  @@index([abilityId, sortOrder], map: "idx_abilityoption_order")
+}
+
+model ProductAbilityValue {
+  id              String                       @id @default(uuid())
+  productId       String
+  abilityId       String
+  abilityOptionId String?
+  valueNumber     Decimal?
+  valueText       String?
+  valueBoolean    Boolean?
+  rangeStart      Decimal?
+  rangeEnd        Decimal?
+  scoreNormalized Decimal?
+  presetItemId    String?
+  notes           String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  product         Product                      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ability         Ability                      @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+  abilityOption   AbilityOption?               @relation(fields: [abilityOptionId], references: [id], onDelete: SetNull)
+  presetItem      AbilityPresetItem?           @relation(fields: [presetItemId], references: [id], onDelete: SetNull)
+  historyEntries  ProductAbilityValueHistory[]
+
+  @@unique([productId, abilityId], map: "uq_product_ability_once")
+  @@index([abilityId, valueNumber], map: "idx_pav_number")
+  @@index([abilityId, rangeStart, rangeEnd], map: "idx_pav_range")
+  @@index([abilityId, valueText], map: "idx_pav_text")
+  @@index([abilityId, abilityOptionId], map: "idx_pav_option")
+  @@index([abilityId, scoreNormalized], map: "idx_pav_score")
+  @@index([productId, abilityId], map: "idx_pav_product_ability")
+}
+
+model AbilityPreset {
+  id           String                     @id @default(uuid())
+  slug         String                     @unique
+  titleFa      String
+  titleEn      String?
+  categoryId   String?
+  description  String?
+  category     Category?                  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  items        AbilityPresetItem[]
+  applications ProductPresetApplication[]
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+
+  @@index([categoryId], map: "idx_preset_category")
+}
+
+model AbilityPresetItem {
+  id              String                @id @default(uuid())
+  presetId        String
+  abilityId       String
+  abilityOptionId String?
+  valueNumber     Decimal?
+  valueText       String?
+  valueBoolean    Boolean?
+  rangeStart      Decimal?
+  rangeEnd        Decimal?
+  notes           String?
+  preset          AbilityPreset         @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  ability         Ability               @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+  abilityOption   AbilityOption?        @relation(fields: [abilityOptionId], references: [id], onDelete: SetNull)
+  productValues   ProductAbilityValue[]
+
+  @@unique([presetId, abilityId], map: "uq_preset_ability_once")
+  @@index([abilityId], map: "idx_preset_item_ability")
+}
+
+model AbilityCondition {
+  id                      String         @id @default(uuid())
+  abilityId               String
+  requiresAbilityId       String
+  requiresAbilityOptionId String?
+  requiresPresence        Boolean        @default(true)
+  ability                 Ability        @relation("AbilityConditions", fields: [abilityId], references: [id], onDelete: Cascade)
+  requiresAbility         Ability        @relation("AbilityRequirements", fields: [requiresAbilityId], references: [id], onDelete: Cascade)
+  requiresOption          AbilityOption? @relation(fields: [requiresAbilityOptionId], references: [id], onDelete: SetNull)
+
+  @@index([requiresAbilityId, requiresAbilityOptionId], map: "idx_condition_requirement")
+}
+
+model ProductAbilityValueHistory {
+  id                    String               @id @default(uuid())
+  productAbilityValueId String?
+  productId             String
+  abilityId             String
+  abilityOptionId       String?
+  valueNumber           Decimal?
+  valueText             String?
+  valueBoolean          Boolean?
+  rangeStart            Decimal?
+  rangeEnd              Decimal?
+  scoreNormalized       Decimal?
+  changedAt             DateTime             @default(now())
+  changedBy             String?
+  reason                String?
+  product               Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ability               Ability              @relation(fields: [abilityId], references: [id], onDelete: Cascade)
+  abilityOption         AbilityOption?       @relation(fields: [abilityOptionId], references: [id], onDelete: SetNull)
+  productAbilityValue   ProductAbilityValue? @relation(fields: [productAbilityValueId], references: [id], onDelete: SetNull)
+
+  @@index([productId, abilityId, changedAt], map: "idx_pav_history_lookup")
+}
+
+model ProductPresetApplication {
+  id        String        @id @default(uuid())
+  productId String
+  presetId  String
+  appliedAt DateTime      @default(now())
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  preset    AbilityPreset @relation(fields: [presetId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, presetId], map: "uq_product_preset_once")
+  @@index([presetId], map: "idx_product_preset_lookup")
 }
