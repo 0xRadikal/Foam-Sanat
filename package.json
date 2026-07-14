@@ -9,7 +9,7 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS='-r dotenv/config' NODE_ENV=test tsc --project tsconfig.test.json && DOTENV_CONFIG_PATH=.env.local NODE_OPTIONS='-r dotenv/config' NODE_ENV=test node --test $(find .tests-dist -name \"*.test.js\")",
+    "test": "DOTENV_CONFIG_PATH=${DOTENV_CONFIG_PATH:-.env.test} NODE_OPTIONS='-r dotenv/config' NODE_ENV=test tsc --project tsconfig.test.json && DOTENV_CONFIG_PATH=${DOTENV_CONFIG_PATH:-.env.test} NODE_OPTIONS='-r dotenv/config' NODE_ENV=test node --test $(find .tests-dist -name \"*.test.js\")",
     "analyze": "ANALYZE=true next build",
     "sitemap": "next-sitemap",
     "axe": "node ./scripts/run-axe.mjs http://localhost:3000",
