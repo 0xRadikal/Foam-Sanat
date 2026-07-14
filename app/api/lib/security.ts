@@ -144,6 +144,10 @@ function logRejectedOrigin(
   });
 }
 
+// HTTP methods that never mutate server state and therefore do not require a
+// same-origin signal (per RFC 9110 "safe methods").
+const SAFE_HTTP_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 export function validateRequestOrigin(request: Request): string | null {
   const allowedOrigins = getAllowedOrigins();
 
@@ -158,6 +162,20 @@ export function validateRequestOrigin(request: Request): string | null {
   if (referer && !allowedOrigins.has(referer)) {
     logRejectedOrigin('referer', request, allowedOrigins, origin, referer);
     return 'Request referer is not allowed.';
+  }
+
+  // CSRF defense-in-depth: a state-changing request (POST/PUT/PATCH/DELETE)
+  // that carries neither an Origin nor a Referer header cannot be proven to
+  // originate from an allowed site. Browsers reliably attach at least one of
+  // these on cross-document fetch/form submissions, so requiring one for
+  // mutations closes the "no headers => allowed" bypass. This is enforced only
+  // in production; dev/test tooling and server-to-server callers that omit
+  // both headers continue to work locally.
+  const isMutating = !SAFE_HTTP_METHODS.has(request.method.toUpperCase());
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isMutating && isProd && !origin && !referer) {
+    logRejectedOrigin('origin', request, allowedOrigins, origin, referer);
+    return 'Request origin could not be verified.';
   }
 
   return null;
