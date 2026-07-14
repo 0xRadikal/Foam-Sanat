@@ -34,7 +34,9 @@ keywords = ["comments_admin_token"]
   [[rules.allowlists]]
   # Documented placeholder in the env templates is not a real secret.
   regexTarget = "line"
-  regexes = ['''replace-with''']
+  regexes = ['''replace-with''', '''a-strong-random-secret-value''']
+  # Test fixtures are not real credentials.
+  paths = ['''.*\.test\.ts$''']
 
 [[rules]]
 id = "generic-connection-string-with-password"
