@@ -102,3 +102,20 @@ export function middleware(request: NextRequest) {
 
   return response;
 }
+
+// Run the middleware on document and API routes, but skip Next.js build assets
+// and static files that never need a per-request CSP nonce. This avoids
+// generating a nonce (and running env bootstrap) for every image/font/chunk,
+// which is wasteful and can interfere with long-term caching of static assets.
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     *  - _next/static  (build output)
+     *  - _next/image   (image optimization)
+     *  - favicon.ico, robots.txt, sitemap*.xml, site.webmanifest (root files)
+     *  - files with a static asset extension in /public
+     */
+    '/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap.*\\.xml|site\\.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|mp4|webm|woff2?|ttf|otf|css|js|map)$).*)',
+  ],
+};
