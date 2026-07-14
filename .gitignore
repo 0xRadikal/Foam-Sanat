@@ -62,5 +62,6 @@ data/*.sqlite*
 # 🔐 Any env variant (belt-and-suspenders)
 # =========================================
 .env.*
+# Committed, placeholder-only templates (NO real secrets) are allowed:
 !.env.example
-.env.test
+!.env.test
