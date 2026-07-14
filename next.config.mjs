@@ -5,6 +5,22 @@ function generatePlaceholder(key) {
   return `auto-${key.toLowerCase()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Variables whose *value* is interpreted as a URL, connection string, or
+// filesystem path must never receive a synthetic "auto-…" placeholder: a fake
+// value is not a valid URL and, for COMMENTS_DATABASE_URL/DATABASE_URL, is
+// consumed by the storage layer as a SQLite file path — which silently creates
+// a stray database file in the working directory. For these keys we only ever
+// presence-check; leaving them unset lets downstream code take its correct
+// "not configured" branch (SQLite default path, in-memory rate limiter, etc.).
+const VALUE_SHAPED_KEYS = new Set([
+  'DATABASE_URL',
+  'COMMENTS_DATABASE_URL',
+  'RATE_LIMIT_REDIS_URL',
+  'REDIS_URL',
+  'PREVIEW_URL',
+  'NEXT_PUBLIC_PREVIEW_URL',
+]);
+
 function applyEnvFallbacks({ keys, severity }) {
   const missing = keys.filter((key) => !process.env[key]);
   if (missing.length === 0) return [];
@@ -19,6 +35,8 @@ function applyEnvFallbacks({ keys, severity }) {
   }
 
   for (const key of missing) {
+    // Never fabricate a value for URL/connection/path-shaped keys.
+    if (VALUE_SHAPED_KEYS.has(key)) continue;
     process.env[key] = generatePlaceholder(key);
   }
 
