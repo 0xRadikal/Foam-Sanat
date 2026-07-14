@@ -1,0 +1,77 @@
+# Gitleaks configuration for Foam-Sanat
+# Extends the default ruleset and adds project-specific detectors for the
+# secrets this codebase handles (Cloudflare Turnstile, Resend, comments admin
+# tokens, database/redis connection strings).
+#
+# Run locally:  gitleaks detect --source . --redact --log-opts="--all"
+# Run on stage: gitleaks protect --staged --redact
+
+title = "Foam-Sanat gitleaks config"
+
+[extend]
+# Inherit all of gitleaks' built-in rules.
+useDefault = true
+
+[[rules]]
+id = "cloudflare-turnstile-secret"
+description = "Cloudflare Turnstile secret key"
+# Real Turnstile secret keys start with 0x and are long; the official TEST
+# keys (1x0000...) are intentionally excluded via the allowlist below.
+regex = '''(?i)turnstile_secret_key\s*[:=]\s*['"]?(0x[a-z0-9_\-]{20,})['"]?'''
+keywords = ["turnstile_secret_key"]
+
+[[rules]]
+id = "resend-api-key"
+description = "Resend API key"
+regex = '''re_[a-zA-Z0-9]{8,}_[a-zA-Z0-9]{16,}'''
+keywords = ["re_"]
+
+[[rules]]
+id = "comments-admin-token"
+description = "Comments admin bearer/session token secret"
+regex = '''(?i)comments_admin_token(_secrets?)?\s*[:=]\s*['"]?([a-z0-9+/=_\-]{24,})['"]?'''
+keywords = ["comments_admin_token"]
+  [[rules.allowlists]]
+  # Documented placeholder in the env templates is not a real secret.
+  regexTarget = "line"
+  regexes = ['''replace-with''']
+
+[[rules]]
+id = "generic-connection-string-with-password"
+description = "Database/Redis connection string containing credentials"
+regex = '''(?i)(postgres(ql)?|redis|rediss|mysql):\/\/[^:\s]+:[^@\s]+@[^\s'"]+'''
+keywords = ["postgres://", "postgresql://", "redis://", "rediss://", "mysql://"]
+  [[rules.allowlists]]
+  # Placeholder connection string in the env templates (no real host/creds).
+  regexTarget = "line"
+  regexes = ['''user:password@host''']
+
+[allowlist]
+description = "Ignore known test/placeholder values and build artefacts"
+paths = [
+  '''\.next/''',
+  '''node_modules/''',
+  '''\.tests-dist/''',
+  # .env.local is gitignored and must never be committed; it holds real secrets
+  # only on the developer's disk. Exclude it from local scans (it can never
+  # reach history because .gitignore blocks it).
+  '''(^|/)\.env\.local$''',
+]
+regexes = [
+  # Cloudflare official Turnstile TEST keys (safe, public, non-secret).
+  '''1x0000000000000000000000000000000AA''',
+  '''1x00000000000000000000AA''',
+  '''2x0000000000000000000000000000000AA''',
+  '''3x0000000000000000000000000000000AA''',
+  # Documented safe placeholders used in .env.example / .env.test.
+  '''replace-with''',
+  '''re_replace_with_real_key''',
+  '''example\.com''',
+  # Generic placeholder connection strings (no real host/credentials).
+  '''user:password@host''',
+  '''file:\.?/?data/comments\.db''',
+]
+stopwords = [
+  "replace-with",
+  "user:password@host",
+]

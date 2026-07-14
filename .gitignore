@@ -43,3 +43,24 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# =========================================
+# 🗄️ Database & runtime artifacts (must never be committed)
+# =========================================
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*-wal
+*-shm
+auto-comments_database_url*
+data/*.db
+data/*.sqlite*
+
+# =========================================
+# 🔐 Any env variant (belt-and-suspenders)
+# =========================================
+.env.*
+!.env.example
+.env.test
