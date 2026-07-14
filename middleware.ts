@@ -48,7 +48,8 @@ function buildContentSecurityPolicy(nonce: string): string {
 
   const frameAncestors = ["'self'"];
 
-  // ✅ این‌جا فقط تغییر واقعی اتفاق افتاده
+  // Dev allows 'unsafe-inline' styles for fast HMR; production pins styles to
+  // the per-request nonce so injected inline styles are rejected by the CSP.
   const styleSrc = isDevelopment
     ? [
         "'self'",
