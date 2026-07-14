@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { assertAdmin } from '../../../lib/auth';
 import { deleteStoredReply } from '../../../lib/store';
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string; replyId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; replyId: string }> },
+) {
   if (!assertAdmin(request)) {
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
   }
 
-  const deleted = deleteStoredReply(params.id, params.replyId);
+  const { id, replyId } = await params;
+  const deleted = await deleteStoredReply(id, replyId);
   if (!deleted) {
     return NextResponse.json({ error: 'Reply not found.' }, { status: 404 });
   }

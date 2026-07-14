@@ -7,7 +7,7 @@ import type { CommentStatus } from '../lib/types';
 export const PATCH = withRequestLogging(
   async (
     request: NextRequest,
-    context: { params: Promise<{ id: string }> } | undefined,
+    context: { params: Promise<{ id: string }> },
     { logger },
   ) => {
     if (!context) {
@@ -66,7 +66,7 @@ export const PATCH = withRequestLogging(
 export const DELETE = withRequestLogging(
   async (
     request: NextRequest,
-    context: { params: Promise<{ id: string }> } | undefined,
+    context: { params: Promise<{ id: string }> },
     { logger },
   ) => {
     if (!context) {

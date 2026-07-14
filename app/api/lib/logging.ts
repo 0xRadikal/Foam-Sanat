@@ -109,11 +109,16 @@ export function createRequestLogger(request: Request): RequestLoggingContext {
 export function withRequestLogging<TContext = unknown, TRequest extends Request = NextRequest>(
   handler: (
     request: TRequest,
-    context: TContext | undefined,
+    context: TContext,
     logging: RequestLoggingContext,
   ) => Promise<NextResponse>,
-): (request: TRequest, context?: TContext) => Promise<NextResponse> {
-  return async (request: TRequest, context?: TContext) => {
+  // Next.js 15 generates a strict RouteContext for the exported handler whose
+  // second argument must be exactly the route's context (not `| undefined`).
+  // Expose `context: TContext` on both the handler and the returned function so
+  // route files satisfy that contract. Non-dynamic routes simply type TContext
+  // as `unknown` and ignore the argument.
+): (request: TRequest, context: TContext) => Promise<NextResponse> {
+  return async (request: TRequest, context: TContext) => {
     const { logger, requestId } = createRequestLogger(request);
     const startedAt = performance.now();
     logger.info('request.received');

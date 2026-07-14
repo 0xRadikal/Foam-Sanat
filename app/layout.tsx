@@ -99,7 +99,9 @@ export const metadata: Metadata = {
 
 function resolveLayoutLocale(
   paramsLang: string | undefined,
-  requestHeaders: Headers,
+  // Only reads headers; accept any Headers-like (Next 15's awaited headers()
+  // returns a ReadonlyHeaders which is structurally compatible for get()).
+  requestHeaders: Pick<Headers, 'get'>,
 ): keyof typeof localeSettings {
   const headerUrl =
     requestHeaders.get('x-url') ??
@@ -128,16 +130,18 @@ function resolveLayoutLocale(
   return resolveLocale(paramsLang ?? langFromSearch ?? langFromPath ?? undefined);
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
-  params?: { lang?: string };
+  // Next.js 15: dynamic APIs (headers) and route params are async.
+  params?: Promise<{ lang?: string }>;
 }) {
-  const requestHeaders = headers();
+  const requestHeaders = await headers();
+  const resolvedParams = params ? await params : undefined;
 
-  const runtimeLocale = resolveLayoutLocale(params?.lang, requestHeaders);
+  const runtimeLocale = resolveLayoutLocale(resolvedParams?.lang, requestHeaders);
   const { dir, langTag } = localeSettings[runtimeLocale];
   const activeFont = localeFontMap[runtimeLocale];
   const bodyClassName = [activeFont.variable, 'antialiased'].filter(Boolean).join(' ');

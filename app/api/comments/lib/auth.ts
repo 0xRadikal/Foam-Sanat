@@ -46,7 +46,10 @@ function getTrustedProxies(): Set<string> {
 }
 
 export function getClientIdentifier(request: NextRequest): string {
-  const clientIp = request.ip ?? request.headers.get('x-real-ip');
+  // Next.js 15 removed NextRequest.ip (it was a Vercel-only injection).
+  // Derive the client IP from the standard proxy headers instead; the
+  // platform/CDN populates x-real-ip and x-forwarded-for.
+  const clientIp = request.headers.get('x-real-ip');
   const forwarded = request.headers.get('x-forwarded-for');
   const trustedProxies = getTrustedProxies();
 

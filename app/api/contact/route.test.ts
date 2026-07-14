@@ -71,7 +71,7 @@ describe('contact POST handler', () => {
 
     let response;
     try {
-      response = await POST(request);
+      response = await POST(request, undefined);
     } finally {
       infoMock.mock.restore();
       fetchMock.mock.restore();
@@ -108,7 +108,7 @@ describe('contact POST handler', () => {
     );
 
     try {
-      await POST(request);
+      await POST(request, undefined);
 
       const events = getEvents(infoMock.mock.calls, 'contact.received');
 
@@ -159,7 +159,7 @@ describe('contact POST handler', () => {
 
     let response;
     try {
-      response = await POST(request);
+      response = await POST(request, undefined);
     } finally {
       warnMock.mock.restore();
       errorMock.mock.restore();
@@ -197,7 +197,7 @@ describe('contact POST handler', () => {
 
     let response;
     try {
-      response = await POST(request);
+      response = await POST(request, undefined);
     } finally {
       errorMock.mock.restore();
     }
@@ -238,7 +238,7 @@ describe('contact POST handler', () => {
 
     let response;
     try {
-      response = await POST(request);
+      response = await POST(request, undefined);
     } finally {
       fetchMock.mock.restore();
       errorMock.mock.restore();

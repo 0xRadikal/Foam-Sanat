@@ -8,13 +8,15 @@ import { sanitizeForInnerHTML } from '@/app/lib/sanitize';
 import { getCommentsAvailability } from '@/app/api/comments/lib/status';
 
 interface ProductsPageProps {
-  searchParams?: { lang?: string };
+  // Next.js 15: searchParams is provided as a Promise.
+  searchParams?: Promise<{ lang?: string }>;
 }
 
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  const locale = resolveLocale(searchParams?.lang, { warn: true });
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const locale = resolveLocale(resolvedSearchParams?.lang, { warn: true });
   const messages: MessagesByLocale<typeof locale> = getAllMessages(locale);
-  const cspNonce = headers().get('x-csp-nonce') ?? undefined;
+  const cspNonce = (await headers()).get('x-csp-nonce') ?? undefined;
   const productSchemas = getProductSchemas(locale as 'fa' | 'en');
   const breadcrumbSchema = getBreadcrumbSchema(locale as 'fa' | 'en', [
     { name: messages.common.nav.home, path: '' },

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { assertAdmin, logModerationAudit } from '../../lib/auth';
 import { createStoredReply } from '../../lib/store';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
   const admin = assertAdmin(request);
   if (!admin) {
     return NextResponse.json({ error: 'Admin authorization required.' }, { status: 401 });
@@ -23,7 +27,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   try {
     const reply = await createStoredReply({
-      commentId: params.id,
+      commentId: id,
       author: admin.displayName,
       text: body.text.trim(),
       isAdmin: true,
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     });
 
     logModerationAudit('reply-comment', admin, {
-      commentId: params.id,
+      commentId: id,
       replyId: reply.id,
       repliedAt,
     });
@@ -53,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       },
     });
   } catch (error) {
-    console.error('comments.reply.failed', { commentId: params.id, error });
+    console.error('comments.reply.failed', { commentId: id, error });
     return NextResponse.json({ error: 'Unable to add reply.' }, { status: 404 });
   }
 }
