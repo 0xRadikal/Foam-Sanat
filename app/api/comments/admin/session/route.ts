@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { withRequestLogging } from '../../../lib/logging';
-import { createSignedAdminSession } from '../../lib/auth';
+import { createSignedAdminSession, timingSafeEqual } from '../../lib/auth';
 
 interface AdminSessionBody {
   adminId?: string;
@@ -31,7 +31,7 @@ export const POST = withRequestLogging(
 
     const providedKey = request.headers.get('x-comments-admin-session-key');
 
-    if (!sessionKey || !providedKey || sessionKey !== providedKey) {
+    if (!sessionKey || !providedKey || !timingSafeEqual(sessionKey, providedKey)) {
       logger.warn('comments.admin.session.unauthorized');
       return NextResponse.json(
         { error: 'Admin session key is invalid.' },

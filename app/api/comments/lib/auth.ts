@@ -90,7 +90,7 @@ function createSignature(content: string, secret: string): string {
   return crypto.createHmac('sha256', secret).update(content).digest('base64url');
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
+export function timingSafeEqual(a: string, b: string): boolean {
   const aBuffer = Buffer.from(a);
   const bBuffer = Buffer.from(b);
 
