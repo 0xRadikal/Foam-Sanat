@@ -1,6 +1,7 @@
 // app/lib/env.ts
 // Centralized environment variable helpers and validation
 import envConfig from '../../env.config';
+import { validateEnvSchema } from './env-schema';
 
 type EnvVisibility = 'public' | 'server';
 type Severity = 'required' | 'recommended';
@@ -97,6 +98,10 @@ export function validateEnv({ force = false }: { force?: boolean } = {}) {
       }
     }
   }
+
+  // Value-level (format) validation of the variables that ARE present.
+  // Throws in production on invalid formats; warns in dev/test.
+  validateEnvSchema();
 
   hasValidated = true;
 }
